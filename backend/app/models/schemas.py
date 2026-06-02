@@ -106,6 +106,23 @@ class IndicatorParams(BaseModel):
     rsi_length: int = 14
 
 
+class AlertConfig(BaseModel):
+    enabled: bool = False
+    channel: Literal["telegram", "log"] = "telegram"
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+    rsi_low: float = 30.0
+    rsi_high: float = 70.0
+
+
+class RuleHit(BaseModel):
+    ticker: str
+    rule_id: str
+    action: Literal["buy", "sell"]
+    candle_date: str
+    message: str
+
+
 def _default_providers() -> dict[str, ProviderConfig]:
     return {
         "anthropic": ProviderConfig(model=DEFAULT_MODELS["anthropic"]),
@@ -122,3 +139,4 @@ class Settings(BaseModel):
     providers: dict[str, ProviderConfig] = Field(default_factory=_default_providers)
     watchlist: list[str] = Field(default_factory=lambda: ["AAPL", "MSFT"])
     indicator_params: IndicatorParams = Field(default_factory=IndicatorParams)
+    alerts: AlertConfig = Field(default_factory=AlertConfig)
