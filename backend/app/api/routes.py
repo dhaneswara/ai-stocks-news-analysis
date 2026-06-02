@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import APIRouter, Depends, HTTPException
 
+from app.alerts.notifier import build_notifier
 from app.config.cache import Cache
 from app.config.settings_store import SettingsStore, mask_settings, merge_settings
 from app.deps import get_cache, get_settings_store
@@ -100,5 +103,19 @@ def test_provider(
         provider = build_provider(settings)
         provider.complete("You are a connection test.", "Reply with the single word: ok")
         return {"ok": True, "message": "Connection succeeded."}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "message": str(exc)}
+
+
+@router.post("/alerts/test")
+def test_alert(store: SettingsStore = Depends(get_settings_store)) -> dict:
+    cfg = store.load().alerts
+    token = cfg.telegram_bot_token or os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    chat_id = cfg.telegram_chat_id or os.environ.get("TELEGRAM_CHAT_ID", "")
+    if cfg.channel == "telegram" and not (token and chat_id):
+        return {"ok": False, "message": "Telegram bot token and chat id are required."}
+    try:
+        build_notifier(cfg).send("Test alert", "Alerts are configured correctly. (Not financial advice.)")
+        return {"ok": True, "message": "Test alert sent."}
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "message": str(exc)}
