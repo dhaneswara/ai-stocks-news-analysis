@@ -2,7 +2,7 @@
 .env
 .env.*
 !.env.example
-data/
+/data/
 *.sqlite
 *.sqlite3
 *.db
