@@ -1,0 +1,57 @@
+from fastapi.testclient import TestClient
+
+from app.api import routes
+from app.config.cache import Cache
+from app.config.settings_store import SettingsStore
+from app.deps import get_cache, get_settings_store
+from app.main import app
+
+
+def _client(tmp_path):
+    app.dependency_overrides[get_cache] = lambda: Cache(str(tmp_path / "c.db"))
+    store = SettingsStore(str(tmp_path / "s.db"))
+    app.dependency_overrides[get_settings_store] = lambda: store
+    return TestClient(app), store
+
+
+def teardown_function():
+    app.dependency_overrides.clear()
+
+
+def test_provider_test_ok(tmp_path, monkeypatch):
+    class FakeProvider:
+        name = "anthropic"
+
+        def __init__(self, cfg):
+            pass
+
+        def complete(self, system, user):
+            return "pong"
+
+    monkeypatch.setattr(routes, "build_provider", lambda s: FakeProvider(None))
+    client, store = _client(tmp_path)
+    s = store.load()
+    s.providers["anthropic"].api_key = "k"
+    store.save(s)
+
+    resp = client.post("/api/providers/anthropic/test")
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is True
+
+
+def test_provider_test_failure_reports_message(tmp_path, monkeypatch):
+    from app.llm.base import LLMError
+
+    def boom(_s):
+        raise LLMError("bad key")
+
+    monkeypatch.setattr(routes, "build_provider", boom)
+    client, store = _client(tmp_path)
+    s = store.load()
+    s.providers["anthropic"].api_key = "k"
+    store.save(s)
+
+    resp = client.post("/api/providers/anthropic/test")
+    assert resp.status_code == 200
+    assert resp.json()["ok"] is False
+    assert "bad key" in resp.json()["message"]

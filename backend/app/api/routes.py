@@ -6,6 +6,7 @@ from app.config.cache import Cache
 from app.config.settings_store import SettingsStore, mask_settings, merge_settings
 from app.deps import get_cache, get_settings_store
 from app.llm.base import LLMError
+from app.llm.factory import build_provider
 from app.models.schemas import (
     DEFAULT_MODELS,
     AnalysisResult,
@@ -85,3 +86,19 @@ def list_providers(store: SettingsStore = Depends(get_settings_store)) -> list[d
             }
         )
     return out
+
+
+@router.post("/providers/{provider_id}/test")
+def test_provider(
+    provider_id: str, store: SettingsStore = Depends(get_settings_store)
+) -> dict:
+    settings = store.load()
+    if provider_id not in settings.providers:
+        raise HTTPException(status_code=404, detail=f"Unknown provider '{provider_id}'")
+    settings.active_provider = provider_id  # type: ignore[assignment]
+    try:
+        provider = build_provider(settings)
+        provider.complete("You are a connection test.", "Reply with the single word: ok")
+        return {"ok": True, "message": "Connection succeeded."}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "message": str(exc)}
