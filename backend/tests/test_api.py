@@ -83,6 +83,7 @@ def test_settings_put_keeps_existing_key_when_masked(tmp_path):
 
 
 def test_analyze_missing_key_returns_502(tmp_path, monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     monkeypatch.setattr(stock_service, "fetch_history", lambda t, period: _df())
     monkeypatch.setattr(stock_service, "fetch_info", lambda t: {"longName": "Apple"})
     monkeypatch.setattr(stock_service, "get_news", lambda t, c, limit=10: [])

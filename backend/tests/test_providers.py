@@ -63,3 +63,66 @@ def test_anthropic_complete_joins_text_blocks(monkeypatch):
     )
     provider = AnthropicProvider(ProviderConfig(model="claude-x", api_key="k"))
     assert provider.complete("sys", "user") == "hello"
+
+
+def test_factory_applies_env_api_key_fallback(monkeypatch):
+    from app.llm.anthropic_provider import AnthropicProvider
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "env-secret")
+    monkeypatch.setattr(
+        "app.llm.anthropic_provider.Anthropic", lambda api_key: object()
+    )
+    s = Settings()
+    s.active_provider = "anthropic"
+    s.providers["anthropic"].api_key = ""  # not set in stored settings
+    provider = build_provider(s)
+    assert isinstance(provider, AnthropicProvider)
+    assert provider.cfg.api_key == "env-secret"  # filled from environment
+
+
+def test_openai_complete_returns_content(monkeypatch):
+    from app.llm.openai_provider import OpenAIProvider
+
+    class Msg:
+        content = '{"ok": true}'
+
+    class Choice:
+        message = Msg()
+
+    class Resp:
+        choices = [Choice()]
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            assert kwargs["model"] == "gpt-x"
+            assert kwargs["response_format"] == {"type": "json_object"}
+            return Resp()
+
+    class FakeChat:
+        completions = FakeCompletions()
+
+    class FakeClient:
+        chat = FakeChat()
+
+    monkeypatch.setattr("app.llm.openai_provider.OpenAI", lambda api_key: FakeClient())
+    provider = OpenAIProvider(ProviderConfig(model="gpt-x", api_key="k"))
+    assert provider.complete("sys", "user") == '{"ok": true}'
+
+
+def test_gemini_complete_returns_text(monkeypatch):
+    from app.llm.gemini_provider import GeminiProvider
+
+    class Resp:
+        text = '{"ok": true}'
+
+    class FakeModels:
+        def generate_content(self, **kwargs):
+            assert kwargs["model"] == "gem-x"
+            return Resp()
+
+    class FakeClient:
+        models = FakeModels()
+
+    monkeypatch.setattr("app.llm.gemini_provider.genai.Client", lambda api_key: FakeClient())
+    provider = GeminiProvider(ProviderConfig(model="gem-x", api_key="k"))
+    assert provider.complete("sys", "user") == '{"ok": true}'

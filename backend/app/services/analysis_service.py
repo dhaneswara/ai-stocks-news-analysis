@@ -5,7 +5,7 @@ from datetime import date
 from app.analysis.analyzer import analyze
 from app.config.cache import Cache
 from app.llm.base import LLMError
-from app.llm.factory import build_provider
+from app.llm.factory import build_provider, resolve_config
 from app.models.schemas import AnalysisResult, Settings
 from app.services.stock_service import get_stock_data
 
@@ -18,8 +18,12 @@ def run_analysis(ticker: str, period: str, settings: Settings, cache: Cache) -> 
     cfg = settings.providers.get(provider_id)
     if cfg is None:
         raise LLMError(f"No configuration for provider '{provider_id}'")
-    if provider_id != "ollama" and not cfg.api_key:
-        raise LLMError(f"Missing API key for provider '{provider_id}'. Set it in Settings.")
+    effective = resolve_config(provider_id, cfg)
+    if provider_id != "ollama" and not effective.api_key:
+        raise LLMError(
+            f"Missing API key for provider '{provider_id}'. "
+            "Set it in Settings or via environment variable."
+        )
 
     cache_key = f"analysis:{ticker}:{provider_id}:{cfg.model}:{date.today().isoformat()}"
     cached = cache.get(cache_key)
