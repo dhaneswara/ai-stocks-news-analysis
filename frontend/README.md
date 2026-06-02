@@ -1,50 +1,29 @@
-# React + TypeScript + Vite
+# Frontend — AI Stocks & News Analysis
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + Vite + TypeScript dashboard for the backend API.
 
-Currently, two official plugins are available:
+## Setup
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+    cd frontend
+    npm install
 
-## Expanding the ESLint configuration
+## Run (backend must be running on :8000)
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
+    npm run dev      # http://localhost:5173
 
-- Configure the top-level `parserOptions` property like this:
+Set `VITE_API_BASE` (see `.env.example`) if the backend isn't at `http://localhost:8000/api`.
 
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+## Build / test / typecheck
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+    npm run build    # tsc -b && vite build (type-check + bundle)
+    npx vitest run   # unit tests
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+## Pages
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+- **Dashboard** — pick a ticker, view the candlestick chart with SMA overlays; click **Analyze with LLM** to draw buy/sell markers and show reasoning + news.
+- **Settings** — choose the LLM provider (Anthropic/OpenAI/Gemini/Ollama), set model + API key (or Ollama base URL), test the connection, and edit the watchlist.
+
+## Notes
+
+- Built on the Vite 5 toolchain (vitest 2, lightweight-charts 4) for Node 20 compatibility.
+- The backend API uses the `period` query param; `dividend_yield` is a fraction (shown ×100).
