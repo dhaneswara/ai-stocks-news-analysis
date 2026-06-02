@@ -26,4 +26,4 @@ Set `VITE_API_BASE` (see `.env.example`) if the backend isn't at `http://localho
 ## Notes
 
 - Built on the Vite 5 toolchain (vitest 2, lightweight-charts 4) for Node 20 compatibility.
-- The backend API uses the `period` query param; `dividend_yield` is a fraction (shown ×100).
+- The backend API uses the `period` query param. `dividend_yield` from yfinance is already a percentage value (e.g. 0.35 = 0.35%), shown as-is.

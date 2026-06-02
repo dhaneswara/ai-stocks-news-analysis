@@ -18,6 +18,7 @@ export function IndicatorBar({ data }: { data: StockData }) {
   const rsi = lastValue(data.indicators.rsi14);
   const sma50 = lastValue(data.indicators.sma50);
   const sma200 = lastValue(data.indicators.sma200);
+  // yfinance returns dividend_yield already as a percentage (e.g. 0.35 = 0.35%).
   const div = data.fundamentals.dividend_yield;
   return (
     <div className="metrics">
@@ -29,7 +30,7 @@ export function IndicatorBar({ data }: { data: StockData }) {
       <div className="metric"><div className="label">52wk dist</div><div className="value">{fmt(data.indicators.dist_from_52wk_high_pct)}%</div></div>
       <div className="metric"><div className="label">P/E</div><div className="value">{fmt(data.fundamentals.pe_ratio)}</div></div>
       <div className="metric"><div className="label">Mkt cap</div><div className="value">{money(data.fundamentals.market_cap)}</div></div>
-      <div className="metric"><div className="label">Div yield</div><div className="value">{div === null ? '—' : `${(div * 100).toFixed(2)}%`}</div></div>
+      <div className="metric"><div className="label">Div yield</div><div className="value">{div === null ? '—' : `${div.toFixed(2)}%`}</div></div>
     </div>
   );
 }
