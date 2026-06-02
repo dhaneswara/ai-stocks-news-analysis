@@ -1,0 +1,57 @@
+export interface Candle { time: string; open: number; high: number; low: number; close: number; volume: number; }
+export interface IndicatorPoint { time: string; value: number; }
+export interface Indicators {
+  sma50: IndicatorPoint[];
+  sma200: IndicatorPoint[];
+  rsi14: IndicatorPoint[];
+  dist_from_52wk_high_pct: number | null;
+}
+export interface Fundamentals {
+  market_cap: number | null;
+  pe_ratio: number | null;
+  eps: number | null;
+  dividend_yield: number | null;
+  week52_high: number | null;
+  week52_low: number | null;
+}
+export interface PriceSummary { current: number; change: number; change_pct: number; currency: string; }
+export interface NewsItem { title: string; source: string; published_at: string; url: string; summary: string; }
+export interface StockData {
+  ticker: string;
+  company_name: string;
+  as_of: string;
+  price: PriceSummary;
+  candles: Candle[];
+  fundamentals: Fundamentals;
+  indicators: Indicators;
+  news: NewsItem[];
+}
+export type Action = 'buy' | 'sell';
+export interface Signal { date: string; action: Action; price: number; confidence: number; reasoning: string; }
+export type Sentiment = 'bullish' | 'neutral' | 'bearish';
+export type Recommendation = 'buy' | 'sell' | 'hold';
+export interface AnalysisResult {
+  ticker: string;
+  provider: string;
+  model: string;
+  generated_at: string;
+  overall_summary: string;
+  news_analysis: string;
+  sentiment: Sentiment;
+  current_recommendation: Recommendation;
+  confidence: number;
+  signals: Signal[];
+  risks: string[];
+  disclaimer: string;
+}
+export interface ProviderConfig { model: string; api_key: string; base_url: string; }
+export interface IndicatorParams { sma_windows: number[]; rsi_length: number; }
+export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama';
+export interface Settings {
+  active_provider: ProviderId;
+  providers: Record<string, ProviderConfig>;
+  watchlist: string[];
+  indicator_params: IndicatorParams;
+}
+export interface ProviderInfo { id: string; label: string; configured: boolean; default_model: string; }
+export interface TestResult { ok: boolean; message: string; }
