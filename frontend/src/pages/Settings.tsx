@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useProviders, useSaveSettings, useSettings } from '../hooks/queries';
-import type { ProviderId, Settings as SettingsT, TestResult } from '../types';
+import type { AlertConfig, ProviderId, Settings as SettingsT, TestResult } from '../types';
 
 export default function Settings() {
   const settingsQuery = useSettings();
@@ -9,6 +9,7 @@ export default function Settings() {
   const save = useSaveSettings();
   const [form, setForm] = useState<SettingsT | null>(null);
   const [test, setTest] = useState<TestResult | null>(null);
+  const [alertTest, setAlertTest] = useState<TestResult | null>(null);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
@@ -22,13 +23,18 @@ export default function Settings() {
   const update = (next: Partial<SettingsT>) => { setForm({ ...form, ...next }); setSaved(false); };
   const updateCfg = (patch: Partial<typeof cfg>) =>
     update({ providers: { ...form.providers, [active]: { ...cfg, ...patch } } });
+  const updateAlerts = (patch: Partial<AlertConfig>) => update({ alerts: { ...form.alerts, ...patch } });
 
   const onSave = () => save.mutate(form, { onSuccess: () => setSaved(true) });
   const onTest = async () => {
     setTest(null);
-    // Persist first so the backend tests the current form values.
     await save.mutateAsync(form);
     setTest(await api.testProvider(active));
+  };
+  const onTestAlert = async () => {
+    setAlertTest(null);
+    await save.mutateAsync(form);
+    setAlertTest(await api.testAlert());
   };
 
   return (
@@ -69,7 +75,52 @@ export default function Settings() {
         />
       </div>
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+      <h3>Alerts</h3>
+      <div className="field">
+        <label>
+          <input
+            type="checkbox"
+            checked={form.alerts.enabled}
+            onChange={(e) => updateAlerts({ enabled: e.target.checked })}
+          />{' '}
+          Enable scheduled buy/sell alerts
+        </label>
+      </div>
+      {form.alerts.enabled && (
+        <>
+          <div className="field">
+            <label>Telegram bot token (leave as **** to keep the saved token)</label>
+            <input
+              type="password"
+              value={form.alerts.telegram_bot_token}
+              onChange={(e) => updateAlerts({ telegram_bot_token: e.target.value })}
+              placeholder="123456:ABC-..."
+            />
+          </div>
+          <div className="field">
+            <label>Telegram chat id</label>
+            <input
+              value={form.alerts.telegram_chat_id}
+              onChange={(e) => updateAlerts({ telegram_chat_id: e.target.value })}
+              placeholder="e.g. 987654321"
+            />
+          </div>
+          <div className="row">
+            <div className="field">
+              <label>RSI low (buy)</label>
+              <input type="number" value={form.alerts.rsi_low} onChange={(e) => updateAlerts({ rsi_low: Number(e.target.value) })} />
+            </div>
+            <div className="field">
+              <label>RSI high (sell)</label>
+              <input type="number" value={form.alerts.rsi_high} onChange={(e) => updateAlerts({ rsi_high: Number(e.target.value) })} />
+            </div>
+          </div>
+          <button className="secondary" onClick={onTestAlert} disabled={save.isPending}>Send test alert</button>
+          {alertTest && <span className={alertTest.ok ? 'muted' : 'error'} style={{ marginLeft: 8 }}>{alertTest.ok ? '✓ ' : '✗ '}{alertTest.message}</span>}
+        </>
+      )}
+
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 16 }}>
         <button onClick={onSave} disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save'}</button>
         <button className="secondary" onClick={onTest} disabled={save.isPending}>Test connection</button>
         {saved && <span className="muted">Saved.</span>}

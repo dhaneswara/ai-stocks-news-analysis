@@ -39,4 +39,5 @@ export const api = {
   listProviders: () => http<ProviderInfo[]>('/providers'),
   testProvider: (id: string) =>
     http<TestResult>(`/providers/${encodeURIComponent(id)}/test`, { method: 'POST' }),
+  testAlert: () => http<TestResult>('/alerts/test', { method: 'POST' }),
 };

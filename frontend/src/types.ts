@@ -46,12 +46,21 @@ export interface AnalysisResult {
 }
 export interface ProviderConfig { model: string; api_key: string; base_url: string; }
 export interface IndicatorParams { sma_windows: number[]; rsi_length: number; }
+export interface AlertConfig {
+  enabled: boolean;
+  channel: 'telegram' | 'log';
+  telegram_bot_token: string;
+  telegram_chat_id: string;
+  rsi_low: number;
+  rsi_high: number;
+}
 export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama';
 export interface Settings {
   active_provider: ProviderId;
   providers: Record<string, ProviderConfig>;
   watchlist: string[];
   indicator_params: IndicatorParams;
+  alerts: AlertConfig;
 }
 export interface ProviderInfo { id: string; label: string; configured: boolean; default_model: string; }
 export interface TestResult { ok: boolean; message: string; }
