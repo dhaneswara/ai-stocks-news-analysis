@@ -1,0 +1,35 @@
+# --- Secrets & local data (API keys, SQLite settings/cache) ---
+.env
+.env.*
+!.env.example
+data/
+*.sqlite
+*.sqlite3
+*.db
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Node / React / Vite ---
+node_modules/
+dist/
+dist-ssr/
+.vite/
+coverage/
+*.local
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+*.log
