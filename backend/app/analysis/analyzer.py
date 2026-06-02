@@ -64,12 +64,11 @@ RECENT NEWS HEADLINES:
 
 
 def extract_json(raw: str) -> dict:
-    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.DOTALL)
+    fenced = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", raw)
     candidate = fenced.group(1) if fenced else raw
-    if not fenced:
-        start, end = candidate.find("{"), candidate.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            candidate = candidate[start : end + 1]
+    start, end = candidate.find("{"), candidate.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        candidate = candidate[start : end + 1]
     return json.loads(candidate)
 
 

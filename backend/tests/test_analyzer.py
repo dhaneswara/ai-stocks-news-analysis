@@ -52,6 +52,13 @@ def test_extract_json_handles_code_fence():
     assert extract_json(raw) == {"a": 1}
 
 
+def test_extract_json_handles_fenced_nested():
+    raw = '```json\n{"signals": [{"action": "buy", "price": 1}], "risks": ["x"]}\n```'
+    result = extract_json(raw)
+    assert result["signals"][0]["action"] == "buy"
+    assert result["risks"] == ["x"]
+
+
 def test_build_user_prompt_mentions_ticker_and_json():
     prompt = build_user_prompt(_stock())
     assert "AAPL" in prompt
