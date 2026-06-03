@@ -34,3 +34,6 @@ coverage/
 Thumbs.db
 .idea/
 *.log
+
+# --- Local agent / tooling config ---
+/.claude/
