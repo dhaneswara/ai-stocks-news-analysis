@@ -20,7 +20,7 @@ Set `VITE_API_BASE` (see `.env.example`) if the backend isn't at `http://localho
 
 ## Pages
 
-- **Dashboard** — pick a ticker, view the candlestick chart with SMA overlays; click **Analyze with LLM** to draw buy/sell markers and show reasoning + news.
+- **Dashboard** — pick a ticker and a chart timeframe (1M–5Y), and view the candlestick chart with SMA overlays. Click **Analyze with LLM** (analysis is scoped to the selected timeframe) to draw buy/sell markers, list the signals (click one for its reasoning), and show the reasoning + key factors + news.
 - **Settings** — choose the LLM provider (Anthropic/OpenAI/Gemini/Ollama), set model + API key (or Ollama base URL), test the connection, and edit the watchlist.
 
 ## Notes

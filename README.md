@@ -15,10 +15,15 @@ directly on an interactive chart** with the reasoning shown on the page. It can 
 
 ## Features
 
-- **Interactive dashboard** — candlestick chart (TradingView Lightweight Charts) with SMA50/200
-  overlays and LLM-drawn **buy ▲ / sell ▼ markers**; click a marker to see its reasoning.
-- **LLM analysis** — per-stock summary, news interpretation, sentiment, a current
-  buy/sell/hold recommendation with confidence, dated signals, and risks.
+- **Interactive dashboard** — candlestick chart (TradingView Lightweight Charts) with a
+  **timeframe selector (1M / 3M / 6M / 1Y / 2Y / 5Y)**, SMA50/200 overlays, and LLM-drawn
+  **buy ▲ / sell ▼ markers**. Click a marker — or a row in the dedicated **Signals** list — to
+  read that signal's reasoning.
+- **LLM analysis** — runs over the chart's **selected timeframe** and weighs the latest news
+  *together with* the technicals/fundamentals. Returns a plain-language summary, news
+  interpretation, sentiment, a current buy/sell/hold recommendation with confidence, the
+  **key factors driving it** ("why now"), dated buy/sell signals (timed **buy-low / sell-high**,
+  with a deterministic guard that drops incoherent ones), and risks.
 - **Per-stock news** — recent headlines via Google News RSS.
 - **Multi-provider, switchable in the UI** — Anthropic, OpenAI, Gemini, or local Ollama;
   API keys are stored locally and masked in the UI.
@@ -104,7 +109,7 @@ npm run dev                        # http://localhost:5173
 ## Testing
 
 ```powershell
-cd backend; .venv\Scripts\python.exe -m pytest -q      # backend (77 tests)
+cd backend; .venv\Scripts\python.exe -m pytest -q      # backend (82 tests)
 cd frontend; npx vitest run                            # frontend unit tests
 cd frontend; npm run build                             # type-check + bundle
 ```
