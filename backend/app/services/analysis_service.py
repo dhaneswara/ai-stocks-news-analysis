@@ -25,7 +25,7 @@ def run_analysis(ticker: str, period: str, settings: Settings, cache: Cache) -> 
             "Set it in Settings or via environment variable."
         )
 
-    cache_key = f"analysis:{ticker}:{provider_id}:{cfg.model}:{date.today().isoformat()}"
+    cache_key = f"analysis:{ticker}:{provider_id}:{cfg.model}:{period}:{date.today().isoformat()}"
     cached = cache.get(cache_key)
     if cached is not None:
         return AnalysisResult.model_validate_json(cached)

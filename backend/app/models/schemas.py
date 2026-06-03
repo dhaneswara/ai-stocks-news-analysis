@@ -90,6 +90,7 @@ class AnalysisResult(BaseModel):
     sentiment: Literal["bullish", "neutral", "bearish"]
     current_recommendation: Literal["buy", "sell", "hold"]
     confidence: float
+    key_factors: list[str] = Field(default_factory=list)
     signals: list[Signal] = Field(default_factory=list)
     risks: list[str] = Field(default_factory=list)
     disclaimer: str = DISCLAIMER
