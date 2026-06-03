@@ -15,7 +15,9 @@ export function signalsToMarkers(signals: Signal[]): ChartMarker[] {
     .map((s) => ({
       time: s.date,
       position: s.action === 'buy' ? 'belowBar' : 'aboveBar',
-      color: s.action === 'buy' ? '#5fd39b' : '#f0817c',
+      // Vivid, high-contrast marker colors that stand apart from the muted
+      // candle bodies (up #5fd39b / down #f0817c) so buys aren't camouflaged.
+      color: s.action === 'buy' ? '#00e676' : '#ff5252',
       shape: s.action === 'buy' ? 'arrowUp' : 'arrowDown',
       text: `${s.action.toUpperCase()} @ ${s.price}`,
     }));

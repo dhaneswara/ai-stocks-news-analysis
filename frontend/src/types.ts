@@ -40,6 +40,7 @@ export interface AnalysisResult {
   sentiment: Sentiment;
   current_recommendation: Recommendation;
   confidence: number;
+  key_factors: string[];
   signals: Signal[];
   risks: string[];
   disclaimer: string;

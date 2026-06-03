@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
 import type { Settings } from '../types';
 
-export function useStock(ticker: string, period = '2y') {
+export function useStock(ticker: string, period = '5y') {
   return useQuery({
     queryKey: ['stock', ticker, period],
     queryFn: () => api.getStock(ticker, period),
@@ -11,7 +11,7 @@ export function useStock(ticker: string, period = '2y') {
   });
 }
 
-export function useAnalyze(ticker: string, period = '2y') {
+export function useAnalyze(ticker: string, period = '5y') {
   return useMutation({ mutationFn: () => api.analyze(ticker, period) });
 }
 

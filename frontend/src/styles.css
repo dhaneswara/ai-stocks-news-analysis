@@ -40,7 +40,7 @@
   --sans:  "Hanken Grotesk", system-ui, -apple-system, Segoe UI, sans-serif;
   --mono:  "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 
-  --maxw: 1220px;
+  --maxw: 1880px;
 }
 
 * { box-sizing: border-box; }
@@ -96,14 +96,14 @@ a { color: var(--gold); text-decoration: none; }
   z-index: 1;
   max-width: var(--maxw);
   margin: 0 auto;
-  padding: 0 28px 56px;
+  padding: 0 28px 18px;
 }
 
 .masthead {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  padding: 18px 0 12px;
+  padding: 14px 0 8px;
   gap: 24px;
 }
 
@@ -156,12 +156,12 @@ a { color: var(--gold); text-decoration: none; }
 .masthead-rule {
   height: 1px;
   border: 0;
-  margin: 0 0 16px;
+  margin: 0 0 12px;
   background: linear-gradient(90deg, transparent, var(--gold-line) 18%, var(--gold) 50%, var(--gold-line) 82%, transparent);
   opacity: 0.7;
 }
 
-.content { display: flex; flex-direction: column; gap: 14px; }
+.content { display: flex; flex-direction: column; gap: 12px; }
 
 /* Orchestrated load: panels rise in a gentle stagger. */
 @keyframes rise {
@@ -182,7 +182,7 @@ a { color: var(--gold); text-decoration: none; }
   background: var(--panel);
   border: 1px solid var(--panel-brd);
   border-radius: var(--radius);
-  padding: 18px 22px;
+  padding: 16px 20px;
   backdrop-filter: blur(14px) saturate(120%);
   -webkit-backdrop-filter: blur(14px) saturate(120%);
   box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.04);
@@ -206,11 +206,27 @@ a { color: var(--gold); text-decoration: none; }
   margin-bottom: 12px;
 }
 
-.split {
+/* Workspace: chart · analysis · (signals + news). Columns are EQUAL height so every
+   panel's bottom edge lines up; content scrolls within each panel. */
+.workspace {
   display: grid;
-  grid-template-columns: 1.7fr 1fr;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1.12fr) minmax(300px, 0.86fr);
+  grid-template-areas: "chart analysis side";
   gap: 14px;
+  align-items: stretch;
 }
+.chart-panel { grid-area: chart; min-width: 0; display: flex; flex-direction: column; }
+.analysis    { grid-area: analysis; min-width: 0; display: flex; flex-direction: column; }
+.side-col    { grid-area: side; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
+/* One height for all three columns → aligned bottom edges. */
+.chart-panel, .analysis, .side-col { height: clamp(440px, 56vh, 560px); }
+.side-col > .panel { display: flex; flex-direction: column; min-height: 0; }
+.signals-col { flex: 0 1 auto; max-height: 58%; }
+.news-col { flex: 1 1 0; }
+/* Each scannable region fills its panel and scrolls internally. */
+.analysis-scroll,
+.signals-scroll,
+.news-scroll { flex: 1; min-height: 0; overflow-y: auto; padding-right: 8px; margin-right: -8px; }
 
 /* Equal-column row (used in Settings). */
 .row { display: flex; gap: 18px; flex-wrap: wrap; }
@@ -403,7 +419,28 @@ input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; v
 .chip:hover { color: var(--gold); border-color: var(--gold-line); background: var(--gold-tint); }
 
 /* ----- Chart --------------------------------------------------------------- */
-.price-chart { width: 100%; height: 360px; border-radius: 12px; overflow: hidden; }
+.price-chart { flex: 1; min-height: 0; width: 100%; border-radius: 12px; overflow: hidden; }
+
+/* Timeframe selector (segmented) */
+.range-tabs { display: inline-flex; gap: 2px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--panel-brd); border-radius: 9px; padding: 3px; }
+.range-tab {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--ink-faint);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  box-shadow: none;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.range-tab:hover { color: var(--ink-soft); background: transparent; transform: none; box-shadow: none; filter: none; }
+.range-tab.active { color: #1c160b; background: linear-gradient(180deg, var(--gold-bright), var(--gold)); box-shadow: 0 4px 12px -6px rgba(232, 200, 126, 0.7); }
+.range-tab.active:hover { color: #1c160b; filter: brightness(1.04); }
 .legend { display: flex; gap: 18px; align-items: center; }
 .legend span { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); }
 .legend .dot { width: 14px; height: 2px; border-radius: 2px; }
@@ -471,6 +508,24 @@ input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; v
   color: var(--gold);
 }
 
+/* "Why now" key-factor drivers behind the current recommendation. */
+.factor-list { list-style: none; margin: 6px 0 2px; padding: 0; }
+.factor-list li {
+  position: relative;
+  padding: 6px 0 6px 20px;
+  color: var(--ink-soft);
+  border-bottom: 1px solid var(--hairline);
+}
+.factor-list li:last-child { border-bottom: 0; }
+.factor-list li::before {
+  content: "◆";
+  position: absolute;
+  left: 0; top: 7px;
+  font-size: 8px;
+  line-height: 1;
+  color: var(--gold);
+}
+
 .risk-list { list-style: none; margin: 6px 0 0; padding: 0; }
 .risk-list li {
   position: relative;
@@ -487,9 +542,48 @@ input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; v
   background: var(--gold);
 }
 
+/* Clickable signal list — a precise alternative to clicking chart markers. */
+.signal-list { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 4px; }
+.signal-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--ink-soft);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--panel-brd);
+  border-left: 2px solid transparent;
+  border-radius: 8px;
+  padding: 7px 11px;
+  cursor: pointer;
+  box-shadow: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.signal-row:hover { background: var(--gold-tint); border-color: var(--gold-line); transform: none; box-shadow: none; filter: none; }
+.signal-row.active { background: var(--gold-tint); border-left-color: var(--gold); }
+.signal-row .sig-arrow { font-size: 11px; line-height: 1; }
+.signal-row.buy .sig-arrow, .signal-row.buy .sig-act { color: var(--buy); }
+.signal-row.sell .sig-arrow, .signal-row.sell .sig-act { color: var(--sell); }
+.signal-row .sig-date { color: var(--ink-faint); }
+.signal-row .sig-price { margin-left: auto; color: var(--ink); }
+.signal-row .sig-chev { font-size: 9px; color: var(--ink-ghost); transition: transform 0.2s ease, color 0.2s ease; }
+.signal-row.active .sig-chev { transform: rotate(180deg); color: var(--gold); }
+
+@keyframes signal-reveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 .signal-reason {
-  margin-top: 16px;
+  margin: 2px 0 8px;
   padding: 14px 16px;
+  animation: signal-reveal 0.2s cubic-bezier(0.2, 0.7, 0.2, 1) both;
   background: var(--gold-tint);
   border: 1px solid var(--gold-line);
   border-left: 2px solid var(--gold);
@@ -537,9 +631,30 @@ input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; v
 h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 
 /* ----- Responsive ---------------------------------------------------------- */
+@media (max-width: 1200px) {
+  /* Chart spans the top; Analysis and the Signals+News column sit beneath it. */
+  .workspace {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "chart chart" "analysis side";
+  }
+  .chart-panel { height: clamp(340px, 44vh, 460px); }
+}
 @media (max-width: 900px) {
-  .split { grid-template-columns: 1fr; }
   .summary { grid-template-columns: 1fr; gap: 16px; }
+}
+@media (max-width: 800px) {
+  /* Stack everything; drop the equal-height/scroll constraints for natural flow. */
+  .workspace {
+    grid-template-columns: 1fr;
+    grid-template-areas: "chart" "analysis" "side";
+  }
+  .chart-panel, .analysis, .side-col { height: auto; }
+  .price-chart { flex: none; height: 340px; }
+  .side-col > .panel { flex: none; }
+  .signals-col { max-height: none; }
+  .analysis-scroll,
+  .signals-scroll,
+  .news-scroll { flex: none; max-height: none; overflow: visible; padding-right: 0; margin-right: 0; }
 }
 @media (max-width: 600px) {
   .app { padding: 0 16px 48px; }
@@ -548,7 +663,7 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .content > * { animation: none !important; }
+  .content > *, .signal-reason { animation: none !important; }
   .nav-link::after { transition: none; }
   * { scroll-behavior: auto; }
 }

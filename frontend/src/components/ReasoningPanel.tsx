@@ -1,12 +1,6 @@
-import type { AnalysisResult, Signal } from '../types';
+import type { AnalysisResult } from '../types';
 
-export function ReasoningPanel({
-  result,
-  selected,
-}: {
-  result: AnalysisResult;
-  selected: Signal | null;
-}) {
+export function ReasoningPanel({ result }: { result: AnalysisResult }) {
   const rec = result.current_recommendation;
   return (
     <div>
@@ -16,6 +10,13 @@ export function ReasoningPanel({
         <span className="conf">confidence <b>{(result.confidence * 100).toFixed(0)}%</b></span>
         <span className="provider">{result.provider} · {result.model}</span>
       </div>
+
+      {result.key_factors?.length ? (
+        <>
+          <h4>Why now — key factors</h4>
+          <ul className="factor-list">{result.key_factors.map((f, i) => <li key={i}>{f}</li>)}</ul>
+        </>
+      ) : null}
 
       <h4>Summary</h4>
       <p className="lead">{result.overall_summary}</p>
@@ -28,16 +29,6 @@ export function ReasoningPanel({
           <h4>Risks</h4>
           <ul className="risk-list">{result.risks.map((r, i) => <li key={i}>{r}</li>)}</ul>
         </>
-      )}
-
-      {selected && (
-        <div className="signal-reason">
-          <div className="sig-head">
-            <span className={`badge ${selected.action}`}>{selected.action.toUpperCase()}</span>
-            <span>{selected.date} @ {selected.price} · confidence {(selected.confidence * 100).toFixed(0)}%</span>
-          </div>
-          <p>{selected.reasoning}</p>
-        </div>
       )}
 
       <p className="disclaimer-fine">{result.disclaimer}</p>
