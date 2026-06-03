@@ -15,7 +15,7 @@ export function signalsToMarkers(signals: Signal[]): ChartMarker[] {
     .map((s) => ({
       time: s.date,
       position: s.action === 'buy' ? 'belowBar' : 'aboveBar',
-      color: s.action === 'buy' ? '#26a69a' : '#ef5350',
+      color: s.action === 'buy' ? '#5fd39b' : '#f0817c',
       shape: s.action === 'buy' ? 'arrowUp' : 'arrowDown',
       text: `${s.action.toUpperCase()} @ ${s.price}`,
     }));

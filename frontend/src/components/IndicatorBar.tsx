@@ -20,11 +20,15 @@ export function IndicatorBar({ data }: { data: StockData }) {
   const sma200 = lastValue(data.indicators.sma200);
   // yfinance returns dividend_yield already as a percentage (e.g. 0.35 = 0.35%).
   const div = data.fundamentals.dividend_yield;
+
+  const changeCls = data.price.change_pct >= 0 ? 'up' : 'down';
+  const rsiCls = rsi === null ? '' : rsi >= 70 || rsi <= 30 ? 'warn' : '';
+
   return (
     <div className="metrics">
       <div className="metric"><div className="label">Price</div><div className="value">{fmt(data.price.current)}</div></div>
-      <div className="metric"><div className="label">Change %</div><div className="value">{fmt(data.price.change_pct)}%</div></div>
-      <div className="metric"><div className="label">RSI(14)</div><div className="value">{fmt(rsi)}</div></div>
+      <div className="metric"><div className="label">Change %</div><div className={`value ${changeCls}`}>{data.price.change_pct >= 0 ? '+' : ''}{fmt(data.price.change_pct)}%</div></div>
+      <div className="metric"><div className="label">RSI(14)</div><div className={`value ${rsiCls}`}>{fmt(rsi)}</div></div>
       <div className="metric"><div className="label">SMA50</div><div className="value">{fmt(sma50)}</div></div>
       <div className="metric"><div className="label">SMA200</div><div className="value">{fmt(sma200)}</div></div>
       <div className="metric"><div className="label">52wk dist</div><div className="value">{fmt(data.indicators.dist_from_52wk_high_pct)}%</div></div>

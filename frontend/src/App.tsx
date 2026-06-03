@@ -1,21 +1,26 @@
-import { NavLink, Route, Routes } from 'react-router-dom';
+import { Link, NavLink, Route, Routes } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Settings from './pages/Settings';
+
+const navClass = ({ isActive }: { isActive: boolean }) =>
+  isActive ? 'nav-link active' : 'nav-link';
 
 export default function App() {
   return (
     <div className="app">
-      <header className="topbar">
-        <span className="brand">📈 AI Stocks &amp; News</span>
-        <nav>
-          <NavLink to="/" end>Dashboard</NavLink>
-          <NavLink to="/settings">Settings</NavLink>
+      <header className="masthead">
+        <Link className="brand" to="/">
+          <span className="brand-mark">◆</span>
+          <span className="brand-name">
+            AI Stocks <span className="amp">&amp;</span> News
+          </span>
+        </Link>
+        <nav className="nav">
+          <NavLink to="/" end className={navClass}>Dashboard</NavLink>
+          <NavLink to="/settings" className={navClass}>Settings</NavLink>
         </nav>
       </header>
-      <p className="disclaimer">
-        Decision support only — not financial advice. LLM output can be wrong; historical markers are
-        retrospective reasoning, not a backtested strategy.
-      </p>
+      <div className="masthead-rule" />
       <main className="content">
         <Routes>
           <Route path="/" element={<Dashboard />} />

@@ -38,8 +38,8 @@ export default function Settings() {
   };
 
   return (
-    <div className="panel" style={{ maxWidth: 640 }}>
-      <h3 style={{ marginTop: 0 }}>Provider settings</h3>
+    <div className="panel settings">
+      <h3>Provider settings</h3>
 
       <div className="field">
         <label>Active provider</label>
@@ -76,13 +76,13 @@ export default function Settings() {
       </div>
 
       <h3>Alerts</h3>
-      <div className="field">
+      <div className="field check">
         <label>
           <input
             type="checkbox"
             checked={form.alerts.enabled}
             onChange={(e) => updateAlerts({ enabled: e.target.checked })}
-          />{' '}
+          />
           Enable scheduled buy/sell alerts
         </label>
       </div>
@@ -116,15 +116,15 @@ export default function Settings() {
             </div>
           </div>
           <button className="secondary" onClick={onTestAlert} disabled={save.isPending}>Send test alert</button>
-          {alertTest && <span className={alertTest.ok ? 'muted' : 'error'} style={{ marginLeft: 8 }}>{alertTest.ok ? '✓ ' : '✗ '}{alertTest.message}</span>}
+          {alertTest && <span className={`note ${alertTest.ok ? 'muted' : 'error'}`} style={{ marginLeft: 8 }}>{alertTest.ok ? '✓ ' : '✗ '}{alertTest.message}</span>}
         </>
       )}
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 16 }}>
+      <div className="settings-actions">
         <button onClick={onSave} disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save'}</button>
         <button className="secondary" onClick={onTest} disabled={save.isPending}>Test connection</button>
-        {saved && <span className="muted">Saved.</span>}
-        {test && <span className={test.ok ? 'muted' : 'error'}>{test.ok ? '✓ ' : '✗ '}{test.message}</span>}
+        {saved && <span className="note muted">Saved.</span>}
+        {test && <span className={`note ${test.ok ? 'muted' : 'error'}`}>{test.ok ? '✓ ' : '✗ '}{test.message}</span>}
       </div>
       {save.isError && <p className="error">Save failed: {(save.error as Error).message}</p>}
     </div>

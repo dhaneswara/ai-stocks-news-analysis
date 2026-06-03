@@ -20,27 +20,39 @@ export function PriceChart({
 
     const chart: IChartApi = createChart(el, {
       autoSize: true,
-      height: 420,
-      layout: { background: { type: ColorType.Solid, color: '#0b0d12' }, textColor: '#d8dce5' },
-      grid: { vertLines: { color: '#1c212c' }, horzLines: { color: '#1c212c' } },
-      rightPriceScale: { borderColor: '#262c39' },
-      timeScale: { borderColor: '#262c39' },
+      height: 360,
+      layout: {
+        background: { type: ColorType.Solid, color: '#0b0b0d' },
+        textColor: '#8b8780',
+        fontFamily: '"IBM Plex Mono", ui-monospace, monospace',
+        fontSize: 11,
+      },
+      grid: {
+        vertLines: { color: 'rgba(244,241,234,0.04)' },
+        horzLines: { color: 'rgba(244,241,234,0.045)' },
+      },
+      rightPriceScale: { borderColor: 'rgba(244,241,234,0.09)' },
+      timeScale: { borderColor: 'rgba(244,241,234,0.09)' },
+      crosshair: {
+        vertLine: { color: 'rgba(232,200,126,0.40)', width: 1, labelBackgroundColor: '#caa86a' },
+        horzLine: { color: 'rgba(232,200,126,0.40)', width: 1, labelBackgroundColor: '#caa86a' },
+      },
     });
 
     const candles = chart.addCandlestickSeries({
-      upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
-      wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+      upColor: '#5fd39b', downColor: '#f0817c', borderVisible: false,
+      wickUpColor: '#5fd39b', wickDownColor: '#f0817c',
     });
     candles.setData(
       data.candles.map((c) => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })),
     );
 
     if (data.indicators.sma50.length) {
-      const s = chart.addLineSeries({ color: '#f0b90b', lineWidth: 1, priceLineVisible: false });
+      const s = chart.addLineSeries({ color: '#e8c87e', lineWidth: 2, priceLineVisible: false, crosshairMarkerVisible: false });
       s.setData(data.indicators.sma50.map((p) => ({ time: p.time, value: p.value })));
     }
     if (data.indicators.sma200.length) {
-      const s = chart.addLineSeries({ color: '#4c8dff', lineWidth: 1, priceLineVisible: false });
+      const s = chart.addLineSeries({ color: '#9c8246', lineWidth: 2, priceLineVisible: false, crosshairMarkerVisible: false });
       s.setData(data.indicators.sma200.map((p) => ({ time: p.time, value: p.value })));
     }
 
