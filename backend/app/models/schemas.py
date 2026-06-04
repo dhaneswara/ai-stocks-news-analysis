@@ -61,6 +61,38 @@ class NewsItem(BaseModel):
     summary: str = ""
 
 
+class TruthPost(BaseModel):
+    id: str
+    created_at: str
+    content: str
+    url: str = ""
+
+
+class MoodTheme(BaseModel):
+    label: str
+    lean: Literal["bullish", "bearish", "neutral"] = "neutral"
+    quote: str = ""
+    post_url: str = ""
+    created_at: str = ""
+
+
+class MarketMood(BaseModel):
+    lean: Literal["risk_on", "neutral", "risk_off"] = "neutral"
+    confidence: float = 0.0
+    summary: str = ""
+    themes: list[MoodTheme] = Field(default_factory=list)
+    as_of: str = ""
+    post_count: int = 0
+
+
+class Mention(BaseModel):
+    post_id: str
+    created_at: str
+    matched: str
+    excerpt: str
+    url: str = ""
+
+
 class StockData(BaseModel):
     ticker: str
     company_name: str
@@ -70,6 +102,8 @@ class StockData(BaseModel):
     fundamentals: Fundamentals
     indicators: Indicators
     news: list[NewsItem] = Field(default_factory=list)
+    market_mood: Optional[MarketMood] = None
+    trump_mentions: list[Mention] = Field(default_factory=list)
 
 
 class Signal(BaseModel):
@@ -94,6 +128,7 @@ class AnalysisResult(BaseModel):
     signals: list[Signal] = Field(default_factory=list)
     risks: list[str] = Field(default_factory=list)
     disclaimer: str = DISCLAIMER
+    market_mood: Optional[MarketMood] = None
 
 
 class ProviderConfig(BaseModel):
@@ -114,6 +149,12 @@ class AlertConfig(BaseModel):
     telegram_chat_id: str = ""
     rsi_low: float = 30.0
     rsi_high: float = 70.0
+
+
+class TruthSignalConfig(BaseModel):
+    enabled: bool = True
+    source_url: str = "https://ix.cnn.io/data/truth-social/truth_archive.json"
+    lookback_hours: int = 48
 
 
 class RuleHit(BaseModel):
@@ -141,3 +182,4 @@ class Settings(BaseModel):
     watchlist: list[str] = Field(default_factory=lambda: ["AAPL", "MSFT"])
     indicator_params: IndicatorParams = Field(default_factory=IndicatorParams)
     alerts: AlertConfig = Field(default_factory=AlertConfig)
+    truth_signal: TruthSignalConfig = Field(default_factory=TruthSignalConfig)
