@@ -27,3 +27,36 @@ def test_filter_recent_keeps_only_in_window():
 def test_filter_recent_drops_unparseable_dates():
     posts = parse_posts([{"id": "x", "created_at": "not-a-date", "content": "hi"}])
     assert filter_recent(posts, hours=48, now=NOW) == []
+
+
+from app.config.cache import Cache
+from app.data import truth_social
+
+
+def test_fetch_recent_posts_filters(monkeypatch):
+    monkeypatch.setattr(truth_social, "_fetch_archive", lambda url: SAMPLE)
+    posts = truth_social.fetch_recent_posts(48, now=NOW)
+    assert [p.id for p in posts] == ["1"]
+
+
+def test_fetch_recent_posts_returns_empty_on_error(monkeypatch):
+    def boom(_url):
+        raise RuntimeError("network down")
+
+    monkeypatch.setattr(truth_social, "_fetch_archive", boom)
+    assert truth_social.fetch_recent_posts(48, now=NOW) == []
+
+
+def test_cached_pull_avoids_second_fetch(tmp_path, monkeypatch):
+    calls = {"n": 0}
+
+    def counting(_url):
+        calls["n"] += 1
+        return SAMPLE
+
+    monkeypatch.setattr(truth_social, "_fetch_archive", counting)
+    cache = Cache(str(tmp_path / "c.db"))
+    a = truth_social.fetch_recent_posts_cached(48, truth_social.ARCHIVE_URL, cache, now=NOW)
+    b = truth_social.fetch_recent_posts_cached(48, truth_social.ARCHIVE_URL, cache, now=NOW)
+    assert [p.id for p in a] == ["1"] and [p.id for p in b] == ["1"]
+    assert calls["n"] == 1  # second call served from cache
