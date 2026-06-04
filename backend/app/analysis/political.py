@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 
-from app.models.schemas import Mention, TruthPost
+from app.analysis.analyzer import extract_json
+from app.config.cache import Cache
+from app.llm.base import LLMProvider
+from app.models.schemas import MarketMood, Mention, MoodTheme, TruthPost
 
 _SUFFIX_RE = re.compile(
     r"\b(inc|corp|corporation|co|ltd|plc|company|companies|holdings|group)\b\.?", re.I
@@ -51,3 +55,74 @@ def find_mentions(
                 )
                 break  # one mention per post
     return out
+
+
+_MOOD_TTL_SECONDS = 24 * 60 * 60
+
+_MOOD_SYSTEM = (
+    "You read recent social-media posts from a market-moving political figure and summarize "
+    "their likely SHORT-TERM effect on US equities. Judge intent and target, not keywords: "
+    "announcing a deal, tariff pause, or rate-cut pressure leans bullish; threatening tariffs, "
+    "sanctions, or war leans bearish; praising a company is bullish for it, attacking one is "
+    "bearish for it. Respond with ONLY a single JSON object, no prose, no code fences."
+)
+
+_MOOD_SCHEMA_HINT = """Return JSON with exactly these fields:
+{
+  "lean": "risk_on" | "neutral" | "risk_off",
+  "confidence": number between 0 and 1,
+  "summary": string (1-2 sentences on the NET market read),
+  "themes": [ { "label": string, "lean": "bullish"|"bearish"|"neutral", "quote": string } ]
+}
+Base "lean" on the NET effect across all posts. Give 0-4 themes, each citing a concrete driver
+(tariffs, Fed, war/ceasefire, a named company) with a short verbatim quote. If the posts carry no
+clear market relevance, return lean "neutral", low confidence, and an empty themes list."""
+
+
+def build_mood_prompt(posts: list[TruthPost]) -> tuple[str, str]:
+    lines = "\n".join(f"- [{p.created_at}] {p.content[:280]}" for p in posts[:40])
+    user = f"Recent posts:\n{lines or '- (none)'}\n\n{_MOOD_SCHEMA_HINT}"
+    return _MOOD_SYSTEM, user
+
+
+def _neutral_mood(post_count: int, as_of: str) -> MarketMood:
+    return MarketMood(lean="neutral", confidence=0.0, summary="", themes=[],
+                      as_of=as_of, post_count=post_count)
+
+
+def summarize_market_mood(
+    posts: list[TruthPost],
+    provider: LLMProvider,
+    model: str,
+    provider_name: str,
+    cache: Cache,
+    *,
+    now: datetime | None = None,
+) -> MarketMood:
+    now = now or datetime.now(timezone.utc)
+    as_of = now.isoformat()
+    if not posts:
+        return _neutral_mood(0, as_of)
+
+    key = f"truth_mood:{provider_name}:{model}:{now.date().isoformat()}"
+    cached = cache.get(key)
+    if cached is not None:
+        return MarketMood.model_validate_json(cached)
+
+    system, user = build_mood_prompt(posts)
+    try:
+        payload = extract_json(provider.complete(system, user))
+        themes = [MoodTheme(**t) for t in payload.get("themes", []) if isinstance(t, dict)]
+        mood = MarketMood(
+            lean=payload.get("lean", "neutral"),
+            confidence=float(payload.get("confidence", 0.0)),
+            summary=str(payload.get("summary", "")),
+            themes=themes,
+            as_of=as_of,
+            post_count=len(posts),
+        )
+    except Exception:
+        mood = _neutral_mood(len(posts), as_of)
+
+    cache.set(key, mood.model_dump_json(), _MOOD_TTL_SECONDS)
+    return mood

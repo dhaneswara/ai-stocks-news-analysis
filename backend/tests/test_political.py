@@ -1,4 +1,7 @@
-from app.analysis.political import find_mentions
+import json
+
+from app.analysis.political import build_mood_prompt, find_mentions, summarize_market_mood
+from app.config.cache import Cache
 from app.models.schemas import TruthPost
 
 
@@ -34,3 +37,59 @@ def test_excerpt_and_one_mention_per_post():
     posts = [_post("1", "$AAPL $AAPL twice")]
     hits = find_mentions(posts, "AAPL", "Apple Inc.")
     assert len(hits) == 1 and "AAPL" in hits[0].excerpt
+
+
+MOOD_JSON = json.dumps({
+    "lean": "risk_off",
+    "confidence": 0.7,
+    "summary": "Tariff threats dominate.",
+    "themes": [{"label": "Tariffs on China", "lean": "bearish", "quote": "massive"}],
+})
+
+
+class FakeProvider:
+    name = "fake"
+
+    def __init__(self, outputs):
+        self.outputs = list(outputs)
+        self.calls = 0
+
+    def complete(self, system, user):
+        self.calls += 1
+        return self.outputs.pop(0)
+
+
+def test_build_mood_prompt_includes_posts():
+    system, user = build_mood_prompt([_post("1", "Tariffs on China")])
+    assert "Tariffs on China" in user
+    assert "JSON" in user
+
+
+def test_summarize_returns_neutral_for_no_posts(tmp_path):
+    cache = Cache(str(tmp_path / "c.db"))
+    mood = summarize_market_mood([], FakeProvider([MOOD_JSON]), "m", "fake", cache)
+    assert mood.lean == "neutral" and mood.post_count == 0
+
+
+def test_summarize_parses_llm_json(tmp_path):
+    cache = Cache(str(tmp_path / "c.db"))
+    mood = summarize_market_mood([_post("1", "Tariffs")], FakeProvider([MOOD_JSON]), "m", "fake", cache)
+    assert mood.lean == "risk_off"
+    assert mood.themes[0].lean == "bearish"
+    assert mood.post_count == 1
+
+
+def test_summarize_is_cached_per_provider_day(tmp_path):
+    cache = Cache(str(tmp_path / "c.db"))
+    provider = FakeProvider([MOOD_JSON])  # only ONE output available
+    posts = [_post("1", "Tariffs")]
+    a = summarize_market_mood(posts, provider, "m", "fake", cache)
+    b = summarize_market_mood(posts, provider, "m", "fake", cache)  # must hit cache, not pop again
+    assert a.lean == b.lean == "risk_off"
+    assert provider.calls == 1
+
+
+def test_summarize_falls_back_to_neutral_on_bad_json(tmp_path):
+    cache = Cache(str(tmp_path / "c.db"))
+    mood = summarize_market_mood([_post("1", "x")], FakeProvider(["not json"]), "m", "fake", cache)
+    assert mood.lean == "neutral"
