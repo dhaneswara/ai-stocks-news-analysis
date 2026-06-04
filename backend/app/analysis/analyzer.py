@@ -7,7 +7,7 @@ from datetime import date, datetime, timezone
 from pydantic import ValidationError
 
 from app.llm.base import LLMError, LLMProvider
-from app.models.schemas import DISCLAIMER, AnalysisResult, Signal, StockData
+from app.models.schemas import DISCLAIMER, AnalysisResult, MarketMood, Mention, Signal, StockData
 
 _SYSTEM_PROMPT = (
     "You are a cautious equity research assistant for a swing trader. "
@@ -49,6 +49,23 @@ price-level logic (e.g. "oversold bounce off ~120 support" for a buy; "overbough
 resistance near the 52-wk high" for a sell)."""
 
 
+def _format_mood(mood: MarketMood | None) -> str:
+    if mood is None or mood.post_count == 0:
+        return "- (Trump / Truth Social signal disabled or no recent posts)"
+    themes = "; ".join(f"{t.label} ({t.lean})" for t in mood.themes) or "(none)"
+    return (
+        f"- Lean: {mood.lean} (confidence {mood.confidence:.2f})\n"
+        f"- Summary: {mood.summary}\n"
+        f"- Themes: {themes}"
+    )
+
+
+def _format_mentions(mentions: list[Mention]) -> str:
+    if not mentions:
+        return "- (none)"
+    return "\n".join(f'- [{m.created_at}] "{m.excerpt}" ({m.url})' for m in mentions[:8])
+
+
 def build_user_prompt(stock: StockData) -> str:
     rsi_latest = stock.indicators.rsi14[-1].value if stock.indicators.rsi14 else None
     sma50_latest = stock.indicators.sma50[-1].value if stock.indicators.sma50 else None
@@ -80,6 +97,17 @@ FUNDAMENTALS:
 RECENT NEWS HEADLINES:
 {headlines}
 
+MARKET MOOD (recent Trump / Truth Social posts):
+{_format_mood(stock.market_mood)}
+
+TRUMP MENTIONS OF THIS COMPANY:
+{_format_mentions(stock.trump_mentions)}
+
+Weigh MARKET MOOD as a macro overlay and TRUMP MENTIONS as a stock-specific factor, the same way
+you weigh news — but treat political-post inference as noisy and low-certainty: it must not
+override strong technical or fundamental evidence, and you must NOT create dated buy/sell signals
+from these posts (they inform the current recommendation only).
+
 {_JSON_SCHEMA_HINT}"""
 
 
@@ -97,7 +125,7 @@ def _to_result(payload: dict, ticker: str, provider_name: str, model: str) -> An
         raise TypeError("LLM response was not a JSON object")
     # Drop any reserved keys the model may have echoed, so they don't collide
     # with the values we set explicitly below.
-    reserved = {"ticker", "provider", "model", "generated_at", "disclaimer"}
+    reserved = {"ticker", "provider", "model", "generated_at", "disclaimer", "market_mood"}
     fields = {k: v for k, v in payload.items() if k not in reserved}
     return AnalysisResult(
         ticker=ticker,
@@ -202,6 +230,7 @@ def analyze(
 
     def _finalize(text: str) -> AnalysisResult:
         result = _to_result(extract_json(text), stock.ticker, provider_name, model)
+        result.market_mood = stock.market_mood
         return _filter_incoherent_signals(_snap_signals(result, stock), stock)
 
     raw = provider.complete(system, user)

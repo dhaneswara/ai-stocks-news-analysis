@@ -5,6 +5,9 @@ from app.models.schemas import (
     Candle,
     Fundamentals,
     Indicators,
+    MarketMood,
+    Mention,
+    MoodTheme,
     PriceSummary,
     Settings,
     StockData,
@@ -202,3 +205,36 @@ def test_guard_keeps_coherent_buy_low_sell_high_set():
     ]
     out = _analyze_signals(rows, signals)
     assert len(out) == 4               # a clean buy-low/sell-high set is untouched
+
+
+def _stock_with_mood():
+    s = _stock()
+    s.market_mood = MarketMood(
+        lean="risk_off", confidence=0.7, summary="Tariff threats.",
+        themes=[MoodTheme(label="Tariffs on China", lean="bearish", quote="massive")],
+        as_of="2026-06-04T12:00:00Z", post_count=3,
+    )
+    s.trump_mentions = [Mention(post_id="1", created_at="2026-06-04T10:00:00Z",
+                                matched="$AAPL", excerpt="love $AAPL", url="https://t/1")]
+    return s
+
+
+def test_prompt_includes_mood_and_mentions():
+    prompt = build_user_prompt(_stock_with_mood())
+    assert "MARKET MOOD" in prompt
+    assert "risk_off" in prompt
+    assert "TRUMP MENTIONS" in prompt
+    assert "$AAPL" in prompt
+
+
+def test_prompt_has_placeholders_when_signal_absent():
+    prompt = build_user_prompt(_stock())  # no mood, no mentions
+    assert "TRUMP MENTIONS" in prompt
+    assert "(none)" in prompt
+
+
+def test_analyze_surfaces_market_mood_on_result():
+    provider = FakeProvider([json.dumps(VALID_PAYLOAD)])
+    result = analyze(_stock_with_mood(), provider, model="m", provider_name="fake")
+    assert result.market_mood is not None
+    assert result.market_mood.lean == "risk_off"
