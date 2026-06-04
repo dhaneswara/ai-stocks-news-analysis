@@ -27,9 +27,12 @@ def test_market_mood_defaults_to_neutral():
     assert mood.post_count == 0
 
 
-def test_stockdata_truth_fields_default_empty():
-    sd = StockData.model_construct(ticker="AAPL")
+def test_stockdata_truth_fields_default_to_none_and_empty_list():
     assert StockData.model_fields["market_mood"].default is None
+    assert StockData.model_fields["trump_mentions"].default_factory is list
+
+
+def test_truth_post_url_defaults_empty():
     assert TruthPost(id="1", created_at="t", content="c").url == ""
 
 
