@@ -49,7 +49,7 @@ updates, no auth) and injects two inputs into each LLM analysis:
 Configure via **Settings → Truth Social signal**: an **Enabled** toggle (on by default)
 and a **lookback (hours)** window (default 48). Persisted under `Settings.truth_signal`.
 
-The fetcher is isolated (`app/truth_social.py`) so the data source can be swapped (e.g.
+The fetcher is isolated (`app/data/truth_social.py`) so the data source can be swapped (e.g.
 `truthbrush` or a paid API). The mood read mirrors the per-day analysis cache — real-time
 reaction to a breaking post is out of scope for this version.
 
