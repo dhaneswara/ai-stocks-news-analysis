@@ -11,6 +11,13 @@ export function ReasoningPanel({ result }: { result: AnalysisResult }) {
         <span className="provider">{result.provider} · {result.model}</span>
       </div>
 
+      {result.market_mood && result.market_mood.post_count > 0 && (
+        <p className="note muted">
+          Policy / market mood: <b>{result.market_mood.lean.replace('_', ' ')}</b>
+          {result.market_mood.summary ? ` — ${result.market_mood.summary}` : ''}
+        </p>
+      )}
+
       {result.key_factors?.length ? (
         <>
           <h4>Why now — key factors</h4>

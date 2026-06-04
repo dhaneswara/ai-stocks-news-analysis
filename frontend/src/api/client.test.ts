@@ -35,4 +35,12 @@ describe('api client', () => {
       expect.objectContaining({ method: 'POST' }),
     );
   });
+
+  it('getMood GETs /truth/mood', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ enabled: true, post_count: 2, mood: null }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const body = await api.getMood();
+    expect(body.post_count).toBe(2);
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/truth/mood'), expect.any(Object));
+  });
 });

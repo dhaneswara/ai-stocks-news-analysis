@@ -1,5 +1,6 @@
 import type {
   AnalysisResult,
+  MarketMood,
   ProviderInfo,
   Settings,
   StockData,
@@ -40,4 +41,5 @@ export const api = {
   testProvider: (id: string) =>
     http<TestResult>(`/providers/${encodeURIComponent(id)}/test`, { method: 'POST' }),
   testAlert: () => http<TestResult>('/alerts/test', { method: 'POST' }),
+  getMood: () => http<{ enabled: boolean; post_count: number; mood: MarketMood | null }>('/truth/mood'),
 };
