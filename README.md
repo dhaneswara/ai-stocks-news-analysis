@@ -30,6 +30,19 @@ directly on an interactive chart** with the reasoning shown on the page. It can 
 - **Scheduled alerts** — a CLI evaluates indicator rules (RSI 30/70 crossings, golden/death
   cross) on your watchlist and sends deduplicated Telegram alerts (with best-effort LLM
   reasoning), scheduled via the OS.
+- **Trump / Truth Social signal** — the analyzer optionally folds Donald Trump's recent
+  Truth Social posts into each stock's analysis as two inputs: a market-wide **mood**
+  (risk-on / risk-off, derived once per provider/day and shared across tickers) and a
+  per-ticker **mention** scan (when he names the company or ticker). Both are weighed by
+  the LLM alongside the technicals, fundamentals, and news.
+  Source: the public archive mirror `https://ix.cnn.io/data/truth-social/truth_archive.json`
+  (~5-min updates, no auth). Toggle and lookback window (default 48 h) are in **Settings →
+  Truth Social signal**. Preview: `GET /api/truth/mood`.
+  *Caveats:* political-post inference is noisy — one weighted input among many, never an
+  auto-trigger. Mention matching uses `$CASHTAG` + bare ticker + company name with word
+  boundaries (very short tickers and multi-word names can over- or under-match). The read
+  is "as of the day's first analysis per ticker" (mirrors the per-day cache); real-time
+  reaction to a breaking post is out of scope.
 - **Free/minimal data** — `yfinance` for prices/fundamentals, Google News RSS for news.
 
 ## Architecture
@@ -109,7 +122,7 @@ npm run dev                        # http://localhost:5173
 ## Testing
 
 ```powershell
-cd backend; .venv\Scripts\python.exe -m pytest -q      # backend (82 tests)
+cd backend; .venv\Scripts\python.exe -m pytest -q      # backend (110 tests)
 cd frontend; npx vitest run                            # frontend unit tests
 cd frontend; npm run build                             # type-check + bundle
 ```

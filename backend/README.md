@@ -32,6 +32,29 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 - `POST /api/analyze/{ticker}?period=2y`
 - `GET  /api/settings` · `PUT /api/settings`
 - `GET  /api/providers` · `POST /api/providers/{id}/test`
+- `GET  /api/truth/mood` — current Truth Social mood + post count
+
+## Trump / Truth Social signal
+
+When enabled, the analyzer fetches Donald Trump's recent Truth Social posts from the
+public archive mirror `https://ix.cnn.io/data/truth-social/truth_archive.json` (~5-min
+updates, no auth) and injects two inputs into each LLM analysis:
+
+- **Market mood** — risk-on / risk-off, derived once per provider/day and shared across
+  all tickers in that run.
+- **Mention flag** — whether he named the company or its ticker in the lookback window.
+  Matching uses `$CASHTAG` + bare uppercase ticker + company name with word boundaries.
+  Very short tickers (1–2 chars, e.g. F, T) and multi-word company names match coarsely.
+
+Configure via **Settings → Truth Social signal**: an **Enabled** toggle (on by default)
+and a **lookback (hours)** window (default 48). Persisted under `Settings.truth_signal`.
+
+The fetcher is isolated (`app/truth_social.py`) so the data source can be swapped (e.g.
+`truthbrush` or a paid API). The mood read mirrors the per-day analysis cache — real-time
+reaction to a breaking post is out of scope for this version.
+
+> *Decision support only — not financial advice.* This is one weighted input among many;
+> it never auto-triggers a trade or creates historical buy/sell chart markers.
 
 ## Scheduled alerts
 
