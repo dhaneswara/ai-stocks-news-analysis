@@ -16,6 +16,8 @@ from app.models.schemas import (
     Settings,
     StockData,
 )
+from app.analysis import political
+from app.data import truth_social
 from app.services.analysis_service import run_analysis
 from app.services.stock_service import get_stock_data
 
@@ -105,6 +107,27 @@ def test_provider(
         return {"ok": True, "message": "Connection succeeded."}
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "message": str(exc)}
+
+
+@router.get("/truth/mood")
+def truth_mood(
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+) -> dict:
+    settings = store.load()
+    ts = settings.truth_signal
+    if not ts.enabled:
+        return {"enabled": False, "post_count": 0, "mood": None}
+    posts = truth_social.fetch_recent_posts_cached(ts.lookback_hours, ts.source_url, cache)
+    try:
+        provider = build_provider(settings)
+        cfg = settings.providers[settings.active_provider]
+        mood = political.summarize_market_mood(
+            posts, provider, cfg.model, settings.active_provider, cache
+        )
+        return {"enabled": True, "post_count": len(posts), "mood": mood.model_dump()}
+    except Exception as exc:  # noqa: BLE001
+        return {"enabled": True, "post_count": len(posts), "mood": None, "error": str(exc)}
 
 
 @router.post("/alerts/test")
