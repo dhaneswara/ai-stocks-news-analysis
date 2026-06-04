@@ -107,7 +107,10 @@ def summarize_market_mood(
     key = f"truth_mood:{provider_name}:{model}:{now.date().isoformat()}"
     cached = cache.get(key)
     if cached is not None:
-        return MarketMood.model_validate_json(cached)
+        try:
+            return MarketMood.model_validate_json(cached)
+        except Exception:
+            pass  # corrupt/stale cache entry -> recompute below
 
     system, user = build_mood_prompt(posts)
     try:

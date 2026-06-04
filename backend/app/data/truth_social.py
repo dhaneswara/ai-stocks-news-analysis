@@ -80,7 +80,10 @@ def fetch_recent_posts_cached(
     key = f"truth_posts:{source_url}:{lookback_hours}"
     cached = cache.get(key)
     if cached is not None:
-        return [TruthPost.model_validate(p) for p in json.loads(cached)]
+        try:
+            return [TruthPost.model_validate(p) for p in json.loads(cached)]
+        except Exception:
+            pass  # corrupt/stale cache entry -> treat as a miss and re-fetch
     posts = fetch_recent_posts(lookback_hours, source_url, now=now)
     cache.set(key, json.dumps([p.model_dump() for p in posts]), ttl_seconds)
     return posts

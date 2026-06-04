@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 
 from app.analysis.political import build_mood_prompt, find_mentions, summarize_market_mood
 from app.config.cache import Cache
@@ -93,3 +94,12 @@ def test_summarize_falls_back_to_neutral_on_bad_json(tmp_path):
     cache = Cache(str(tmp_path / "c.db"))
     mood = summarize_market_mood([_post("1", "x")], FakeProvider(["not json"]), "m", "fake", cache)
     assert mood.lean == "neutral"
+
+
+def test_summarize_treats_corrupt_cache_as_miss(tmp_path):
+    cache = Cache(str(tmp_path / "c.db"))
+    now = datetime(2026, 6, 4, tzinfo=timezone.utc)
+    key = f"truth_mood:fake:m:{now.date().isoformat()}"
+    cache.set(key, "{ corrupt", 3600)  # corrupt entry
+    mood = summarize_market_mood([_post("1", "Tariffs")], FakeProvider([MOOD_JSON]), "m", "fake", cache, now=now)
+    assert mood.lean == "risk_off"  # recomputed via the LLM, did not raise

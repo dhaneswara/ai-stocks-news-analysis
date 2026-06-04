@@ -60,3 +60,12 @@ def test_cached_pull_avoids_second_fetch(tmp_path, monkeypatch):
     b = truth_social.fetch_recent_posts_cached(48, truth_social.ARCHIVE_URL, cache, now=NOW)
     assert [p.id for p in a] == ["1"] and [p.id for p in b] == ["1"]
     assert calls["n"] == 1  # second call served from cache
+
+
+def test_cached_pull_treats_corrupt_entry_as_miss(tmp_path, monkeypatch):
+    monkeypatch.setattr(truth_social, "_fetch_archive", lambda url: SAMPLE)
+    cache = Cache(str(tmp_path / "c.db"))
+    key = f"truth_posts:{truth_social.ARCHIVE_URL}:48"
+    cache.set(key, "not valid json", 3600)  # corrupt entry
+    posts = truth_social.fetch_recent_posts_cached(48, truth_social.ARCHIVE_URL, cache, now=NOW)
+    assert [p.id for p in posts] == ["1"]  # recovered by re-fetching, did not raise
