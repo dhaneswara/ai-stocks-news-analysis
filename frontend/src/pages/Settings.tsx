@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useProviders, useSaveSettings, useSettings } from '../hooks/queries';
-import type { AlertConfig, ProviderId, Settings as SettingsT, TestResult } from '../types';
+import type { AlertConfig, ProviderId, Settings as SettingsT, TestResult, TruthSignalConfig } from '../types';
 
 export default function Settings() {
   const settingsQuery = useSettings();
@@ -24,6 +24,7 @@ export default function Settings() {
   const updateCfg = (patch: Partial<typeof cfg>) =>
     update({ providers: { ...form.providers, [active]: { ...cfg, ...patch } } });
   const updateAlerts = (patch: Partial<AlertConfig>) => update({ alerts: { ...form.alerts, ...patch } });
+  const updateTruth = (patch: Partial<TruthSignalConfig>) => update({ truth_signal: { ...form.truth_signal, ...patch } });
 
   const onSave = () => save.mutate(form, { onSuccess: () => setSaved(true) });
   const onTest = async () => {
@@ -118,6 +119,28 @@ export default function Settings() {
           <button className="secondary" onClick={onTestAlert} disabled={save.isPending}>Send test alert</button>
           {alertTest && <span className={`note ${alertTest.ok ? 'muted' : 'error'}`} style={{ marginLeft: 8 }}>{alertTest.ok ? '✓ ' : '✗ '}{alertTest.message}</span>}
         </>
+      )}
+
+      <h3>Truth Social signal</h3>
+      <div className="field check">
+        <label>
+          <input
+            type="checkbox"
+            checked={form.truth_signal.enabled}
+            onChange={(e) => updateTruth({ enabled: e.target.checked })}
+          />
+          Use Trump / Truth Social posts as a market-mood + mention signal
+        </label>
+      </div>
+      {form.truth_signal.enabled && (
+        <div className="field">
+          <label>Lookback (hours)</label>
+          <input
+            type="number"
+            value={form.truth_signal.lookback_hours}
+            onChange={(e) => updateTruth({ lookback_hours: Number(e.target.value) })}
+          />
+        </div>
       )}
 
       <div className="settings-actions">

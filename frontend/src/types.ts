@@ -16,6 +16,10 @@ export interface Fundamentals {
 }
 export interface PriceSummary { current: number; change: number; change_pct: number; currency: string; }
 export interface NewsItem { title: string; source: string; published_at: string; url: string; summary: string; }
+export interface MoodTheme { label: string; lean: 'bullish' | 'bearish' | 'neutral'; quote: string; post_url: string; created_at: string; }
+export interface MarketMood { lean: 'risk_on' | 'neutral' | 'risk_off'; confidence: number; summary: string; themes: MoodTheme[]; as_of: string; post_count: number; }
+export interface Mention { post_id: string; created_at: string; matched: string; excerpt: string; url: string; }
+export interface TruthSignalConfig { enabled: boolean; source_url: string; lookback_hours: number; }
 export interface StockData {
   ticker: string;
   company_name: string;
@@ -25,6 +29,8 @@ export interface StockData {
   fundamentals: Fundamentals;
   indicators: Indicators;
   news: NewsItem[];
+  market_mood?: MarketMood | null;
+  trump_mentions?: Mention[];
 }
 export type Action = 'buy' | 'sell';
 export interface Signal { date: string; action: Action; price: number; confidence: number; reasoning: string; }
@@ -44,6 +50,7 @@ export interface AnalysisResult {
   signals: Signal[];
   risks: string[];
   disclaimer: string;
+  market_mood?: MarketMood | null;
 }
 export interface ProviderConfig { model: string; api_key: string; base_url: string; }
 export interface IndicatorParams { sma_windows: number[]; rsi_length: number; }
@@ -62,6 +69,7 @@ export interface Settings {
   watchlist: string[];
   indicator_params: IndicatorParams;
   alerts: AlertConfig;
+  truth_signal: TruthSignalConfig;
 }
 export interface ProviderInfo { id: string; label: string; configured: boolean; default_model: string; }
 export interface TestResult { ok: boolean; message: string; }
