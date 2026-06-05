@@ -81,6 +81,14 @@ export interface AlertConfig {
   rsi_low: number;
   rsi_high: number;
 }
+export interface ScreenerConfig {
+  enabled: boolean;
+  top_n: number;
+  default_sector: string | null;
+  rsi_low: number;
+  rsi_high: number;
+  weights: Record<string, number>;
+}
 export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama';
 export interface Settings {
   active_provider: ProviderId;
@@ -89,6 +97,7 @@ export interface Settings {
   indicator_params: IndicatorParams;
   alerts: AlertConfig;
   truth_signal: TruthSignalConfig;
+  screener: ScreenerConfig;
 }
 export interface ProviderInfo { id: string; label: string; configured: boolean; default_model: string; }
 export interface TestResult { ok: boolean; message: string; }
