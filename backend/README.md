@@ -33,6 +33,9 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 - `GET  /api/settings` · `PUT /api/settings`
 - `GET  /api/providers` · `POST /api/providers/{id}/test`
 - `GET  /api/truth/mood` — current Truth Social mood + post count
+- `GET  /api/screen?sector=&direction=&limit=` — read the latest opportunity board
+- `POST /api/screen/rescan?sector=` — trigger a fresh scan and persist the result
+- `GET  /api/screen/sectors` — list available sectors from the universe file
 
 ## Trump / Truth Social signal
 
@@ -55,6 +58,68 @@ reaction to a breaking post is out of scope for this version.
 
 > *Decision support only — not financial advice.* This is one weighted input among many;
 > it never auto-triggers a trade or creates historical buy/sell chart markers.
+
+## Discover — opportunity board
+
+The **Discover** tab ranks the S&P 500 (or a sector slice) by a 0–100 opportunity score
+computed with a pure, deterministic scorer — **no LLM call on the board path**. Clicking a
+row opens the existing per-ticker LLM deep-dive on the Dashboard.
+
+### Scorer — signal families
+
+The scorer (`app/analysis/scoring.py`) blends five signal families into a single score:
+
+| Family | Signals | Direction vote? |
+|--------|---------|-----------------|
+| **extremes** (weight 1.0) | RSI oversold/overbought, proximity to 52-wk low | yes |
+| **trend** (weight 1.0) | Golden/death cross, price vs SMA50/200 alignment | yes |
+| **momentum** (weight 0.8) | 1-month return, near 52-wk-high breakout | yes |
+| **volume** (weight 0.4) | Last-bar vs 20-day average volume surge | no (attention only) |
+| **catalyst** (weight 0.5) | Trump / Truth Social mention count | no (attention only) |
+
+Weights and RSI thresholds live in `Settings.screener.weights`, `rsi_low`, and `rsi_high`
+(defaults: `rsi_low=30`, `rsi_high=70`; configurable via `PUT /api/settings`).
+The `buy`/`sell`/`hold` direction is derived from the *signed* net of the three directional
+families only; volume surges and Trump mentions raise the score without ever flipping the call.
+
+### Universe
+
+`app/data/sp500.json` — a committed static snapshot of S&P 500 constituents (`ticker`,
+`name`, GICS `sector`). Ships a representative **starter subset** covering all 11 sectors;
+the loader (`app/data/universe.py`) is size-agnostic, so expanding to the full ~500 is a
+data-only change (replace the JSON file; no code change). Refresh manually, e.g. quarterly.
+
+### Daily snapshot job
+
+Schedule `python -m app.screener` post-market close (same mechanism as `python -m app.alerts`):
+
+```
+python -m app.screener                # scan all sectors + save snapshot
+python -m app.screener --sector Tech  # limit to one GICS sector
+python -m app.screener --dry-run      # log the top-10, do not save
+```
+
+#### Schedule it daily (Windows Task Scheduler)
+
+Create a Basic Task -> Daily (e.g. 5:00 PM, after US close) -> Start a program:
+
+- Program/script: `D:\workspace\ai-stocks-news-analysis\backend\.venv\Scripts\python.exe`
+- Add arguments: `-m app.screener`
+- Start in: `D:\workspace\ai-stocks-news-analysis\backend`
+
+(macOS/Linux: add a cron entry running the same command from `backend/`.)
+
+The snapshot is stored in the existing SQLite `Cache` (key `screen_snapshot:all`; 7-day TTL).
+A `POST /api/screen/rescan` from the frontend triggers the same scan on demand; a sector
+rescan merges fresh rows back into the full board without clobbering other sectors.
+
+### Caveats
+
+> *Decision support only — not financial advice.* The board is a **screen**, not a
+> recommendation system. Ranking ≠ prediction; the score is a heuristic ordering, not a
+> probability of return. Data is end-of-day (daily cadence, not intraday). A Trump mention
+> **boosts attention** (raises the score) but never votes on direction — the call stays
+> driven by technicals alone.
 
 ## Scheduled alerts
 

@@ -43,6 +43,17 @@ directly on an interactive chart** with the reasoning shown on the page. It can 
   boundaries (very short tickers and multi-word names can over- or under-match). The read
   is "as of the day's first analysis per ticker" (mirrors the per-day cache); real-time
   reaction to a breaking post is out of scope.
+- **Discover — opportunity board** — a new **Discover** tab auto-ranks the S&P 500 (or a
+  sector slice) by a 0–100 opportunity score computed with a fast, no-LLM scorer (RSI /
+  52-wk extremes, golden/death cross + SMA alignment, 1-month momentum, breakout proximity,
+  volume surge, and an optional Trump-mention boost). Each row shows the score, a
+  buy/sell/hold call, and plain-language reason chips. Clicking a row deep-links into the
+  existing per-ticker LLM analysis. A **Rescan** button triggers a fresh scan on demand;
+  the daily snapshot can also be refreshed automatically via `python -m app.screener` (see
+  [backend/README.md](backend/README.md)).
+  *Caveats:* decision support only — the board is a screen, not a recommendation system;
+  ranking ≠ prediction; data is end-of-day (not intraday); a Trump mention boosts attention
+  but never determines the buy/sell direction.
 - **Free/minimal data** — `yfinance` for prices/fundamentals, Google News RSS for news.
 
 ## Architecture
@@ -57,8 +68,8 @@ directly on an interactive chart** with the reasoning shown on the page. It can 
                                                 └──────────────────────────────┘
 ```
 
-- **Backend** (`backend/`) — FastAPI REST API + the `python -m app.alerts` CLI. See
-  [backend/README.md](backend/README.md).
+- **Backend** (`backend/`) — FastAPI REST API + the `python -m app.alerts` and
+  `python -m app.screener` CLIs. See [backend/README.md](backend/README.md).
 - **Frontend** (`frontend/`) — React dashboard. See [frontend/README.md](frontend/README.md).
 - **Design docs** — specs and implementation plans under [docs/superpowers/](docs/superpowers/).
 
@@ -114,7 +125,11 @@ npm run dev                        # http://localhost:5173
    and run `ollama serve` + `ollama pull llama3.1` — no key needed). Click **Test connection**.
 3. On the **Dashboard**, enter a ticker (or use the watchlist), then click **Analyze with LLM**
    to draw buy/sell markers and show the reasoning + news.
-4. **Alerts (optional):** in **Settings → Alerts**, enable alerts, paste a Telegram bot token
+4. **Discover (optional):** open the **Discover** tab and click **Rescan all** to build
+   today's opportunity board across the starter S&P 500 universe. Click any row to open the
+   LLM deep-dive for that ticker. For an automatic daily refresh, schedule
+   `python -m app.screener` post-close (see [backend/README.md](backend/README.md)).
+5. **Alerts (optional):** in **Settings → Alerts**, enable alerts, paste a Telegram bot token
    (from [@BotFather](https://t.me/BotFather)) + your chat id, set RSI thresholds, and click
    **Send test alert**. Then schedule `python -m app.alerts` daily (see
    [backend/README.md](backend/README.md) for Windows Task Scheduler / cron steps).
@@ -122,7 +137,7 @@ npm run dev                        # http://localhost:5173
 ## Testing
 
 ```powershell
-cd backend; .venv\Scripts\python.exe -m pytest -q      # backend (110 tests)
+cd backend; .venv\Scripts\python.exe -m pytest -q      # backend suite
 cd frontend; npx vitest run                            # frontend unit tests
 cd frontend; npm run build                             # type-check + bundle
 ```
