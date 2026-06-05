@@ -43,4 +43,15 @@ describe('api client', () => {
     expect(body.post_count).toBe(2);
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/truth/mood'), expect.any(Object));
   });
+
+  it('getScreen builds a filtered query string', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ items: [] }) });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.getScreen('Energy', 'buy', 10);
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain('/screen?');
+    expect(url).toContain('sector=Energy');
+    expect(url).toContain('direction=buy');
+    expect(url).toContain('limit=10');
+  });
 });

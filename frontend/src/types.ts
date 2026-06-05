@@ -20,6 +20,25 @@ export interface MoodTheme { label: string; lean: 'bullish' | 'bearish' | 'neutr
 export interface MarketMood { lean: 'risk_on' | 'neutral' | 'risk_off'; confidence: number; summary: string; themes: MoodTheme[]; as_of: string; post_count: number; }
 export interface Mention { post_id: string; created_at: string; matched: string; excerpt: string; url: string; }
 export interface TruthSignalConfig { enabled: boolean; source_url: string; lookback_hours: number; }
+export interface StockScore {
+  ticker: string;
+  name: string;
+  sector: string;
+  price: number;
+  change_pct: number;
+  score: number;
+  direction: Recommendation;
+  reasons: string[];
+  components: Record<string, number>;
+  as_of: string;
+}
+export interface ScreenBoard {
+  as_of: string;
+  scope: string;
+  scanned: number;
+  skipped: number;
+  items: StockScore[];
+}
 export interface StockData {
   ticker: string;
   company_name: string;

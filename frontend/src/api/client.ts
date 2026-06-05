@@ -2,6 +2,7 @@ import type {
   AnalysisResult,
   MarketMood,
   ProviderInfo,
+  ScreenBoard,
   Settings,
   StockData,
   TestResult,
@@ -42,4 +43,17 @@ export const api = {
     http<TestResult>(`/providers/${encodeURIComponent(id)}/test`, { method: 'POST' }),
   testAlert: () => http<TestResult>('/alerts/test', { method: 'POST' }),
   getMood: () => http<{ enabled: boolean; post_count: number; mood: MarketMood | null }>('/truth/mood'),
+  getScreen: (sector?: string, direction?: string, limit?: number) => {
+    const q = new URLSearchParams();
+    if (sector) q.set('sector', sector);
+    if (direction) q.set('direction', direction);
+    if (limit != null) q.set('limit', String(limit));
+    const qs = q.toString();
+    return http<ScreenBoard>(`/screen${qs ? `?${qs}` : ''}`);
+  },
+  rescan: (sector?: string) =>
+    http<ScreenBoard>(`/screen/rescan${sector ? `?sector=${encodeURIComponent(sector)}` : ''}`, {
+      method: 'POST',
+    }),
+  getSectors: () => http<string[]>('/screen/sectors'),
 };

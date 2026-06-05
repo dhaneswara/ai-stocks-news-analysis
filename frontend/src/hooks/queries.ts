@@ -30,3 +30,22 @@ export function useSaveSettings() {
 export function useProviders() {
   return useQuery({ queryKey: ['providers'], queryFn: api.listProviders });
 }
+
+export function useSectors() {
+  return useQuery({ queryKey: ['sectors'], queryFn: api.getSectors });
+}
+
+export function useScreen(sector?: string, direction?: string) {
+  return useQuery({
+    queryKey: ['screen', sector ?? '', direction ?? ''],
+    queryFn: () => api.getScreen(sector, direction),
+  });
+}
+
+export function useRescan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (sector?: string) => api.rescan(sector),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['screen'] }),
+  });
+}
