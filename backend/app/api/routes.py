@@ -21,6 +21,7 @@ from app.analysis import political
 from app.data import truth_social
 from app.services.analysis_service import run_analysis
 from app.services.stock_service import get_stock_data
+from app.data import universe
 from app.data.universe import list_sectors
 from app.screener.service import run_scan
 from app.screener.store import load_snapshot, merge_sector, save_snapshot
@@ -188,3 +189,13 @@ def test_alert(store: SettingsStore = Depends(get_settings_store)) -> dict:
         return {"ok": True, "message": "Test alert sent."}
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "message": str(exc)}
+
+
+@router.post("/universe/refresh")
+def update_universe() -> dict:
+    try:
+        return universe.refresh_universe()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502, detail=f"Could not update the S&P 500 list: {exc}"
+        ) from exc
