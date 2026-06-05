@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PriceChart, type ChartRange } from '../components/PriceChart';
 import { IndicatorBar } from '../components/IndicatorBar';
@@ -7,7 +7,7 @@ import { ReasoningPanel } from '../components/ReasoningPanel';
 import { SignalList } from '../components/SignalList';
 import { TickerBar } from '../components/TickerBar';
 import { useAnalyze, useSettings, useStock } from '../hooks/queries';
-import type { AnalysisResult, Signal } from '../types';
+import { useDashboardState } from '../state/dashboardState';
 
 const RANGES: ChartRange[] = ['1M', '3M', '6M', '1Y', '2Y', '5Y'];
 // Each chart range maps to the yfinance period the LLM analyzes over.
@@ -20,10 +20,10 @@ export default function Dashboard() {
   const watchlist = settings.data?.watchlist ?? [];
   const [searchParams] = useSearchParams();
   const urlTicker = (searchParams.get('ticker') ?? '').toUpperCase();
-  const [ticker, setTicker] = useState(urlTicker);
-  const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
-  const [selected, setSelected] = useState<Signal | null>(null);
-  const [range, setRange] = useState<ChartRange>('2Y');
+  // View-state lives in a provider above the router so it survives navigating to
+  // Discover/Settings and back — the route unmounts, but this state does not.
+  const { ticker, setTicker, range, setRange, analysis, setAnalysis, selected, setSelected } =
+    useDashboardState();
 
   const stock = useStock(ticker);
   const analyze = useAnalyze(ticker, RANGE_TO_PERIOD[range]);
@@ -31,18 +31,23 @@ export default function Dashboard() {
   // Select the ticker from a ?ticker= deep-link (e.g. clicked from the Discover board).
   useEffect(() => {
     if (urlTicker) setTicker(urlTicker);
-  }, [urlTicker]);
+  }, [urlTicker, setTicker]);
 
   // Default to the first watchlist ticker once settings load.
   useEffect(() => {
     if (!ticker && watchlist.length) setTicker(watchlist[0]);
-  }, [watchlist, ticker]);
+  }, [watchlist, ticker, setTicker]);
 
-  // Reset analysis when the ticker changes.
+  // Reset the analysis only when the ticker ACTUALLY changes — not on every mount.
+  // (On remount the ref re-initialises to the current ticker, so returning from
+  // another page keeps the persisted analysis instead of clearing it.)
+  const prevTicker = useRef(ticker);
   useEffect(() => {
+    if (prevTicker.current === ticker) return;
+    prevTicker.current = ticker;
     setAnalysis(null);
     setSelected(null);
-  }, [ticker]);
+  }, [ticker, setAnalysis, setSelected]);
 
   const runAnalyze = () => {
     analyze.mutate(undefined, {
