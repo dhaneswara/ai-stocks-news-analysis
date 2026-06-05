@@ -68,3 +68,44 @@ def parse_sp500(html: str) -> list[UniverseEntry]:
             seen.add(ticker)
             out.append(UniverseEntry(ticker=ticker, name=name, sector=sector))
     return out
+
+
+def _dump_entries(entries: list[UniverseEntry]) -> str:
+    """Serialize in the committed one-object-per-line style (stable, diff-friendly)."""
+    lines = ["["]
+    for i, e in enumerate(entries):
+        comma = "," if i < len(entries) - 1 else ""
+        lines.append(
+            f'  {{ "ticker": {json.dumps(e.ticker, ensure_ascii=False)}, '
+            f'"name": {json.dumps(e.name, ensure_ascii=False)}, '
+            f'"sector": {json.dumps(e.sector, ensure_ascii=False)} }}{comma}'
+        )
+    lines.append("]")
+    return "\n".join(lines) + "\n"
+
+
+def refresh_universe(url: str = WIKI_SP500_URL) -> dict:
+    """Scrape the current S&P 500 list and rewrite the universe file atomically.
+
+    Validates before writing and refuses (raises) on a short/garbage parse, so a bad
+    scrape never clobbers the existing file. Clears the loader cache so the change takes
+    effect without a server restart.
+    """
+    entries = parse_sp500(_fetch_sp500_html(url))
+    has_anchor = any(e.ticker == "AAPL" and e.sector == "Information Technology" for e in entries)
+    if len(entries) < _MIN_SP500_ROWS or not has_anchor:
+        raise ValueError(
+            f"refused to update universe: parsed {len(entries)} rows, anchor present={has_anchor}"
+        )
+    entries.sort(key=lambda e: (e.sector, e.ticker))
+
+    tmp = _DATA_FILE.with_name(_DATA_FILE.name + ".tmp")
+    tmp.write_text(_dump_entries(entries), encoding="utf-8")
+    os.replace(tmp, _DATA_FILE)  # atomic swap
+    _all_entries.cache_clear()
+
+    return {
+        "count": len(entries),
+        "sectors": dict(sorted(Counter(e.sector for e in entries).items())),
+        "source": url,
+    }

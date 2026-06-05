@@ -65,3 +65,30 @@ def test_parse_sp500_dedupes_by_ticker():
 def test_parse_sp500_raises_when_table_missing():
     with pytest.raises(ValueError):
         universe.parse_sp500("<table><thead><tr><th>Foo</th></tr></thead><tbody><tr><td>bar</td></tr></tbody></table>")
+
+
+def test_refresh_universe_writes_and_clears_cache(tmp_path, monkeypatch):
+    out = tmp_path / "sp500.json"
+    monkeypatch.setattr(universe, "_DATA_FILE", out)
+    monkeypatch.setattr(universe, "_MIN_SP500_ROWS", 2)
+    monkeypatch.setattr(universe, "_fetch_sp500_html", lambda url=universe.WIKI_SP500_URL: SAMPLE_HTML)
+
+    summary = universe.refresh_universe()
+    assert summary["count"] == 3
+    assert summary["sectors"]["Information Technology"] == 2
+    assert out.exists()
+    # cache was cleared -> the loader now reflects the freshly written file
+    tickers = {e.ticker for e in universe.load_universe()}
+    assert {"AAPL", "MSFT", "BRK-B"} <= tickers
+
+
+def test_refresh_universe_refuses_bad_parse_and_keeps_existing_file(tmp_path, monkeypatch):
+    out = tmp_path / "sp500.json"
+    out.write_text('[\n  { "ticker": "ZZZ", "name": "Sentinel", "sector": "Energy" }\n]\n', encoding="utf-8")
+    monkeypatch.setattr(universe, "_DATA_FILE", out)
+    # default _MIN_SP500_ROWS (450) > the 3 parsed rows -> must refuse
+    monkeypatch.setattr(universe, "_fetch_sp500_html", lambda url=universe.WIKI_SP500_URL: SAMPLE_HTML)
+
+    with pytest.raises(ValueError):
+        universe.refresh_universe()
+    assert "Sentinel" in out.read_text(encoding="utf-8")  # untouched, no partial write
