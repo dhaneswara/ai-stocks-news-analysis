@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { DiscoverBoard } from '../components/DiscoverBoard';
-import { useRescan, useSaveSettings, useScreen, useSectors, useSettings } from '../hooks/queries';
+import { useRefreshUniverse, useRescan, useSaveSettings, useScreen, useSectors, useSettings } from '../hooks/queries';
 
 export default function Discover() {
   const [sector, setSector] = useState('');
@@ -10,6 +10,7 @@ export default function Discover() {
   const rescan = useRescan();
   const settings = useSettings();
   const saveSettings = useSaveSettings();
+  const refreshList = useRefreshUniverse();
 
   const addToWatch = (t: string) => {
     const s = settings.data;
@@ -46,6 +47,9 @@ export default function Discover() {
               {data.skipped ? `, ${data.skipped} skipped` : ''}
             </span>
           )}
+          <button className="secondary" onClick={() => refreshList.mutate()} disabled={refreshList.isPending}>
+            {refreshList.isPending ? 'Updating…' : 'Update S&P 500 list'}
+          </button>
           <button onClick={() => rescan.mutate(sector || undefined)} disabled={rescan.isPending}>
             {rescan.isPending ? 'Scanning…' : sector ? `Rescan ${sector}` : 'Rescan all'}
           </button>
@@ -55,6 +59,10 @@ export default function Discover() {
       {board.isLoading && <p className="muted">Loading board…</p>}
       {board.isError && <p className="error">Could not load the board: {(board.error as Error).message}</p>}
       {rescan.isError && <p className="error">Rescan failed: {(rescan.error as Error).message}</p>}
+      {refreshList.isSuccess && (
+        <p className="muted">S&amp;P 500 list updated — {refreshList.data.count} names. Hit Rescan to rebuild the board.</p>
+      )}
+      {refreshList.isError && <p className="error">Update failed: {(refreshList.error as Error).message}</p>}
       {empty && (
         <p className="muted">
           No snapshot yet — hit <b>Rescan all</b> to build today's board (scans the S&amp;P 500; a
