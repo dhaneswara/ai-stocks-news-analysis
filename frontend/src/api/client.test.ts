@@ -64,4 +64,11 @@ describe('api client', () => {
     expect(url).toContain('/universe/refresh');
     expect((init as RequestInit).method).toBe('POST');
   });
+
+  it('getScreen sends limit=0 for "All"', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ items: [] }) });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.getScreen(undefined, undefined, 0);
+    expect(fetchMock.mock.calls[0][0] as string).toContain('limit=0');
+  });
 });

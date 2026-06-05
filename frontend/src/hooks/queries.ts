@@ -35,10 +35,10 @@ export function useSectors() {
   return useQuery({ queryKey: ['sectors'], queryFn: api.getSectors });
 }
 
-export function useScreen(sector?: string, direction?: string) {
+export function useScreen(sector?: string, direction?: string, limit?: number) {
   return useQuery({
-    queryKey: ['screen', sector ?? '', direction ?? ''],
-    queryFn: () => api.getScreen(sector, direction),
+    queryKey: ['screen', sector ?? '', direction ?? '', limit ?? ''],
+    queryFn: () => api.getScreen(sector, direction, limit),
   });
 }
 
