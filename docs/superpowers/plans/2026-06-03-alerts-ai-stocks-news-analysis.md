@@ -120,9 +120,7 @@ Expected: 4 new pass; full suite green (48 + 4 = 52).
 - [ ] **Step 6: Commit**
 ```bash
 git add backend/app/models/schemas.py backend/app/config/settings_store.py backend/tests/test_alert_schema.py
-git commit -m "feat(backend): add AlertConfig/RuleHit schema and token masking
-
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+git commit -m "feat(backend): add AlertConfig/RuleHit schema and token masking"
 ```
 
 ---
@@ -253,9 +251,7 @@ Run: `cd backend && .venv/Scripts/python.exe -m pytest tests/test_rules.py -v`
 - [ ] **Step 5: Commit**
 ```bash
 git add backend/app/alerts/__init__.py backend/app/alerts/rules.py backend/tests/test_rules.py
-git commit -m "feat(backend): add pure indicator rule evaluation for alerts
-
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+git commit -m "feat(backend): add pure indicator rule evaluation for alerts"
 ```
 
 ---
@@ -333,9 +329,7 @@ class AlertState:
 - [ ] **Step 5: Commit**
 ```bash
 git add backend/app/alerts/state.py backend/tests/test_alert_state.py
-git commit -m "feat(backend): add SQLite alert dedup state store
-
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+git commit -m "feat(backend): add SQLite alert dedup state store"
 ```
 
 ---
@@ -456,9 +450,7 @@ def build_notifier(cfg: AlertConfig, dry_run: bool = False) -> Notifier:
 - [ ] **Step 5: Commit**
 ```bash
 git add backend/app/alerts/notifier.py backend/tests/test_notifier.py
-git commit -m "feat(backend): add Telegram/log notifier with env fallback
-
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+git commit -m "feat(backend): add Telegram/log notifier with env fallback"
 ```
 
 ---
@@ -630,9 +622,7 @@ Run: `cd backend && .venv/Scripts/python.exe -m pytest tests/test_runner.py -v` 
 - [ ] **Step 5: Commit**
 ```bash
 git add backend/app/alerts/runner.py backend/tests/test_runner.py
-git commit -m "feat(backend): add alert runner (rules + dedup + best-effort LLM + notify)
-
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+git commit -m "feat(backend): add alert runner (rules + dedup + best-effort LLM + notify)"
 ```
 
 ---
@@ -739,9 +729,7 @@ Create a Basic Task → Daily (e.g. 5:30 PM, after US close) → Start a program
 - [ ] **Step 6: Commit**
 ```bash
 git add backend/app/alerts/__main__.py backend/tests/test_alerts_cli.py backend/README.md
-git commit -m "feat(backend): add alerts CLI and scheduling docs
-
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+git commit -m "feat(backend): add alerts CLI and scheduling docs"
 ```
 
 ---
@@ -846,9 +834,7 @@ Run: `cd backend && .venv/Scripts/python.exe -m pytest tests/test_api_alerts.py 
 - [ ] **Step 5: Commit**
 ```bash
 git add backend/app/api/routes.py backend/tests/test_api_alerts.py
-git commit -m "feat(backend): add POST /api/alerts/test endpoint
-
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+git commit -m "feat(backend): add POST /api/alerts/test endpoint"
 ```
 
 ---
@@ -1024,9 +1010,7 @@ export default function Settings() {
 - [ ] **Step 5: Commit**
 ```bash
 git add frontend/src/types.ts frontend/src/api/client.ts frontend/src/pages/Settings.tsx
-git commit -m "feat(frontend): add Alerts settings section + test-alert button
-
-Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
+git commit -m "feat(frontend): add Alerts settings section + test-alert button"
 ```
 
 ---

@@ -15,8 +15,7 @@
 **Conventions (apply to every task):**
 - Run backend tests from `backend/` with the venv interpreter: `.venv/Scripts/python.exe -m pytest -q`.
 - Run a single test: `.venv/Scripts/python.exe -m pytest tests/test_x.py::test_name -v`.
-- Commits use Conventional Commits and **end with** the trailer:
-  `Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>`
+- Commits use Conventional Commits.
 - Frontend: from `frontend/`, `npm run test` (vitest) and `npm run build` (tsc + vite).
 
 ---
