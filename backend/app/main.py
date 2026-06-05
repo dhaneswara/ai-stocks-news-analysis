@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router as api_router
 
-app = FastAPI(title="AI Stocks & News Analysis API")
+app = FastAPI(title="MarketCortex API")
 
 app.add_middleware(
     CORSMiddleware,

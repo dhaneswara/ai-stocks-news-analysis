@@ -1,4 +1,4 @@
-# Frontend — AI Stocks & News Analysis
+# Frontend — MarketCortex
 
 React + Vite + TypeScript dashboard for the backend API.
 

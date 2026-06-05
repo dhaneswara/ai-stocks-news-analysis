@@ -1,4 +1,4 @@
-# 📈 AI Stocks & News Analysis
+# 📈 MarketCortex
 
 A personal web app for **swing/long-term US-stock decision support**. It pulls price
 data, fundamentals, and recent news for a stock, computes simple technical indicators,
