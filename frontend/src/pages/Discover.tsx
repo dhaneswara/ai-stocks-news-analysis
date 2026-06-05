@@ -5,8 +5,9 @@ import { useRefreshUniverse, useRescan, useSaveSettings, useScreen, useSectors, 
 export default function Discover() {
   const [sector, setSector] = useState('');
   const [direction, setDirection] = useState('');
+  const [show, setShow] = useState(25);
   const sectors = useSectors();
-  const board = useScreen(sector || undefined, direction || undefined);
+  const board = useScreen(sector || undefined, direction || undefined, show);
   const rescan = useRescan();
   const settings = useSettings();
   const saveSettings = useSaveSettings();
@@ -37,6 +38,14 @@ export default function Discover() {
               <option value="buy">Buy</option>
               <option value="sell">Sell</option>
               <option value="hold">Hold</option>
+            </select>
+          </label>
+          <label>Show
+            <select value={show} onChange={(e) => setShow(Number(e.target.value))}>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+              <option value={0}>All</option>
             </select>
           </label>
           <span className="spacer" />
