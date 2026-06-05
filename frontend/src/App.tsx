@@ -1,5 +1,6 @@
 import { Link, NavLink, Route, Routes } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
+import Discover from './pages/Discover';
 import Settings from './pages/Settings';
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -17,6 +18,7 @@ export default function App() {
         </Link>
         <nav className="nav">
           <NavLink to="/" end className={navClass}>Dashboard</NavLink>
+          <NavLink to="/discover" className={navClass}>Discover</NavLink>
           <NavLink to="/settings" className={navClass}>Settings</NavLink>
         </nav>
       </header>
@@ -24,6 +26,7 @@ export default function App() {
       <main className="content">
         <Routes>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/discover" element={<Discover />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>
       </main>

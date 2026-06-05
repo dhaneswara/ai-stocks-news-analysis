@@ -1,0 +1,73 @@
+import { useState } from 'react';
+import { DiscoverBoard } from '../components/DiscoverBoard';
+import { useRescan, useSaveSettings, useScreen, useSectors, useSettings } from '../hooks/queries';
+
+export default function Discover() {
+  const [sector, setSector] = useState('');
+  const [direction, setDirection] = useState('');
+  const sectors = useSectors();
+  const board = useScreen(sector || undefined, direction || undefined);
+  const rescan = useRescan();
+  const settings = useSettings();
+  const saveSettings = useSaveSettings();
+
+  const addToWatch = (t: string) => {
+    const s = settings.data;
+    if (!s || s.watchlist.includes(t)) return;
+    saveSettings.mutate({ ...s, watchlist: [...s.watchlist, t] });
+  };
+
+  const data = board.data;
+  const empty = data && data.items.length === 0 && data.as_of === '';
+
+  return (
+    <>
+      <div className="panel commandbar">
+        <div className="board-controls">
+          <label>Sector
+            <select value={sector} onChange={(e) => setSector(e.target.value)}>
+              <option value="">All sectors</option>
+              {(sectors.data ?? []).map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </label>
+          <label>Call
+            <select value={direction} onChange={(e) => setDirection(e.target.value)}>
+              <option value="">Any</option>
+              <option value="buy">Buy</option>
+              <option value="sell">Sell</option>
+              <option value="hold">Hold</option>
+            </select>
+          </label>
+          <span className="spacer" />
+          {data && (
+            <span className="muted board-asof">
+              {data.as_of ? `As of ${new Date(data.as_of).toLocaleString()}` : 'No scan yet'}
+              {data.scanned ? ` · ${data.scanned} scanned` : ''}
+              {data.skipped ? `, ${data.skipped} skipped` : ''}
+            </span>
+          )}
+          <button onClick={() => rescan.mutate(sector || undefined)} disabled={rescan.isPending}>
+            {rescan.isPending ? 'Scanning…' : sector ? `Rescan ${sector}` : 'Rescan all'}
+          </button>
+        </div>
+      </div>
+
+      {board.isLoading && <p className="muted">Loading board…</p>}
+      {board.isError && <p className="error">Could not load the board: {(board.error as Error).message}</p>}
+      {rescan.isError && <p className="error">Rescan failed: {(rescan.error as Error).message}</p>}
+      {empty && (
+        <p className="muted">
+          No snapshot yet — hit <b>Rescan all</b> to build today's board (scans the S&amp;P 500; a
+          few minutes cold, near-instant once cached).
+        </p>
+      )}
+
+      <section className="panel">
+        <div className="panel-head">
+          <span className="section-label">Opportunity board — click a row to deep-dive</span>
+        </div>
+        {data && <DiscoverBoard items={data.items} onAdd={addToWatch} />}
+      </section>
+    </>
+  );
+}

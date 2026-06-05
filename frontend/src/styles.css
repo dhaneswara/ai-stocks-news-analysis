@@ -667,3 +667,40 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
   .nav-link::after { transition: none; }
   * { scroll-behavior: auto; }
 }
+
+/* ----- Discover board ------------------------------------------------------ */
+.board-controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; width: 100%; }
+.board-controls > label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--ink-faint);
+}
+.board-controls .spacer { flex: 1; }
+.board-asof { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.04em; }
+
+.board-wrap { overflow-x: auto; }
+.board { width: 100%; border-collapse: collapse; font-size: 13px; }
+.board thead th {
+  text-align: left; white-space: nowrap;
+  font-family: var(--mono); font-size: 9.5px; font-weight: 500;
+  letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-faint);
+  padding: 8px 10px; border-bottom: 1px solid var(--hairline);
+}
+.board tbody td { padding: 10px; border-bottom: 1px solid var(--hairline); color: var(--ink-soft); vertical-align: middle; }
+.board tbody tr:last-child td { border-bottom: 0; }
+.board .mono { font-family: var(--mono); color: var(--ink); letter-spacing: 0.04em; }
+.board-row { cursor: pointer; transition: background 0.15s ease; }
+.board-row:hover { background: var(--gold-tint); }
+
+.score-cell { display: flex; align-items: center; gap: 9px; }
+.score-cell > span { font-family: var(--mono); font-size: 12px; color: var(--ink); min-width: 22px; }
+.score-bar { position: relative; width: 70px; height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+.score-bar > span { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); border-radius: 999px; }
+
+.reasons { display: flex; flex-wrap: wrap; gap: 5px; max-width: 340px; }
+.reason-chip {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.02em;
+  color: var(--ink-soft); background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--panel-brd); border-radius: 999px;
+  padding: 2px 9px; white-space: nowrap;
+}
