@@ -61,6 +61,12 @@ class NewsItem(BaseModel):
     summary: str = ""
 
 
+class UniverseEntry(BaseModel):
+    ticker: str
+    name: str
+    sector: str
+
+
 class TruthPost(BaseModel):
     id: str
     created_at: str
