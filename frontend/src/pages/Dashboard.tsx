@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PriceChart, type ChartRange } from '../components/PriceChart';
 import { IndicatorBar } from '../components/IndicatorBar';
 import { NewsList } from '../components/NewsList';
@@ -17,13 +18,20 @@ const RANGE_TO_PERIOD: Record<ChartRange, string> = {
 export default function Dashboard() {
   const settings = useSettings();
   const watchlist = settings.data?.watchlist ?? [];
-  const [ticker, setTicker] = useState('');
+  const [searchParams] = useSearchParams();
+  const urlTicker = (searchParams.get('ticker') ?? '').toUpperCase();
+  const [ticker, setTicker] = useState(urlTicker);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [selected, setSelected] = useState<Signal | null>(null);
   const [range, setRange] = useState<ChartRange>('2Y');
 
   const stock = useStock(ticker);
   const analyze = useAnalyze(ticker, RANGE_TO_PERIOD[range]);
+
+  // Select the ticker from a ?ticker= deep-link (e.g. clicked from the Discover board).
+  useEffect(() => {
+    if (urlTicker) setTicker(urlTicker);
+  }, [urlTicker]);
 
   // Default to the first watchlist ticker once settings load.
   useEffect(() => {
