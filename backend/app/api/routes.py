@@ -13,6 +13,7 @@ from app.llm.factory import build_provider
 from app.models.schemas import (
     DEFAULT_MODELS,
     AnalysisResult,
+    ScreenBoard,
     Settings,
     StockData,
 )
@@ -20,6 +21,9 @@ from app.analysis import political
 from app.data import truth_social
 from app.services.analysis_service import run_analysis
 from app.services.stock_service import get_stock_data
+from app.data.universe import list_sectors
+from app.screener.service import run_scan
+from app.screener.store import load_snapshot, merge_sector, save_snapshot
 
 router = APIRouter(prefix="/api")
 
@@ -128,6 +132,48 @@ def truth_mood(
         return {"enabled": True, "post_count": len(posts), "mood": mood.model_dump()}
     except Exception as exc:  # noqa: BLE001
         return {"enabled": True, "post_count": len(posts), "mood": None, "error": str(exc)}
+
+
+@router.get("/screen", response_model=ScreenBoard)
+def screen(
+    sector: str | None = None,
+    direction: str | None = None,
+    limit: int | None = None,
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+) -> ScreenBoard:
+    settings = store.load()
+    board = load_snapshot(cache, "all")
+    if board is None:
+        return ScreenBoard()  # empty -> frontend prompts a first scan
+    items = board.items
+    if sector:
+        items = [i for i in items if i.sector == sector]
+    if direction:
+        items = [i for i in items if i.direction == direction]
+    return board.model_copy(update={"items": items[: (limit or settings.screener.top_n)]})
+
+
+@router.post("/screen/rescan", response_model=ScreenBoard)
+def screen_rescan(
+    sector: str | None = None,
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+) -> ScreenBoard:
+    settings = store.load()
+    board = run_scan(sector, settings, cache)
+    if sector:
+        full = load_snapshot(cache, "all")
+        # Merge fresh sector rows into the full board if one exists; else persist as-is.
+        save_snapshot(merge_sector(full, board) if full else board, cache)
+    else:
+        save_snapshot(board, cache)
+    return board
+
+
+@router.get("/screen/sectors", response_model=list[str])
+def screen_sectors() -> list[str]:
+    return list_sectors()
 
 
 @router.post("/alerts/test")
