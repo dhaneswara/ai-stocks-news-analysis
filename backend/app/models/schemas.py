@@ -171,6 +171,40 @@ class RuleHit(BaseModel):
     message: str
 
 
+class StockScore(BaseModel):
+    ticker: str
+    name: str
+    sector: str = ""
+    price: float
+    change_pct: float
+    score: float                       # 0–100 opportunity
+    direction: Literal["buy", "sell", "hold"]
+    reasons: list[str] = Field(default_factory=list)
+    components: dict[str, float] = Field(default_factory=dict)
+    as_of: str = ""
+
+
+class ScreenBoard(BaseModel):
+    as_of: str = ""
+    scope: str = "all"
+    scanned: int = 0
+    skipped: int = 0
+    items: list[StockScore] = Field(default_factory=list)
+
+
+def _default_screener_weights() -> dict[str, float]:
+    return {"extremes": 1.0, "trend": 1.0, "momentum": 0.8, "volume": 0.4, "catalyst": 0.5}
+
+
+class ScreenerConfig(BaseModel):
+    enabled: bool = True
+    top_n: int = 25
+    default_sector: Optional[str] = None
+    rsi_low: float = 30.0
+    rsi_high: float = 70.0
+    weights: dict[str, float] = Field(default_factory=_default_screener_weights)
+
+
 def _default_providers() -> dict[str, ProviderConfig]:
     return {
         "anthropic": ProviderConfig(model=DEFAULT_MODELS["anthropic"]),
@@ -189,3 +223,4 @@ class Settings(BaseModel):
     indicator_params: IndicatorParams = Field(default_factory=IndicatorParams)
     alerts: AlertConfig = Field(default_factory=AlertConfig)
     truth_signal: TruthSignalConfig = Field(default_factory=TruthSignalConfig)
+    screener: ScreenerConfig = Field(default_factory=ScreenerConfig)
