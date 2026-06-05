@@ -85,3 +85,21 @@ def test_merge_sector_replaces_only_that_sector():
     tickers = [i.ticker for i in merged.items]
     assert "OLD" not in tickers and "NEW" in tickers and "KEEP" in tickers
     assert tickers[0] == "NEW"  # re-ranked by score desc
+
+
+def test_merge_sector_recomputes_scanned_skipped():
+    # The full board claims scanned=30 from an earlier scan; a sector rescan must NOT leave that
+    # stale (the live bug: board reported "30 scanned" while holding far more merged items).
+    full = ScreenBoard(scope="all", scanned=30, skipped=0, items=[
+        StockScore(ticker="OLD", name="O", sector="Tech", price=1, change_pct=0, score=10, direction="hold"),
+        StockScore(ticker="KEEP", name="K", sector="Energy", price=1, change_pct=0, score=20, direction="hold"),
+    ])
+    fresh = ScreenBoard(scope="Tech", scanned=2, skipped=1, items=[
+        StockScore(ticker="NEW1", name="N1", sector="Tech", price=1, change_pct=0, score=99, direction="buy"),
+        StockScore(ticker="NEW2", name="N2", sector="Tech", price=1, change_pct=0, score=50, direction="buy"),
+    ])
+    merged = merge_sector(full, fresh)
+    assert len(merged.items) == 3                              # KEEP + NEW1 + NEW2
+    assert merged.scanned == len(merged.items) + fresh.skipped  # honest, not the stale 30
+    assert merged.skipped == fresh.skipped
+    assert merged.scanned >= len(merged.items)

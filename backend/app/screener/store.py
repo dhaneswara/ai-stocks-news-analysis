@@ -25,8 +25,16 @@ def load_snapshot(cache: Cache, scope: str = "all") -> ScreenBoard | None:
 
 
 def merge_sector(full: ScreenBoard, fresh: ScreenBoard) -> ScreenBoard:
-    """Replace the rows belonging to fresh.scope inside the full board, then re-rank by score."""
+    """Replace the rows belonging to fresh.scope inside the full board, then re-rank by score.
+
+    Recompute ``scanned``/``skipped`` so they describe the merged board rather than carrying the
+    full board's stale counts (otherwise a sector rescan leaves e.g. "30 scanned" on a board that
+    now holds far more names). ``scanned`` counts the names on the board plus this rescan's
+    failures; ``skipped`` reflects the freshly rescanned sector.
+    """
     kept = [i for i in full.items if i.sector != fresh.scope]
     items = kept + list(fresh.items)
     items.sort(key=lambda s: s.score, reverse=True)
-    return full.model_copy(update={"items": items})
+    return full.model_copy(
+        update={"items": items, "scanned": len(items) + fresh.skipped, "skipped": fresh.skipped}
+    )
