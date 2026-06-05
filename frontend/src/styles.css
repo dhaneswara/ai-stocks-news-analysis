@@ -1,5 +1,5 @@
 /* ============================================================================
-   AI Stocks & News — "Quiet Luxury" dark fintech theme
+   MarketCortex — "Quiet Luxury" dark fintech theme
    Fraunces (display serif) · Hanken Grotesk (body) · IBM Plex Mono (data)
    Near-black canvas · single champagne-gold accent · glassy surfaces
    Tuned for density: most of a ticker fits without scrolling.
@@ -124,7 +124,6 @@ a { color: var(--gold); text-decoration: none; }
   transform: translateY(-2px);
   text-shadow: 0 0 14px rgba(232, 200, 126, 0.55);
 }
-.brand .amp { color: var(--gold); font-style: italic; padding: 0 1px; }
 
 .nav { display: flex; gap: 6px; }
 .nav-link {

@@ -1,4 +1,4 @@
-# Backend — AI Stocks & News Analysis
+# Backend — MarketCortex
 
 FastAPI service: US-stock data + indicators + news + multi-provider LLM analysis.
 

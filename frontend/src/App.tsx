@@ -15,7 +15,7 @@ export default function App() {
           <Link className="brand" to="/">
             <span className="brand-mark">◆</span>
             <span className="brand-name">
-              AI Stocks <span className="amp">&amp;</span> News
+              MarketCortex
             </span>
           </Link>
           <nav className="nav">

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Start the AI Stocks & News Analysis app (FastAPI backend + React frontend).
+    Start the MarketCortex app (FastAPI backend + React frontend).
 
 .DESCRIPTION
     On first run, creates the backend virtual environment and installs backend +
