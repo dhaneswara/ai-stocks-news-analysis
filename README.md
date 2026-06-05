@@ -48,9 +48,11 @@ directly on an interactive chart** with the reasoning shown on the page. It can 
   52-wk extremes, golden/death cross + SMA alignment, 1-month momentum, breakout proximity,
   volume surge, and an optional Trump-mention boost). Each row shows the score, a
   buy/sell/hold call, and plain-language reason chips. Clicking a row deep-links into the
-  existing per-ticker LLM analysis. A **Rescan** button triggers a fresh scan on demand;
-  the daily snapshot can also be refreshed automatically via `python -m app.screener` (see
-  [backend/README.md](backend/README.md)).
+  existing per-ticker LLM analysis. Filter by sector/direction and use the **Show** control
+  (25 / 50 / 100 / All) to set how many ranked names appear; **Update S&P 500 list** rescrapes
+  the current constituents from Wikipedia (validated, atomic write). A **Rescan** button
+  triggers a fresh scan on demand; the daily snapshot can also be refreshed automatically via
+  `python -m app.screener` (see [backend/README.md](backend/README.md)).
   *Caveats:* decision support only — the board is a screen, not a recommendation system;
   ranking ≠ prediction; data is end-of-day (not intraday); a Trump mention boosts attention
   but never determines the buy/sell direction.
@@ -126,7 +128,7 @@ npm run dev                        # http://localhost:5173
 3. On the **Dashboard**, enter a ticker (or use the watchlist), then click **Analyze with LLM**
    to draw buy/sell markers and show the reasoning + news.
 4. **Discover (optional):** open the **Discover** tab and click **Rescan all** to build
-   today's opportunity board across the starter S&P 500 universe. Click any row to open the
+   today's opportunity board across the full S&P 500. Click any row to open the
    LLM deep-dive for that ticker. For an automatic daily refresh, schedule
    `python -m app.screener` post-close (see [backend/README.md](backend/README.md)).
 5. **Alerts (optional):** in **Settings → Alerts**, enable alerts, paste a Telegram bot token
