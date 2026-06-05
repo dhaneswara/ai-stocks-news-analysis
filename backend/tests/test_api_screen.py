@@ -71,3 +71,23 @@ def test_sectors_endpoint(tmp_path):
     body = client.get("/api/screen/sectors").json()
     app.dependency_overrides.clear()
     assert "Information Technology" in body
+
+
+def test_screen_limit_zero_returns_all_uncapped(tmp_path):
+    cache = Cache(str(tmp_path / "c.db"))
+    save_snapshot(_board(), cache)  # 3 items
+
+    class _SmallStore:
+        def load(self):
+            s = Settings()
+            s.screener.top_n = 2
+            return s
+
+    app.dependency_overrides[routes.get_settings_store] = lambda: _SmallStore()
+    app.dependency_overrides[routes.get_cache] = lambda: cache
+    client = TestClient(app)
+    capped = client.get("/api/screen").json()["items"]          # no limit -> top_n = 2
+    all_items = client.get("/api/screen?limit=0").json()["items"]  # limit=0 -> uncapped
+    app.dependency_overrides.clear()
+    assert len(capped) == 2
+    assert len(all_items) == 3

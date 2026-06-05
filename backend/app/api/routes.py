@@ -152,7 +152,9 @@ def screen(
         items = [i for i in items if i.sector == sector]
     if direction:
         items = [i for i in items if i.direction == direction]
-    return board.model_copy(update={"items": items[: (limit or settings.screener.top_n)]})
+    n = settings.screener.top_n if limit is None else limit
+    shown = items if n <= 0 else items[:n]
+    return board.model_copy(update={"items": shown})
 
 
 @router.post("/screen/rescan", response_model=ScreenBoard)
