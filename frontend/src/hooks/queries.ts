@@ -49,3 +49,11 @@ export function useRescan() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['screen'] }),
   });
 }
+
+export function useRefreshUniverse() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.refreshUniverse(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['sectors'] }),
+  });
+}

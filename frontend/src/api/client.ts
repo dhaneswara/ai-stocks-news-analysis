@@ -56,4 +56,8 @@ export const api = {
       method: 'POST',
     }),
   getSectors: () => http<string[]>('/screen/sectors'),
+  refreshUniverse: () =>
+    http<{ count: number; sectors: Record<string, number>; source: string }>('/universe/refresh', {
+      method: 'POST',
+    }),
 };

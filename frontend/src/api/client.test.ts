@@ -54,4 +54,14 @@ describe('api client', () => {
     expect(url).toContain('direction=buy');
     expect(url).toContain('limit=10');
   });
+
+  it('refreshUniverse POSTs /universe/refresh', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ count: 503, sectors: {}, source: 'x' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const body = await api.refreshUniverse();
+    expect(body.count).toBe(503);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain('/universe/refresh');
+    expect((init as RequestInit).method).toBe('POST');
+  });
 });
