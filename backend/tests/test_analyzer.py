@@ -238,3 +238,17 @@ def test_analyze_surfaces_market_mood_on_result():
     result = analyze(_stock_with_mood(), provider, model="m", provider_name="fake")
     assert result.market_mood is not None
     assert result.market_mood.lean == "risk_off"
+
+
+def test_format_network_and_result_carries_it():
+    from app.analysis.analyzer import _format_network, build_user_prompt
+    from app.models.schemas import NetworkInfluence, NetworkSignal
+    from tests.test_screener_service import _stock
+
+    stock = _stock("AAPL")
+    stock.network = NetworkSignal(ticker="AAPL", intensity=0.5, signed=-0.4, influences=[
+        NetworkInfluence(neighbour="TSM", name="Taiwan Semi", type="supplier",
+                         edge_sentiment="negative", neighbour_direction="sell",
+                         signed=-0.4, reason="supplier TSM (bearish)")], reasons=["supplier TSM (bearish)"])
+    assert "TSM" in _format_network(stock.network)
+    assert "NETWORK" in build_user_prompt(stock).upper()

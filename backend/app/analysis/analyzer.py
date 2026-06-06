@@ -7,7 +7,7 @@ from datetime import date, datetime, timezone
 from pydantic import ValidationError
 
 from app.llm.base import LLMError, LLMProvider
-from app.models.schemas import DISCLAIMER, AnalysisResult, MarketMood, Mention, Signal, StockData
+from app.models.schemas import DISCLAIMER, AnalysisResult, MarketMood, Mention, NetworkSignal, Signal, StockData
 
 _SYSTEM_PROMPT = (
     "You are a cautious equity research assistant for a swing trader. "
@@ -66,6 +66,19 @@ def _format_mentions(mentions: list[Mention]) -> str:
     return "\n".join(f'- [{m.created_at}] "{m.excerpt}" ({m.url})' for m in mentions[:8])
 
 
+def _format_network(net: NetworkSignal | None) -> str:
+    if net is None or not net.influences:
+        return "- (no company-network signal)"
+    lines = []
+    for i in net.influences[:6]:
+        lean = "bullish" if i.signed > 0 else "bearish" if i.signed < 0 else "neutral"
+        lines.append(
+            f"- {i.type} {i.neighbour} ({i.name}): neighbour is {i.neighbour_direction}, "
+            f"news {i.edge_sentiment} -> {lean} for {net.ticker}"
+        )
+    return "\n".join(lines)
+
+
 def build_user_prompt(stock: StockData) -> str:
     rsi_latest = stock.indicators.rsi14[-1].value if stock.indicators.rsi14 else None
     sma50_latest = stock.indicators.sma50[-1].value if stock.indicators.sma50 else None
@@ -107,6 +120,13 @@ Weigh MARKET MOOD as a macro overlay and TRUMP MENTIONS as a stock-specific fact
 you weigh news — but treat political-post inference as noisy and low-certainty: it must not
 override strong technical or fundamental evidence, and you must NOT create dated buy/sell signals
 from these posts (they inform the current recommendation only).
+
+COMPANY NETWORK (relationships inferred from news; one hop):
+{_format_network(stock.network)}
+
+Weigh COMPANY NETWORK as a stock-specific factor like news, but treat it as noisy and
+low-certainty: it must not override strong technical or fundamental evidence, and you must NOT
+create dated buy/sell signals from it (it informs the current recommendation only).
 
 {_JSON_SCHEMA_HINT}"""
 
@@ -231,6 +251,7 @@ def analyze(
     def _finalize(text: str) -> AnalysisResult:
         result = _to_result(extract_json(text), stock.ticker, provider_name, model)
         result.market_mood = stock.market_mood
+        result.network = stock.network
         return _filter_incoherent_signals(_snap_signals(result, stock), stock)
 
     raw = provider.complete(system, user)

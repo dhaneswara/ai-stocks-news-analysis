@@ -4,11 +4,14 @@ from datetime import date
 
 from app.analysis import political
 from app.analysis.analyzer import analyze
+from app.analysis.network import compute_network_signal
 from app.config.cache import Cache
 from app.data import truth_social
 from app.llm.base import LLMError
 from app.llm.factory import build_provider, resolve_config
 from app.models.schemas import AnalysisResult, Settings
+from app.network.store import load_graph
+from app.screener.store import load_snapshot
 from app.services.stock_service import get_stock_data
 
 ANALYSIS_TTL_SECONDS = 24 * 60 * 60  # 1 day
@@ -34,6 +37,16 @@ def run_analysis(ticker: str, period: str, settings: Settings, cache: Cache) -> 
 
     stock = get_stock_data(ticker, period, settings.indicator_params, cache)
     provider = build_provider(settings)
+
+    ncfg = settings.network
+    if ncfg.enabled:
+        graph = load_graph(cache, "focus")
+        if graph is not None and graph.edges:
+            board = load_snapshot(cache, "all")
+            base_index = {s.ticker: s for s in (board.items if board else [])}
+            edges = [e for e in graph.edges if e.source == ticker]
+            if edges:
+                stock.network = compute_network_signal(ticker, edges, base_index, ncfg)
 
     ts = settings.truth_signal
     if ts.enabled:

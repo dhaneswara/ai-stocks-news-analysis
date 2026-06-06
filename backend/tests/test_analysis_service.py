@@ -118,3 +118,36 @@ def test_run_analysis_skips_signal_when_disabled(tmp_path, monkeypatch):
     result = analysis_service.run_analysis("aapl", "2y", settings, cache)
     assert result.current_recommendation == "hold"
     assert called["fetch"] is False  # disabled => no fetch
+
+
+def test_run_analysis_enriches_network(tmp_path, monkeypatch):
+    import app.services.analysis_service as svc
+    from app.config.cache import Cache
+    from app.models.schemas import GraphEdge, KnowledgeGraph, ScreenBoard, Settings, StockScore
+    from app.network.store import save_graph
+    from app.screener.store import save_snapshot
+    from tests.test_screener_service import _stock
+
+    cache = Cache(str(tmp_path / "c.db"))
+    save_snapshot(ScreenBoard(scope="all", items=[
+        StockScore(ticker="TSM", name="Taiwan Semi", price=1, change_pct=0, score=40,
+                   direction="sell", net=-0.9)]), cache)
+    save_graph(KnowledgeGraph(scope="focus", edges=[
+        GraphEdge(source="AAPL", target="TSM", type="supplier", sentiment="negative",
+                  weight=1.0, confidence=1.0)]), cache)
+
+    monkeypatch.setattr(svc, "get_stock_data", lambda *a, **k: _stock("AAPL"))
+    monkeypatch.setattr(svc, "build_provider", lambda s: object())
+    captured = {}
+
+    def fake_analyze(stock, provider, model, provider_name):
+        captured["network"] = stock.network
+        from app.models.schemas import AnalysisResult
+        return AnalysisResult(ticker="AAPL", provider=provider_name, model=model,
+                              generated_at="t", overall_summary="", news_analysis="",
+                              sentiment="neutral", current_recommendation="hold", confidence=0.5)
+
+    monkeypatch.setattr(svc, "analyze", fake_analyze)
+    settings = Settings(); settings.providers["anthropic"].api_key = "x"
+    svc.run_analysis("AAPL", "1y", settings, cache)
+    assert captured["network"] is not None and captured["network"].influences[0].neighbour == "TSM"
