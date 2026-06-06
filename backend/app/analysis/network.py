@@ -6,7 +6,13 @@ task) folds the result into the board via a closed-form re-blend.
 """
 from __future__ import annotations
 
-from app.models.schemas import GraphEdge, NetworkConfig, NetworkInfluence, NetworkSignal, StockScore
+from collections import defaultdict
+
+from app.analysis.scoring import _DIRECTION_THRESHOLD
+from app.models.schemas import (
+    GraphEdge, KnowledgeGraph, NetworkConfig, NetworkInfluence, NetworkSignal,
+    ScreenBoard, Settings, StockScore,
+)
 
 _SENTIMENT = {"positive": 1.0, "neutral": 0.0, "negative": -1.0}
 
@@ -61,3 +67,56 @@ def compute_network_signal(
         influences=influences,
         reasons=[i.reason for i in influences[:3]],
     )
+
+
+_DIRECTIONAL = ("extremes", "trend", "momentum")
+
+
+def apply_network(board: ScreenBoard, graph: KnowledgeGraph, settings: Settings) -> ScreenBoard:
+    """Fold a capped `network` family into each focus company's score/direction.
+
+    Pure: reads neighbours' BASE scores (one hop, no feedback) and returns a new board.
+    Re-blend is the closed form of adding one weighted family to `score_stock`'s own formula,
+    so it needs only the stored `score` and `net` plus the configured weights.
+    """
+    ncfg = settings.network
+    if not ncfg.enabled or not graph.edges:
+        return board
+
+    weights = settings.screener.weights
+    w_base = sum(weights.values()) or 1.0
+    w_dir = sum(weights.get(f, 0.0) for f in _DIRECTIONAL) or 1.0
+    w_net = ncfg.weight
+
+    base_index = {s.ticker: s for s in board.items}
+    edges_by_source: dict[str, list[GraphEdge]] = defaultdict(list)
+    for e in graph.edges:
+        edges_by_source[e.source].append(e)
+
+    new_items = []
+    for s in board.items:
+        edges = edges_by_source.get(s.ticker)
+        if not edges:
+            new_items.append(s)
+            continue
+        sig = compute_network_signal(s.ticker, edges, base_index, ncfg)
+        final_score = (s.score * w_base + 100.0 * sig.intensity * w_net) / (w_base + w_net)
+        final_net = _clamp((s.net * w_dir + sig.signed * w_net) / (w_dir + w_net), -1.0, 1.0)
+        direction = (
+            "buy" if final_net > _DIRECTION_THRESHOLD
+            else "sell" if final_net < -_DIRECTION_THRESHOLD
+            else "hold"
+        )
+        components = dict(s.components)
+        components["network"] = round(sig.intensity, 2)
+        new_items.append(s.model_copy(update={
+            "score": round(_clamp(final_score, 0.0, 100.0), 1),
+            "net": round(final_net, 3),
+            "direction": direction,
+            "components": components,
+            "reasons": sig.reasons + s.reasons,   # network reasons first
+            "network": sig,
+        }))
+
+    new_items.sort(key=lambda x: x.score, reverse=True)
+    return board.model_copy(update={"items": new_items})

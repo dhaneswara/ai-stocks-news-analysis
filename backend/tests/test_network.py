@@ -35,3 +35,48 @@ def test_signed_and_intensity_are_clamped():
     sig = compute_network_signal("X", edges, idx, NetworkConfig())
     assert -1.0 <= sig.signed <= 0.0 and 0.0 <= sig.intensity <= 1.0
     assert sig.signed == -1.0  # five strong-bearish edges clamp the floor
+
+
+from app.analysis.network import apply_network
+from app.models.schemas import KnowledgeGraph, ScreenBoard, Settings
+
+
+def _board(*scores):
+    return ScreenBoard(as_of="t", scope="all", scanned=len(scores), items=list(scores))
+
+
+def test_apply_network_noop_when_no_graph():
+    board = _board(_score("AAPL", net=0.0))
+    out = apply_network(board, KnowledgeGraph(), Settings())
+    assert out.items[0].network is None and out.items[0].direction == "hold"
+
+
+def test_apply_network_tilts_hold_to_sell():
+    # AAPL is a borderline HOLD; a strongly bearish supplier should tilt it to SELL.
+    board = _board(
+        _score("AAPL", net=0.0, direction="hold"),
+        _score("TSM", net=-0.9, direction="sell"),
+    )
+    graph = KnowledgeGraph(scope="focus", edges=[
+        GraphEdge(source="AAPL", target="TSM", type="supplier", sentiment="negative",
+                  weight=1.0, confidence=1.0)
+    ])
+    out = apply_network(board, graph, Settings())
+    aapl = next(i for i in out.items if i.ticker == "AAPL")
+    assert aapl.direction == "sell" and aapl.network is not None
+    assert aapl.network.reasons and aapl.components.get("network", 0) > 0
+
+
+def test_apply_network_cap_cannot_flip_strong_buy():
+    # A strong technical BUY must survive one bearish network edge (tilt, not override).
+    board = _board(
+        _score("NVDA", net=0.9, direction="buy"),
+        _score("INTC", net=0.8, direction="buy"),
+    )
+    graph = KnowledgeGraph(scope="focus", edges=[
+        GraphEdge(source="NVDA", target="INTC", type="competitor", sentiment="negative",
+                  weight=1.0, confidence=1.0)
+    ])
+    out = apply_network(board, graph, Settings())
+    nvda = next(i for i in out.items if i.ticker == "NVDA")
+    assert nvda.direction == "buy"  # capped weight tilts but does not flip
