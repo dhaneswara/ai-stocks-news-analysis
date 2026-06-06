@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { Settings } from '../types';
+import type { SavedGraphVersion, Settings } from '../types';
 
 export function useStock(ticker: string, period = '5y') {
   return useQuery({
@@ -70,5 +70,41 @@ export function useRebuildGraph() {
       qc.invalidateQueries({ queryKey: ['graph'] });
       qc.invalidateQueries({ queryKey: ['screen'] }); // rebuild bakes network into the board too
     },
+  });
+}
+
+export function useEgoGraph() {
+  return useMutation({ mutationFn: (ticker: string) => api.getCompanyGraph(ticker) });
+}
+
+export function useFocusGraph() {
+  return useMutation({ mutationFn: () => api.getGraph() });
+}
+
+export function useSavedGraphs() {
+  return useQuery({ queryKey: ['savedGraphs'], queryFn: api.listSavedGraphs });
+}
+
+export function useSaveGraph() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: SavedGraphVersion) => api.saveGraph(v),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['savedGraphs'] }),
+  });
+}
+
+export function useLoadSavedGraph() {
+  return useMutation({
+    mutationFn: ({ root, version }: { root: string; version?: string }) =>
+      api.loadSavedGraph(root, version),
+  });
+}
+
+export function useDeleteSavedGraph() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ root, version }: { root: string; version?: string }) =>
+      api.deleteSavedGraph(root, version),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['savedGraphs'] }),
   });
 }
