@@ -45,3 +45,10 @@ it('fires rebuild', () => {
   fireEvent.click(screen.getByRole('button', { name: /rebuild graph/i }));
   expect(props.onRebuild).toHaveBeenCalled();
 });
+
+it('toggling an edge-type fires onToggleType', () => {
+  const props = base();
+  wrap(<GraphSidebar {...props} selected={null} />);
+  fireEvent.click(screen.getByRole('checkbox', { name: /competitor/i }));
+  expect(props.onToggleType).toHaveBeenCalledWith('competitor');
+});
