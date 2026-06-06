@@ -113,6 +113,36 @@ The snapshot is stored in the existing SQLite `Cache` (key `screen_snapshot:all`
 A `POST /api/screen/rescan` from the frontend triggers the same scan on demand; a sector
 rescan merges fresh rows back into the full board without clobbering other sectors.
 
+### Knowledge-graph daily build (network signal)
+
+After the screener snapshot, build the AI company knowledge graph and bake its **network
+signal** into the board (an LLM extracts inter-company relationships from each focus company's
+news; a capped, explainable signal then tilts buy/sell/hold by neighbour condition):
+
+```
+python -m app.network            # build graph (focus set) + apply network signal to the board
+python -m app.network --dry-run  # build + log built/skipped/edges, do not save
+```
+
+**IMPORTANT — run this AFTER `python -m app.screener`.** The screener produces the base board;
+`app.network` then bakes network influence onto that fresh board. If the screener runs *after*
+the network job, the board reverts to base-only until the next network build. The interactive
+**Rescan** re-applies the cached graph instantly (pure, no LLM), so only the daily cron ordering
+needs care. Only `app.network` and `POST /api/graph/rebuild` make LLM calls; all read paths
+(board, deep-dive, `GET /api/graph`) are cache-only. Disable with `Settings.network.enabled = false`.
+
+#### Schedule it daily (Windows Task Scheduler)
+
+Create a Basic Task -> Daily (e.g. **5:15 PM**, *after* the 5:00 PM screener task) -> Start a program:
+
+- Program/script: `D:\workspace\ai-stocks-news-analysis\backend\.venv\Scripts\python.exe`
+- Add arguments: `-m app.network`
+- Start in: `D:\workspace\ai-stocks-news-analysis\backend`
+
+(macOS/Linux: add a cron entry that runs after the screener cron, from `backend/`.)
+
+The graph is stored in the existing SQLite `Cache` (key `graph_snapshot:focus`; 7-day TTL).
+
 ### Caveats
 
 > *Decision support only — not financial advice.* The board is a **screen**, not a
