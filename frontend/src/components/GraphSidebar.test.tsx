@@ -15,10 +15,13 @@ const SELECTED: ViewNode = {
 
 function base() {
   return {
-    asOf: '2026-06-06', built: 1, skipped: 0, nodeCount: 2, linkCount: 1,
+    root: '', onLoadRoot: vi.fn(), onExpand: vi.fn(), onLoadFocus: vi.fn(),
+    onRebuild: vi.fn(), rebuilding: false, loading: false,
+    canSave: true, onSave: vi.fn(), saving: false,
+    saved: [], onLoadSaved: vi.fn(), onDeleteSaved: vi.fn(),
+    nodeCount: 2, linkCount: 1,
     sectors: ['Tech'], sector: '', onSector: vi.fn(),
     enabledTypes: new Set<RelationType>(['supplier']), onToggleType: vi.fn(),
-    onRebuild: vi.fn(), rebuilding: false,
   };
 }
 
@@ -26,24 +29,49 @@ function wrap(ui: ReactNode) {
   return render(<MemoryRouter>{ui}</MemoryRouter>);
 }
 
+it('starts a root from the input', () => {
+  const props = base();
+  wrap(<GraphSidebar {...props} selected={null} />);
+  fireEvent.change(screen.getByPlaceholderText(/ticker/i), { target: { value: 'tsla' } });
+  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
+  expect(props.onLoadRoot).toHaveBeenCalledWith('tsla');
+});
+
 it('shows the legend hint when nothing is selected', () => {
   wrap(<GraphSidebar {...base()} selected={null} />);
   expect(screen.getByText(/click a node/i)).toBeInTheDocument();
 });
 
+it('expands the selected node', () => {
+  const props = base();
+  wrap(<GraphSidebar {...props} selected={SELECTED} />);
+  fireEvent.click(screen.getByRole('button', { name: /expand neighbours/i }));
+  expect(props.onExpand).toHaveBeenCalledWith('AAPL');
+});
+
 it('shows the selected node detail and a Dashboard link', () => {
   wrap(<GraphSidebar {...base()} selected={SELECTED} />);
-  expect(screen.getByText('AAPL')).toBeInTheDocument();
   expect(screen.getByText(/supplier TSM/i)).toBeInTheDocument();
   const link = screen.getByRole('link', { name: /open in dashboard/i });
   expect(link).toHaveAttribute('href', expect.stringContaining('ticker=AAPL'));
 });
 
-it('fires rebuild', () => {
+it('fires save / load-focus', () => {
   const props = base();
   wrap(<GraphSidebar {...props} selected={null} />);
-  fireEvent.click(screen.getByRole('button', { name: /rebuild graph/i }));
-  expect(props.onRebuild).toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: /save graph/i }));
+  fireEvent.click(screen.getByRole('button', { name: /load focus set/i }));
+  expect(props.onSave).toHaveBeenCalled();
+  expect(props.onLoadFocus).toHaveBeenCalled();
+});
+
+it('lists saved graphs and fires load / delete', () => {
+  const props = { ...base(), saved: [{ root: 'AAPL', versions: ['t2', 't1'] }] };
+  wrap(<GraphSidebar {...props} selected={null} />);
+  fireEvent.click(screen.getByRole('button', { name: /^load AAPL$/i }));
+  expect(props.onLoadSaved).toHaveBeenCalledWith('AAPL', undefined);
+  fireEvent.click(screen.getByRole('button', { name: /delete AAPL/i }));
+  expect(props.onDeleteSaved).toHaveBeenCalledWith('AAPL', undefined);
 });
 
 it('toggling an edge-type fires onToggleType', () => {
@@ -51,9 +79,4 @@ it('toggling an edge-type fires onToggleType', () => {
   wrap(<GraphSidebar {...props} selected={null} />);
   fireEvent.click(screen.getByRole('checkbox', { name: /competitor/i }));
   expect(props.onToggleType).toHaveBeenCalledWith('competitor');
-});
-
-it('shows a rebuild error when provided', () => {
-  wrap(<GraphSidebar {...base()} selected={null} rebuildError="boom" />);
-  expect(screen.getByText(/rebuild failed: boom/i)).toBeInTheDocument();
 });
