@@ -55,3 +55,18 @@ def test_disabled_returns_empty(tmp_path, monkeypatch):
     settings = Settings(); settings.network.enabled = False
     g = service.build_graph(None, settings, Cache(str(tmp_path / "c.db")))
     assert g.edges == [] and g.built == 0
+
+
+def test_unusable_provider_degrades_to_empty(tmp_path, monkeypatch):
+    # A bad provider / missing key must NOT crash the daily job — return an empty graph.
+    from app.llm.base import LLMError
+    _wire(monkeypatch, {})
+    monkeypatch.setattr(service, "load_snapshot", lambda cache, scope="all": None)
+
+    def boom(_settings):
+        raise LLMError("missing API key")
+
+    monkeypatch.setattr(service, "build_provider", boom)
+    settings = Settings(); settings.watchlist = ["AAPL"]
+    g = service.build_graph(None, settings, Cache(str(tmp_path / "c.db")))
+    assert g.edges == [] and g.built == 0 and g.skipped == 0

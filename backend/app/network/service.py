@@ -10,7 +10,6 @@ from datetime import datetime, timezone
 from app.analysis.relationships import TickerResolver, extract_relationships
 from app.config.cache import Cache
 from app.data.universe import load_universe
-from app.llm.base import LLMError
 from app.llm.factory import build_provider
 from app.models.schemas import KnowledgeGraph, Settings
 from app.screener.store import load_snapshot
@@ -41,11 +40,11 @@ def build_graph(scope: str | None, settings: Settings, cache: Cache, *, now: dat
 
     try:
         provider = build_provider(settings)
-    except LLMError:
-        return KnowledgeGraph(as_of=now.isoformat(), scope=out_scope)  # no usable provider -> empty
-    provider_id = settings.active_provider
-    model = settings.providers[provider_id].model
-    resolver = TickerResolver(load_universe())
+        provider_id = settings.active_provider
+        model = settings.providers[provider_id].model
+        resolver = TickerResolver(load_universe())
+    except Exception:  # noqa: BLE001 — bad provider/settings/universe must not crash the daily job
+        return KnowledgeGraph(as_of=now.isoformat(), scope=out_scope)  # degrade -> empty graph
 
     edges = []
     nodes: set[str] = set()
