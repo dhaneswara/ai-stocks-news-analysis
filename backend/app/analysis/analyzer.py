@@ -145,7 +145,7 @@ def _to_result(payload: dict, ticker: str, provider_name: str, model: str) -> An
         raise TypeError("LLM response was not a JSON object")
     # Drop any reserved keys the model may have echoed, so they don't collide
     # with the values we set explicitly below.
-    reserved = {"ticker", "provider", "model", "generated_at", "disclaimer", "market_mood"}
+    reserved = {"ticker", "provider", "model", "generated_at", "disclaimer", "market_mood", "network"}
     fields = {k: v for k, v in payload.items() if k not in reserved}
     return AnalysisResult(
         ticker=ticker,
