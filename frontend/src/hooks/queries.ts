@@ -57,3 +57,18 @@ export function useRefreshUniverse() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['sectors'] }),
   });
 }
+
+export function useGraph(scope = 'focus') {
+  return useQuery({ queryKey: ['graph', scope], queryFn: () => api.getGraph(scope) });
+}
+
+export function useRebuildGraph() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.rebuildGraph(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['graph'] });
+      qc.invalidateQueries({ queryKey: ['screen'] }); // rebuild bakes network into the board too
+    },
+  });
+}

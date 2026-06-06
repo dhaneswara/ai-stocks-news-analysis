@@ -1,5 +1,6 @@
 import type {
   AnalysisResult,
+  KnowledgeGraph,
   MarketMood,
   ProviderInfo,
   ScreenBoard,
@@ -56,6 +57,9 @@ export const api = {
       method: 'POST',
     }),
   getSectors: () => http<string[]>('/screen/sectors'),
+  getGraph: (scope = 'focus') =>
+    http<KnowledgeGraph>(`/graph?scope=${encodeURIComponent(scope)}`),
+  rebuildGraph: () => http<KnowledgeGraph>('/graph/rebuild', { method: 'POST' }),
   refreshUniverse: () =>
     http<{ count: number; sectors: Record<string, number>; source: string }>('/universe/refresh', {
       method: 'POST',
