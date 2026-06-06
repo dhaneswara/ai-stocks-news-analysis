@@ -41,7 +41,7 @@ def compute_network_signal(
     intensity_sum = 0.0
     for e in edges:
         nb = base_index.get(e.target)
-        nb_net = nb.net if nb else 0.0
+        nb_net = nb.base_net if nb else 0.0   # neighbour's PRE-network vote -> one hop, no feedback
         nb_dir = nb.direction if nb else "unknown"
         state = _type_sign(e.type) * nb_net
         event = _SENTIMENT.get(e.sentiment, 0.0)
@@ -76,8 +76,10 @@ def apply_network(board: ScreenBoard, graph: KnowledgeGraph, settings: Settings)
     """Fold a capped `network` family into each focus company's score/direction.
 
     Pure: reads neighbours' BASE scores (one hop, no feedback) and returns a new board.
-    Re-blend is the closed form of adding one weighted family to `score_stock`'s own formula,
-    so it needs only the stored `score` and `net` plus the configured weights.
+    Re-blend is the closed form of adding one weighted family to `score_stock`'s own formula.
+    It blends from each row's ``base_score``/``base_net`` (never the already-blended ``score``/
+    ``net``), so applying it twice — e.g. a sector rescan that merges previously-blended rows —
+    yields the same result and never double-counts or feeds blended values back in.
     """
     ncfg = settings.network
     if not ncfg.enabled or not graph.edges:
@@ -100,8 +102,8 @@ def apply_network(board: ScreenBoard, graph: KnowledgeGraph, settings: Settings)
             new_items.append(s)
             continue
         sig = compute_network_signal(s.ticker, edges, base_index, ncfg)
-        final_score = (s.score * w_base + 100.0 * sig.intensity * w_net) / (w_base + w_net)
-        final_net = _clamp((s.net * w_dir + sig.signed * w_net) / (w_dir + w_net), -1.0, 1.0)
+        final_score = (s.base_score * w_base + 100.0 * sig.intensity * w_net) / (w_base + w_net)
+        final_net = _clamp((s.base_net * w_dir + sig.signed * w_net) / (w_dir + w_net), -1.0, 1.0)
         direction = (
             "buy" if final_net > _DIRECTION_THRESHOLD
             else "sell" if final_net < -_DIRECTION_THRESHOLD

@@ -18,4 +18,4 @@ def save_graph(graph: KnowledgeGraph, cache: Cache) -> None:
 
 def load_graph(cache: Cache, scope: str = "focus") -> KnowledgeGraph | None:
     raw = cache.get(_key(scope))
-    return KnowledgeGraph.model_validate_json(raw) if raw is not None else None
+    return KnowledgeGraph.model_validate_json(raw) if raw else None

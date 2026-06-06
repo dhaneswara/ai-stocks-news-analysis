@@ -4,7 +4,7 @@ from app.models.schemas import GraphEdge, NetworkConfig, StockScore
 
 def _score(ticker, net, direction="hold"):
     return StockScore(ticker=ticker, name=ticker, price=1.0, change_pct=0.0,
-                      score=10.0, direction=direction, net=net)
+                      score=10.0, direction=direction, net=net, base_net=net, base_score=10.0)
 
 
 def _edge(target, type, sentiment="neutral", weight=1.0, confidence=1.0):
@@ -80,3 +80,22 @@ def test_apply_network_cap_cannot_flip_strong_buy():
     out = apply_network(board, graph, Settings())
     nvda = next(i for i in out.items if i.ticker == "NVDA")
     assert nvda.direction == "buy"  # capped weight tilts but does not flip
+
+
+def test_apply_network_is_idempotent():
+    # Re-applying (e.g. a sector rescan that merges already-blended rows) must NOT double-count
+    # or feed blended values back in — blending always starts from base_score/base_net.
+    board = _board(
+        _score("AAPL", net=0.0, direction="hold"),
+        _score("TSM", net=-0.9, direction="sell"),
+    )
+    graph = KnowledgeGraph(scope="focus", edges=[
+        GraphEdge(source="AAPL", target="TSM", type="supplier", sentiment="negative",
+                  weight=1.0, confidence=1.0)
+    ])
+    once = apply_network(board, graph, Settings())
+    twice = apply_network(once, graph, Settings())
+    a1 = next(i for i in once.items if i.ticker == "AAPL")
+    a2 = next(i for i in twice.items if i.ticker == "AAPL")
+    assert (a1.score, a1.net, a1.direction) == (a2.score, a2.net, a2.direction)
+    assert a1.base_net == 0.0 and a1.base_score == 10.0  # base preserved across blends

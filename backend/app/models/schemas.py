@@ -237,6 +237,8 @@ class StockScore(BaseModel):
     components: dict[str, float] = Field(default_factory=dict)
     as_of: str = ""
     net: float = 0.0
+    base_net: float = 0.0              # pre-network directional vote (lets re-blend stay idempotent)
+    base_score: float = 0.0           # pre-network 0–100 score (lets re-blend stay idempotent)
     network: Optional[NetworkSignal] = None
 
 
