@@ -42,7 +42,7 @@ function applyRange(chart: IChartApi, candles: StockData['candles'], range: Char
 export function PriceChart({
   data,
   signals,
-  range = '2Y',
+  range = '1Y',
   onSelectSignal,
 }: {
   data: StockData;

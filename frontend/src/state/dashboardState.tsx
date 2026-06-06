@@ -21,7 +21,7 @@ const DashboardStateContext = createContext<DashboardState | null>(null);
 // analysis; keeping it here lets it survive the round-trip.
 export function DashboardStateProvider({ children }: { children: ReactNode }) {
   const [ticker, setTicker] = useState('');
-  const [range, setRange] = useState<ChartRange>('2Y');
+  const [range, setRange] = useState<ChartRange>('1Y');
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [selected, setSelected] = useState<Signal | null>(null);
   return (

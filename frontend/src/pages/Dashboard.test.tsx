@@ -105,3 +105,12 @@ describe('Dashboard analysis persistence', () => {
     expect(await screen.findByText('PERSIST-ME-SUMMARY')).toBeInTheDocument();
   });
 });
+
+describe('Dashboard chart range', () => {
+  it('defaults the chart range to 1Y', async () => {
+    renderApp();
+    const oneY = await screen.findByRole('button', { name: '1Y' });
+    expect(oneY).toHaveClass('active');
+    expect(screen.getByRole('button', { name: '2Y' })).not.toHaveClass('active');
+  });
+});
