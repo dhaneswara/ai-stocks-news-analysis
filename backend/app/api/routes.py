@@ -13,12 +13,16 @@ from app.llm.factory import build_provider
 from app.models.schemas import (
     DEFAULT_MODELS,
     AnalysisResult,
+    KnowledgeGraph,
     ScreenBoard,
     Settings,
     StockData,
 )
 from app.analysis import political
+from app.analysis.network import apply_network
 from app.data import truth_social
+from app.network.service import build_graph
+from app.network.store import load_graph, save_graph
 from app.services.analysis_service import run_analysis
 from app.services.stock_service import get_stock_data
 from app.data import universe
@@ -177,6 +181,26 @@ def screen_rescan(
 @router.get("/screen/sectors", response_model=list[str])
 def screen_sectors() -> list[str]:
     return list_sectors()
+
+
+@router.get("/graph", response_model=KnowledgeGraph)
+def get_graph(scope: str = "focus", cache: Cache = Depends(get_cache)) -> KnowledgeGraph:
+    graph = load_graph(cache, scope)
+    return graph if graph is not None else KnowledgeGraph(scope=scope)
+
+
+@router.post("/graph/rebuild", response_model=KnowledgeGraph)
+def rebuild_graph(
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+) -> KnowledgeGraph:
+    settings = store.load()
+    graph = build_graph(None, settings, cache)
+    save_graph(graph, cache)
+    board = load_snapshot(cache, "all")
+    if board is not None:
+        save_snapshot(apply_network(board, graph, settings), cache)
+    return graph
 
 
 @router.post("/alerts/test")
