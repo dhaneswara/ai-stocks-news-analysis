@@ -4,7 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { GraphSidebar } from './GraphSidebar';
 import type { ViewNode } from '../lib/graphView';
-import type { RelationType } from '../types';
+import type { RelationType, SavedGraphSummary } from '../types';
 
 const SELECTED: ViewNode = {
   id: 'AAPL', label: 'AAPL', direction: 'sell', score: 80, sector: 'Tech', onBoard: true,
@@ -15,10 +15,10 @@ const SELECTED: ViewNode = {
 
 function base() {
   return {
-    root: '', onLoadRoot: vi.fn(), onExpand: vi.fn(), onLoadFocus: vi.fn(),
-    onRebuild: vi.fn(), rebuilding: false, loading: false,
-    canSave: true, onSave: vi.fn(), saving: false,
-    saved: [], onLoadSaved: vi.fn(), onDeleteSaved: vi.fn(),
+    tab: 'explore' as const, onTab: vi.fn(),
+    onLoadRoot: vi.fn(), onExpand: vi.fn(), onSave: vi.fn(), onClear: vi.fn(),
+    canSave: true, saving: false, loading: false,
+    saved: [] as SavedGraphSummary[], onLoadSaved: vi.fn(), onDeleteSaved: vi.fn(),
     nodeCount: 2, linkCount: 1,
     enabledTypes: new Set<RelationType>(['supplier']), onToggleType: vi.fn(),
   };
@@ -28,7 +28,7 @@ function wrap(ui: ReactNode) {
   return render(<MemoryRouter>{ui}</MemoryRouter>);
 }
 
-it('starts a root from the input', () => {
+it('starts a root from the input (Explore tab)', () => {
   const props = base();
   wrap(<GraphSidebar {...props} selected={null} />);
   fireEvent.change(screen.getByPlaceholderText(/ticker/i), { target: { value: 'tsla' } });
@@ -55,17 +55,24 @@ it('shows the selected node detail and a Dashboard link', () => {
   expect(link).toHaveAttribute('href', expect.stringContaining('ticker=AAPL'));
 });
 
-it('fires save / load-focus', () => {
+it('fires save and clear', () => {
   const props = base();
   wrap(<GraphSidebar {...props} selected={null} />);
-  fireEvent.click(screen.getByRole('button', { name: /save graph/i }));
-  fireEvent.click(screen.getByRole('button', { name: /load focus set/i }));
+  fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+  fireEvent.click(screen.getByRole('button', { name: /^clear$/i }));
   expect(props.onSave).toHaveBeenCalled();
-  expect(props.onLoadFocus).toHaveBeenCalled();
+  expect(props.onClear).toHaveBeenCalled();
 });
 
-it('lists saved graphs and fires load / delete', () => {
-  const props = { ...base(), saved: [{ root: 'AAPL', versions: ['t2', 't1'] }] };
+it('switches to the Saved tab', () => {
+  const props = base();
+  wrap(<GraphSidebar {...props} selected={null} />);
+  fireEvent.click(screen.getByRole('button', { name: /^saved/i }));
+  expect(props.onTab).toHaveBeenCalledWith('saved');
+});
+
+it('lists saved graphs and fires load / delete (Saved tab)', () => {
+  const props = { ...base(), tab: 'saved' as const, saved: [{ root: 'AAPL', versions: ['t2', 't1'] }] };
   wrap(<GraphSidebar {...props} selected={null} />);
   fireEvent.click(screen.getByRole('button', { name: /^load AAPL$/i }));
   expect(props.onLoadSaved).toHaveBeenCalledWith('AAPL', undefined);

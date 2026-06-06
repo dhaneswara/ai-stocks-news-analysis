@@ -79,7 +79,7 @@ it('saves the working graph', async () => {
   fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
   fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
   await screen.findByTestId('graph-canvas');
-  fireEvent.click(screen.getByRole('button', { name: /save graph/i }));
+  fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
   await waitFor(() => expect(api.saveGraph).toHaveBeenCalled());
 });
 

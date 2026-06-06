@@ -667,8 +667,13 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
   * { scroll-behavior: auto; }
 }
 
-.graph-explore-controls { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
-.graph-explore-controls input { width: 100%; }
+.graph-tabs { display: flex; gap: 4px; margin-bottom: 10px; border-bottom: 1px solid #30363d; }
+.graph-tabs .tab { background: none; border: none; border-bottom: 2px solid transparent; color: #8b949e; cursor: pointer; padding: 6px 10px; font: inherit; }
+.graph-tabs .tab.active { color: #e6edf3; border-bottom-color: #58a6ff; }
+.graph-tab { display: flex; flex-direction: column; gap: 8px; }
+.graph-tab > label { display: flex; flex-direction: column; gap: 4px; }
+.graph-tab input { width: 100%; }
+.graph-section { display: flex; flex-direction: column; gap: 6px; padding-top: 8px; border-top: 1px solid #21262d; }
 .graph-actions { display: flex; gap: 6px; }
 .graph-actions .secondary { flex: 1; }
 .graph-saves { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
