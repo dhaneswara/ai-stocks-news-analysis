@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -14,6 +15,8 @@ from app.models.schemas import (
     DEFAULT_MODELS,
     AnalysisResult,
     KnowledgeGraph,
+    SavedGraphSummary,
+    SavedGraphVersion,
     ScreenBoard,
     Settings,
     StockData,
@@ -21,8 +24,15 @@ from app.models.schemas import (
 from app.analysis import political
 from app.analysis.network import apply_network
 from app.data import truth_social
-from app.network.service import build_graph
-from app.network.store import load_graph, save_graph
+from app.network.service import build_company_graph, build_graph
+from app.network.store import (
+    delete_saved_graph,
+    list_saved_graphs,
+    load_company_graph,
+    load_graph,
+    save_company_graph,
+    save_graph,
+)
 from app.services.analysis_service import run_analysis
 from app.services.stock_service import get_stock_data
 from app.data import universe
@@ -205,6 +215,42 @@ def rebuild_graph(
     if board is not None:
         save_snapshot(apply_network(board, graph, settings), cache)
     return graph
+
+
+@router.get("/graph/company/{ticker}", response_model=KnowledgeGraph)
+def get_company_graph(
+    ticker: str,
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+) -> KnowledgeGraph:
+    """One-hop ego graph for a single ticker — powers both 'start from company' and 'expand'."""
+    return build_company_graph(ticker, store.load(), cache)
+
+
+@router.get("/graph/saved", response_model=list[SavedGraphSummary])
+def list_saved(cache: Cache = Depends(get_cache)) -> list[SavedGraphSummary]:
+    return list_saved_graphs(cache)
+
+
+@router.post("/graph/saved", response_model=SavedGraphVersion)
+def save_saved(payload: SavedGraphVersion, cache: Cache = Depends(get_cache)) -> SavedGraphVersion:
+    stamped = payload.model_copy(update={"saved_at": datetime.now(timezone.utc).isoformat()})
+    return save_company_graph(stamped, cache)
+
+
+@router.get("/graph/saved/{root}", response_model=SavedGraphVersion)
+def get_saved(
+    root: str, version: str | None = None, cache: Cache = Depends(get_cache)
+) -> SavedGraphVersion:
+    found = load_company_graph(root, cache, version)
+    if found is None:
+        raise HTTPException(status_code=404, detail=f"No saved graph for '{root}'")
+    return found
+
+
+@router.delete("/graph/saved/{root}")
+def delete_saved(root: str, version: str | None = None, cache: Cache = Depends(get_cache)) -> dict:
+    return {"deleted": delete_saved_graph(root, cache, version)}
 
 
 @router.post("/alerts/test")
