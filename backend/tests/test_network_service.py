@@ -70,3 +70,36 @@ def test_unusable_provider_degrades_to_empty(tmp_path, monkeypatch):
     settings = Settings(); settings.watchlist = ["AAPL"]
     g = service.build_graph(None, settings, Cache(str(tmp_path / "c.db")))
     assert g.edges == [] and g.built == 0 and g.skipped == 0
+
+
+def test_company_graph_one_hop(tmp_path, monkeypatch):
+    edges = {"AAPL": [GraphEdge(source="AAPL", target="TSM", type="supplier")]}
+    _wire(monkeypatch, edges)
+    g = service.build_company_graph("aapl", Settings(), Cache(str(tmp_path / "c.db")))
+    assert g.scope == "company:AAPL"
+    assert set(g.nodes) == {"AAPL", "TSM"} and g.built == 1
+    assert g.edges[0].target == "TSM"
+
+
+def test_company_graph_no_edges_returns_lone_node(tmp_path, monkeypatch):
+    _wire(monkeypatch, {})  # extract returns [] for AAPL
+    g = service.build_company_graph("AAPL", Settings(), Cache(str(tmp_path / "c.db")))
+    assert g.nodes == ["AAPL"] and g.edges == [] and g.built == 1
+
+
+def test_company_graph_degrades_on_data_failure(tmp_path, monkeypatch):
+    _wire(monkeypatch, {})
+
+    def boom(*a, **k):
+        raise ValueError("no data")
+
+    monkeypatch.setattr(service, "get_stock_data", boom)
+    g = service.build_company_graph("AAPL", Settings(), Cache(str(tmp_path / "c.db")))
+    assert g.nodes == ["AAPL"] and g.edges == [] and g.built == 0
+
+
+def test_company_graph_disabled_returns_lone_node(tmp_path, monkeypatch):
+    _wire(monkeypatch, {})
+    settings = Settings(); settings.network.enabled = False
+    g = service.build_company_graph("AAPL", settings, Cache(str(tmp_path / "c.db")))
+    assert g.nodes == ["AAPL"] and g.edges == [] and g.built == 0
