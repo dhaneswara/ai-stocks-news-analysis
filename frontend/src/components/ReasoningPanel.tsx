@@ -1,4 +1,5 @@
 import type { AnalysisResult } from '../types';
+import { NetworkPanel } from './NetworkPanel';
 
 export function ReasoningPanel({ result }: { result: AnalysisResult }) {
   const rec = result.current_recommendation;
@@ -17,6 +18,8 @@ export function ReasoningPanel({ result }: { result: AnalysisResult }) {
           {result.market_mood.summary ? ` — ${result.market_mood.summary}` : ''}
         </p>
       )}
+
+      <NetworkPanel network={result.network} />
 
       {result.key_factors?.length ? (
         <>
