@@ -23,6 +23,8 @@ def test_network_signal_and_influence():
                          neighbour_direction="sell", signed=-0.3, reason="supplier TSM (bearish)")
     ], reasons=["supplier TSM (bearish)"])
     assert sig.influences[0].neighbour == "TSM"
+    assert sig.intensity == 0.5 and sig.signed == -0.3
+    assert sig.reasons == ["supplier TSM (bearish)"]
 
 
 def test_stock_score_gains_net_and_network():

@@ -127,8 +127,8 @@ class NetworkInfluence(BaseModel):
     neighbour: str
     name: str = ""
     type: RelationType
-    edge_sentiment: str = "neutral"
-    neighbour_direction: str = "unknown"
+    edge_sentiment: Literal["positive", "negative", "neutral"] = "neutral"
+    neighbour_direction: Literal["buy", "sell", "hold", "unknown"] = "unknown"
     signed: float = 0.0
     reason: str = ""
 
