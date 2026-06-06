@@ -20,7 +20,6 @@ function base() {
     canSave: true, onSave: vi.fn(), saving: false,
     saved: [], onLoadSaved: vi.fn(), onDeleteSaved: vi.fn(),
     nodeCount: 2, linkCount: 1,
-    sectors: ['Tech'], sector: '', onSector: vi.fn(),
     enabledTypes: new Set<RelationType>(['supplier']), onToggleType: vi.fn(),
   };
 }

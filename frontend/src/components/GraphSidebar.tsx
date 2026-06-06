@@ -21,9 +21,6 @@ export interface GraphSidebarProps {
   onDeleteSaved: (root: string, version?: string) => void;
   nodeCount: number;
   linkCount: number;
-  sectors: string[];
-  sector: string;
-  onSector: (s: string) => void;
   enabledTypes: Set<RelationType>;
   onToggleType: (t: RelationType) => void;
   selected: ViewNode | null;
@@ -33,7 +30,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
   const {
     onLoadRoot, onExpand, onLoadFocus, onRebuild, rebuilding, loading,
     canSave, onSave, saving, saved, onLoadSaved, onDeleteSaved,
-    nodeCount, linkCount, sectors, sector, onSector, enabledTypes, onToggleType, selected,
+    nodeCount, linkCount, enabledTypes, onToggleType, selected,
   } = props;
   const [rootInput, setRootInput] = useState('');
 
@@ -79,13 +76,6 @@ export function GraphSidebar(props: GraphSidebarProps) {
           ))}
         </div>
       )}
-
-      <label>Sector
-        <select value={sector} onChange={(e) => onSector(e.target.value)}>
-          <option value="">All sectors</option>
-          {sectors.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </label>
 
       <div className="graph-types">
         {EDGE_TYPES.map((t) => (

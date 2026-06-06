@@ -1,19 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { GraphCanvas } from '../components/GraphCanvas';
 import { GraphSidebar } from '../components/GraphSidebar';
 import {
   useDeleteSavedGraph, useEgoGraph, useFocusGraph, useLoadSavedGraph,
-  useRebuildGraph, useSaveGraph, useSavedGraphs, useScreen, useSectors,
+  useRebuildGraph, useSaveGraph, useSavedGraphs, useScreen,
 } from '../hooks/queries';
 import { applyFilters, mergeGraph, mergeNodes, toLinks, type ViewNode } from '../lib/graphView';
+import { loadExplorerState, saveExplorerState } from '../lib/explorerStore';
 import type { KnowledgeGraph, RelationType } from '../types';
 
 const ALL_TYPES: RelationType[] = ['supplier', 'customer', 'partner', 'competitor', 'owner', 'subsidiary'];
 const EMPTY_GRAPH: KnowledgeGraph = { as_of: '', scope: 'explore', nodes: [], edges: [], built: 0, skipped: 0 };
 
 export default function Graph() {
+  const restored = useMemo(() => loadExplorerState(), []);
   const board = useScreen(undefined, undefined, 0); // full uncapped board for node colour/size
-  const sectors = useSectors();
   const ego = useEgoGraph();
   const focus = useFocusGraph();
   const rebuild = useRebuildGraph();
@@ -22,13 +23,17 @@ export default function Graph() {
   const loadSaved = useLoadSavedGraph();
   const deleteSaved = useDeleteSavedGraph();
 
-  const [working, setWorking] = useState<KnowledgeGraph | null>(null);
-  const [root, setRoot] = useState('');
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sector, setSector] = useState('');
+  const [working, setWorking] = useState<KnowledgeGraph | null>(restored?.working ?? null);
+  const [root, setRoot] = useState(restored?.root ?? '');
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(restored?.expanded ?? []));
+  const [selectedId, setSelectedId] = useState<string | null>(restored?.selectedId ?? null);
   const [enabledTypes, setEnabledTypes] = useState<Set<RelationType>>(new Set(ALL_TYPES));
   const [notice, setNotice] = useState<string | null>(null);
+
+  // Persist the exploration so switching menus / reloading restores it.
+  useEffect(() => {
+    saveExplorerState({ working, root, expanded: [...expanded], selectedId });
+  }, [working, root, expanded, selectedId]);
 
   const loadRoot = async (ticker: string) => {
     const t = ticker.trim().toUpperCase();
@@ -98,12 +103,11 @@ export default function Graph() {
       if (next.has(t)) next.delete(t); else next.add(t);
       return next;
     });
-  const resetFilters = () => { setSector(''); setEnabledTypes(new Set(ALL_TYPES)); };
 
   const view = useMemo(() => {
     const g = working ?? EMPTY_GRAPH;
-    return applyFilters(mergeNodes(g, board.data), toLinks(g), sector || null, enabledTypes);
-  }, [working, board.data, sector, enabledTypes]);
+    return applyFilters(mergeNodes(g, board.data), toLinks(g), null, enabledTypes);
+  }, [working, board.data, enabledTypes]);
 
   const selected = useMemo<ViewNode | null>(
     () => view.nodes.find((n) => n.id === selectedId) ?? null,
@@ -119,7 +123,6 @@ export default function Graph() {
     ? (rebuild.error as Error).message
     : null;
   const empty = !working || working.nodes.length === 0;
-  const filteredEmpty = !empty && view.nodes.length === 0;
 
   return (
     <div className="graph-page">
@@ -132,13 +135,7 @@ export default function Graph() {
             <p className="muted">Type a company ticker to start, or load the focus set.</p>
           </div>
         )}
-        {filteredEmpty && (
-          <div className="graph-empty">
-            <p className="muted">No nodes match these filters.</p>
-            <button className="secondary" onClick={resetFilters}>Reset filters</button>
-          </div>
-        )}
-        {!empty && !filteredEmpty && (
+        {!empty && (
           <GraphCanvas nodes={view.nodes} links={view.links} selectedId={selectedId} onSelect={setSelectedId} />
         )}
       </div>
@@ -159,9 +156,6 @@ export default function Graph() {
         onDeleteSaved={doDeleteSaved}
         nodeCount={view.nodes.length}
         linkCount={view.links.length}
-        sectors={sectors.data ?? []}
-        sector={sector}
-        onSector={setSector}
         enabledTypes={enabledTypes}
         onToggleType={toggleType}
         selected={selected}

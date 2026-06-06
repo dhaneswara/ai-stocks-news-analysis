@@ -42,6 +42,7 @@ function renderGraph() {
 }
 
 beforeEach(() => {
+  sessionStorage.clear();
   vi.mocked(api.getScreen).mockResolvedValue(BOARD);
   vi.mocked(api.getSectors).mockResolvedValue([]);
   vi.mocked(api.listSavedGraphs).mockResolvedValue([]);
@@ -66,7 +67,7 @@ it('expands a selected node and grows the graph', async () => {
   renderGraph();
   fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
   fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
-  fireEvent.click(await screen.findByRole('button', { name: 'sel-TSM' })); // select TSM
+  fireEvent.click(await screen.findByRole('button', { name: 'sel-TSM' }));
   fireEvent.click(screen.getByRole('button', { name: /expand neighbours/i }));
   await waitFor(() => expect(screen.getByText(/3 nodes/)).toBeInTheDocument());
 });
@@ -88,4 +89,19 @@ it('surfaces a load error when extraction fails', async () => {
   fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
   fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
   expect(await screen.findByText(/couldn't load: boom/i)).toBeInTheDocument();
+});
+
+it('restores the explored graph after remount (persistence)', async () => {
+  vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
+  const first = renderGraph();
+  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
+  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
+  await screen.findByTestId('graph-canvas');
+  await waitFor(() => expect(screen.getByText(/2 nodes/)).toBeInTheDocument());
+  first.unmount();
+  vi.mocked(api.getCompanyGraph).mockClear();
+  renderGraph();
+  expect(await screen.findByTestId('graph-canvas')).toBeInTheDocument();
+  expect(screen.getByText(/2 nodes/)).toBeInTheDocument();
+  expect(api.getCompanyGraph).not.toHaveBeenCalled(); // restored from storage, no refetch
 });
