@@ -169,12 +169,16 @@ def screen_rescan(
 ) -> ScreenBoard:
     settings = store.load()
     board = run_scan(sector, settings, cache)
+    graph = load_graph(cache, "focus")
     if sector:
         full = load_snapshot(cache, "all")
-        # Merge fresh sector rows into the full board if one exists; else persist as-is.
-        save_snapshot(merge_sector(full, board) if full else board, cache)
+        merged = merge_sector(full, board) if full else board
+        if graph is not None:
+            merged = apply_network(merged, graph, settings)
+        save_snapshot(merged, cache)
     else:
-        save_snapshot(board, cache)
+        to_save = apply_network(board, graph, settings) if graph is not None else board
+        save_snapshot(to_save, cache)
     return board
 
 

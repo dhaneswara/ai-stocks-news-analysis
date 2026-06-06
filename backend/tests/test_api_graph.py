@@ -30,3 +30,21 @@ def test_rebuild_builds_and_bakes(monkeypatch):
     assert load_graph(cache, "focus") is not None
     aapl = next(i for i in load_snapshot(cache, "all").items if i.ticker == "AAPL")
     assert aapl.network is not None
+
+
+def test_rescan_applies_cached_graph(monkeypatch):
+    cache = get_cache()
+    from app.network.store import save_graph
+    save_graph(KnowledgeGraph(scope="focus", edges=[
+        GraphEdge(source="AAPL", target="TSM", type="supplier", sentiment="negative",
+                  weight=1.0, confidence=1.0)]), cache)
+    fresh = ScreenBoard(scope="all", items=[
+        StockScore(ticker="AAPL", name="Apple", price=1, change_pct=0, score=50, direction="hold", net=0.0),
+        StockScore(ticker="TSM", name="Taiwan Semi", price=1, change_pct=0, score=40, direction="sell", net=-0.9),
+    ])
+    monkeypatch.setattr(routes, "run_scan", lambda scope, settings, cache: fresh)
+
+    r = client.post("/api/screen/rescan")
+    assert r.status_code == 200
+    aapl = next(i for i in load_snapshot(cache, "all").items if i.ticker == "AAPL")
+    assert aapl.network is not None  # propagation applied on rescan, no LLM
