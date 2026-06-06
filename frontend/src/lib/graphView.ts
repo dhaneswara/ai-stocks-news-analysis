@@ -69,3 +69,17 @@ export function sentimentColor(s: ViewLink['sentiment']): string {
 export function nodeRadius(score: number): number {
   return 4 + (Math.max(0, Math.min(100, score)) / 100) * 8; // 4..12
 }
+
+/** Accumulate an explored subgraph: union nodes, dedupe edges by source|target|type.
+ *  Pure — used by the explorer to merge each one-hop fragment into the working graph. */
+export function mergeGraph(into: KnowledgeGraph | null, fragment: KnowledgeGraph): KnowledgeGraph {
+  if (!into) return { ...fragment, nodes: [...fragment.nodes], edges: [...fragment.edges] };
+  const nodes = Array.from(new Set([...into.nodes, ...fragment.nodes]));
+  const seen = new Set(into.edges.map((e) => `${e.source}|${e.target}|${e.type}`));
+  const edges = [...into.edges];
+  for (const e of fragment.edges) {
+    const k = `${e.source}|${e.target}|${e.type}`;
+    if (!seen.has(k)) { seen.add(k); edges.push(e); }
+  }
+  return { ...into, nodes, edges };
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyFilters, directionColor, mergeNodes, nodeRadius, sentimentColor, toLinks } from './graphView';
+import { applyFilters, directionColor, mergeGraph, mergeNodes, nodeRadius, sentimentColor, toLinks } from './graphView';
 import type { KnowledgeGraph, ScreenBoard, RelationType } from '../types';
 
 const GRAPH: KnowledgeGraph = {
@@ -59,5 +59,32 @@ describe('encoders', () => {
     expect(directionColor('unknown')).toBe('#484f58');
     expect(sentimentColor('negative')).toBe('#f85149');
     expect(nodeRadius(0)).toBeLessThan(nodeRadius(100));
+  });
+});
+
+describe('mergeGraph', () => {
+  const FRAG_A: KnowledgeGraph = {
+    as_of: 't', scope: 'company:AAPL', built: 1, skipped: 0, nodes: ['AAPL', 'TSM'],
+    edges: [{ source: 'AAPL', target: 'TSM', type: 'supplier', sentiment: 'negative', weight: 1, confidence: 1, evidence: '', url: '', as_of: '' }],
+  };
+  const FRAG_B: KnowledgeGraph = {
+    as_of: 't', scope: 'company:TSM', built: 1, skipped: 0, nodes: ['TSM', 'FOO'],
+    edges: [
+      { source: 'AAPL', target: 'TSM', type: 'supplier', sentiment: 'negative', weight: 1, confidence: 1, evidence: '', url: '', as_of: '' },
+      { source: 'TSM', target: 'FOO', type: 'customer', sentiment: 'positive', weight: 1, confidence: 1, evidence: '', url: '', as_of: '' },
+    ],
+  };
+
+  it('returns the fragment when there is no prior graph', () => {
+    const out = mergeGraph(null, FRAG_A);
+    expect(out.nodes).toEqual(['AAPL', 'TSM']);
+    expect(out.edges).toHaveLength(1);
+  });
+
+  it('unions nodes and dedupes edges by source|target|type', () => {
+    const out = mergeGraph(FRAG_A, FRAG_B);
+    expect(out.nodes.sort()).toEqual(['AAPL', 'FOO', 'TSM']);
+    expect(out.edges).toHaveLength(2); // AAPL->TSM kept once, TSM->FOO added
+    expect(out.edges.some((e) => e.target === 'FOO')).toBe(true);
   });
 });
