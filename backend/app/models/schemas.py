@@ -123,6 +123,18 @@ class KnowledgeGraph(BaseModel):
     skipped: int = 0
 
 
+class SavedGraphVersion(BaseModel):
+    root: str
+    saved_at: str = ""
+    expanded: list[str] = Field(default_factory=list)
+    graph: KnowledgeGraph = Field(default_factory=KnowledgeGraph)
+
+
+class SavedGraphSummary(BaseModel):
+    root: str
+    versions: list[str] = Field(default_factory=list)
+
+
 class NetworkInfluence(BaseModel):
     neighbour: str
     name: str = ""
