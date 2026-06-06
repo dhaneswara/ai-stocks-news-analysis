@@ -162,3 +162,14 @@ def test_score_bounded_and_components_complete():
     assert 0.0 <= s.score <= 100.0
     assert set(s.components) == {"extremes", "trend", "momentum", "volume", "catalyst"}
     assert s.ticker == "AAPL" and s.name == "Apple Inc." and s.as_of == "2026-06-05T00:00:00Z"
+
+
+def test_score_stock_populates_net_sign_matches_direction():
+    from app.analysis.scoring import score_stock
+    from app.models.schemas import ScreenerConfig
+    from tests.test_screener_service import _stock  # reuse the shared fixture builder
+
+    bull = score_stock(_stock("AAA", rsi_last=20.0, week52_low=99.0), [], ScreenerConfig())
+    assert bull.direction == "buy" and bull.net > 0
+    bear = score_stock(_stock("BBB", rsi_last=85.0), [], ScreenerConfig())
+    assert bear.net < 0

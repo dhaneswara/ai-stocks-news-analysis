@@ -171,6 +171,7 @@ def score_stock(stock: StockData, mentions: list[Mention], cfg: ScreenerConfig) 
         change_pct=stock.price.change_pct,
         score=round(_clamp(score, 0.0, 100.0), 1),
         direction=direction,
+        net=round(_clamp(net, -1.0, 1.0), 3),
         reasons=reasons,
         components={f: round(sig.intensity, 2) for f, sig in families.items()},
         as_of=stock.as_of,
