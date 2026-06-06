@@ -414,8 +414,33 @@ input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; v
   border-radius: 999px;
   cursor: pointer;
   transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
 }
 .chip:hover { color: var(--gold); border-color: var(--gold-line); background: var(--gold-tint); }
+.chip-x {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--ink-ghost);
+  box-shadow: none;
+}
+.chip-x:hover { color: #cf6f6a; transform: none; box-shadow: none; }
+.star-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 17px;
+  line-height: 1;
+  color: var(--gold);
+  box-shadow: none;
+}
+.star-btn:hover { filter: brightness(1.2); transform: none; box-shadow: none; }
 
 /* ----- Chart --------------------------------------------------------------- */
 .price-chart { flex: 1; min-height: 0; width: 100%; border-radius: 12px; overflow: hidden; }

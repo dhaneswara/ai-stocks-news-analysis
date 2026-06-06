@@ -6,7 +6,7 @@ import { NewsList } from '../components/NewsList';
 import { ReasoningPanel } from '../components/ReasoningPanel';
 import { SignalList } from '../components/SignalList';
 import { TickerBar } from '../components/TickerBar';
-import { useAnalyze, useSettings, useStock } from '../hooks/queries';
+import { useAnalyze, useStock, useWatchlist } from '../hooks/queries';
 import { useDashboardState } from '../state/dashboardState';
 
 const RANGES: ChartRange[] = ['1M', '3M', '6M', '1Y', '2Y', '5Y'];
@@ -16,8 +16,8 @@ const RANGE_TO_PERIOD: Record<ChartRange, string> = {
 };
 
 export default function Dashboard() {
-  const settings = useSettings();
-  const watchlist = settings.data?.watchlist ?? [];
+  const watch = useWatchlist();
+  const watchlist = watch.list;
   const [searchParams] = useSearchParams();
   const urlTicker = (searchParams.get('ticker') ?? '').toUpperCase();
   // View-state lives in a provider above the router so it survives navigating to
@@ -67,7 +67,10 @@ export default function Dashboard() {
       <div className="panel commandbar">
         <TickerBar
           watchlist={watchlist}
+          current={ticker}
           onSelect={setTicker}
+          onAdd={watch.add}
+          onRemove={watch.remove}
           onAnalyze={runAnalyze}
           analyzing={analyze.isPending}
           canAnalyze={!!stock.data}
@@ -78,6 +81,7 @@ export default function Dashboard() {
       {stock.isLoading && <p className="muted">Loading {ticker}…</p>}
       {stock.isError && <p className="error">Could not load {ticker}: {(stock.error as Error).message}</p>}
       {analyze.isError && <p className="error">Analysis failed: {(analyze.error as Error).message}</p>}
+      {watch.isError && <p className="error">Couldn't update watchlist: {(watch.error as Error).message}</p>}
 
       {d && (
         <>
