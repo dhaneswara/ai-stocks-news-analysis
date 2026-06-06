@@ -58,10 +58,6 @@ export function useRefreshUniverse() {
   });
 }
 
-export function useGraph(scope = 'focus') {
-  return useQuery({ queryKey: ['graph', scope], queryFn: () => api.getGraph(scope) });
-}
-
 export function useRebuildGraph() {
   const qc = useQueryClient();
   return useMutation({

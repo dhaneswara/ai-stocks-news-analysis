@@ -81,3 +81,11 @@ it('saves the working graph', async () => {
   fireEvent.click(screen.getByRole('button', { name: /save graph/i }));
   await waitFor(() => expect(api.saveGraph).toHaveBeenCalled());
 });
+
+it('surfaces a load error when extraction fails', async () => {
+  vi.mocked(api.getCompanyGraph).mockRejectedValue(new Error('boom'));
+  renderGraph();
+  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
+  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
+  expect(await screen.findByText(/couldn't load: boom/i)).toBeInTheDocument();
+});

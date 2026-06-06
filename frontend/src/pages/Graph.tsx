@@ -34,46 +34,62 @@ export default function Graph() {
     const t = ticker.trim().toUpperCase();
     if (!t) return;
     setNotice(null);
-    const frag = await ego.mutateAsync(t);
-    setWorking(frag); setRoot(t); setExpanded(new Set()); setSelectedId(t);
-    if (frag.edges.length === 0) setNotice(`No relationships found for ${t}.`);
+    try {
+      const frag = await ego.mutateAsync(t);
+      setWorking(frag); setRoot(t); setExpanded(new Set()); setSelectedId(t);
+      if (frag.edges.length === 0) setNotice(`No relationships found for ${t}.`);
+    } catch { /* surfaced via the load-error banner */ }
   };
 
   const expand = async (ticker: string) => {
     setNotice(null);
-    const frag = await ego.mutateAsync(ticker);
-    setWorking((w) => mergeGraph(w, frag));
-    setExpanded((s) => new Set(s).add(ticker));
-    if (frag.edges.length === 0) setNotice(`No further relationships for ${ticker}.`);
+    try {
+      const frag = await ego.mutateAsync(ticker);
+      setWorking((w) => mergeGraph(w, frag));
+      setExpanded((s) => new Set(s).add(ticker));
+      if (frag.edges.length === 0) setNotice(`No further relationships for ${ticker}.`);
+    } catch { /* surfaced via the load-error banner */ }
   };
 
   const loadFocus = async () => {
     setNotice(null);
-    const g = await focus.mutateAsync();
-    setWorking(g); setRoot(''); setExpanded(new Set()); setSelectedId(null);
-    if (g.nodes.length === 0) setNotice('No focus graph yet — Rebuild focus to extract it.');
+    try {
+      const g = await focus.mutateAsync();
+      setWorking(g); setRoot(''); setExpanded(new Set()); setSelectedId(null);
+      if (g.nodes.length === 0) setNotice('No focus graph yet — Rebuild focus to extract it.');
+    } catch { /* surfaced via the load-error banner */ }
   };
 
   const doRebuild = async () => {
     setNotice(null);
-    const g = await rebuild.mutateAsync();
-    setWorking(g); setRoot(''); setExpanded(new Set()); setSelectedId(null);
+    try {
+      const g = await rebuild.mutateAsync();
+      setWorking(g); setRoot(''); setExpanded(new Set()); setSelectedId(null);
+    } catch { /* surfaced via the load-error banner */ }
   };
 
   const doSave = async () => {
     if (!working || working.nodes.length === 0) return;
-    await saveGraph.mutateAsync({
-      root: root || working.nodes[0], saved_at: '', expanded: [...expanded], graph: working,
-    });
+    // No explicit root (e.g. after "Load focus set") -> key the save off the first node.
+    try {
+      await saveGraph.mutateAsync({
+        root: root || working.nodes[0], saved_at: '', expanded: [...expanded], graph: working,
+      });
+    } catch { setNotice('Could not save this graph.'); }
   };
 
   const doLoadSaved = async (r: string, version?: string) => {
-    const v = await loadSaved.mutateAsync({ root: r, version });
-    setWorking(v.graph); setRoot(v.root); setExpanded(new Set(v.expanded)); setSelectedId(v.root || null);
+    setNotice(null);
+    try {
+      const v = await loadSaved.mutateAsync({ root: r, version });
+      setWorking(v.graph); setRoot(v.root); setExpanded(new Set(v.expanded)); setSelectedId(v.root || null);
+    } catch { setNotice(`Could not load the saved graph for ${r}.`); }
   };
 
   const doDeleteSaved = async (r: string, version?: string) => {
-    await deleteSaved.mutateAsync({ root: r, version });
+    try {
+      await deleteSaved.mutateAsync({ root: r, version });
+    } catch { setNotice(`Could not delete the saved graph for ${r}.`); }
   };
 
   const toggleType = (t: RelationType) =>
@@ -95,6 +111,13 @@ export default function Graph() {
   );
 
   const busy = ego.isPending || focus.isPending;
+  const loadErr = ego.isError
+    ? (ego.error as Error).message
+    : focus.isError
+    ? (focus.error as Error).message
+    : rebuild.isError
+    ? (rebuild.error as Error).message
+    : null;
   const empty = !working || working.nodes.length === 0;
   const filteredEmpty = !empty && view.nodes.length === 0;
 
@@ -102,7 +125,7 @@ export default function Graph() {
     <div className="graph-page">
       <div className="graph-main panel">
         {busy && <p className="muted">Loading…</p>}
-        {ego.isError && <p className="error">Couldn't load: {(ego.error as Error).message}</p>}
+        {loadErr && <p className="error">Couldn't load: {loadErr}</p>}
         {notice && <p className="muted">{notice}</p>}
         {empty && !busy && (
           <div className="graph-empty">
