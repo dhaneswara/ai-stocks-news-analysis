@@ -36,6 +36,9 @@ export function DiscoverBoard({ items, onAdd }: { items: StockScore[]; onAdd: (t
               <td><span className={`badge ${s.direction}`}>{s.direction.toUpperCase()}</span></td>
               <td>
                 <div className="reasons">
+                  {s.network && s.network.reasons.length > 0 && (
+                    <span className="reason-chip net" title="company-network influence">🔗</span>
+                  )}
                   {s.reasons.slice(0, 3).map((r) => <span className="reason-chip" key={r}>{r}</span>)}
                 </div>
               </td>
