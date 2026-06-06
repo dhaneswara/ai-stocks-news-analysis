@@ -72,22 +72,6 @@ describe('api client', () => {
     expect(fetchMock.mock.calls[0][0] as string).toContain('limit=0');
   });
 
-  it('getGraph GETs /graph with scope', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ nodes: [], edges: [] }) });
-    vi.stubGlobal('fetch', fetchMock);
-    await api.getGraph('focus');
-    expect(fetchMock.mock.calls[0][0] as string).toContain('/graph?scope=focus');
-  });
-
-  it('rebuildGraph POSTs /graph/rebuild', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ nodes: [], edges: [] }) });
-    vi.stubGlobal('fetch', fetchMock);
-    await api.rebuildGraph();
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url as string).toContain('/graph/rebuild');
-    expect((init as RequestInit).method).toBe('POST');
-  });
-
   it('getCompanyGraph GETs /graph/company/{ticker}', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ nodes: ['AAPL'], edges: [] }) });
     vi.stubGlobal('fetch', fetchMock);

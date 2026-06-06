@@ -15,7 +15,7 @@ vi.mock('../components/GraphCanvas', () => ({
 }));
 vi.mock('../api/client', () => ({
   api: {
-    getScreen: vi.fn(), getSectors: vi.fn(), getGraph: vi.fn(), rebuildGraph: vi.fn(),
+    getScreen: vi.fn(),
     getCompanyGraph: vi.fn(), listSavedGraphs: vi.fn(), saveGraph: vi.fn(),
     loadSavedGraph: vi.fn(), deleteSavedGraph: vi.fn(),
   },
@@ -44,7 +44,6 @@ function renderGraph() {
 beforeEach(() => {
   sessionStorage.clear();
   vi.mocked(api.getScreen).mockResolvedValue(BOARD);
-  vi.mocked(api.getSectors).mockResolvedValue([]);
   vi.mocked(api.listSavedGraphs).mockResolvedValue([]);
 });
 
@@ -104,4 +103,16 @@ it('restores the explored graph after remount (persistence)', async () => {
   expect(await screen.findByTestId('graph-canvas')).toBeInTheDocument();
   expect(screen.getByText(/2 nodes/)).toBeInTheDocument();
   expect(api.getCompanyGraph).not.toHaveBeenCalled(); // restored from storage, no refetch
+});
+
+it('switches back to the Explore tab when a node is selected', async () => {
+  vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
+  renderGraph();
+  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
+  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
+  await screen.findByTestId('graph-canvas');
+  fireEvent.click(screen.getByRole('button', { name: /^saved/i })); // go to Saved tab
+  expect(screen.queryByRole('button', { name: /expand neighbours/i })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'sel-AAPL' })); // select a node on the canvas
+  expect(await screen.findByRole('button', { name: /expand neighbours/i })).toBeInTheDocument();
 });

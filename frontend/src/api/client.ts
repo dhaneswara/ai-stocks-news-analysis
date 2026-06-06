@@ -59,9 +59,6 @@ export const api = {
       method: 'POST',
     }),
   getSectors: () => http<string[]>('/screen/sectors'),
-  getGraph: (scope = 'focus') =>
-    http<KnowledgeGraph>(`/graph?scope=${encodeURIComponent(scope)}`),
-  rebuildGraph: () => http<KnowledgeGraph>('/graph/rebuild', { method: 'POST' }),
   getCompanyGraph: (ticker: string) =>
     http<KnowledgeGraph>(`/graph/company/${encodeURIComponent(ticker)}`),
   listSavedGraphs: () => http<SavedGraphSummary[]>('/graph/saved'),

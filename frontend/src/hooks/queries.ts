@@ -58,23 +58,8 @@ export function useRefreshUniverse() {
   });
 }
 
-export function useRebuildGraph() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => api.rebuildGraph(),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['graph'] });
-      qc.invalidateQueries({ queryKey: ['screen'] }); // rebuild bakes network into the board too
-    },
-  });
-}
-
 export function useEgoGraph() {
   return useMutation({ mutationFn: (ticker: string) => api.getCompanyGraph(ticker) });
-}
-
-export function useFocusGraph() {
-  return useMutation({ mutationFn: () => api.getGraph() });
 }
 
 export function useSavedGraphs() {
