@@ -99,6 +99,58 @@ class Mention(BaseModel):
     url: str = ""
 
 
+RelationType = Literal["supplier", "customer", "partner", "competitor", "owner", "subsidiary"]
+
+
+class GraphEdge(BaseModel):
+    source: str
+    target: str
+    type: RelationType
+    sentiment: Literal["positive", "negative", "neutral"] = "neutral"  # effect ON THE SOURCE
+    weight: float = 0.5        # 0..1 materiality
+    confidence: float = 0.5    # 0..1 extraction confidence
+    evidence: str = ""
+    url: str = ""
+    as_of: str = ""
+
+
+class KnowledgeGraph(BaseModel):
+    as_of: str = ""
+    scope: str = "focus"
+    nodes: list[str] = Field(default_factory=list)
+    edges: list[GraphEdge] = Field(default_factory=list)
+    built: int = 0
+    skipped: int = 0
+
+
+class NetworkInfluence(BaseModel):
+    neighbour: str
+    name: str = ""
+    type: RelationType
+    edge_sentiment: str = "neutral"
+    neighbour_direction: str = "unknown"
+    signed: float = 0.0
+    reason: str = ""
+
+
+class NetworkSignal(BaseModel):
+    ticker: str
+    intensity: float = 0.0
+    signed: float = 0.0
+    influences: list[NetworkInfluence] = Field(default_factory=list)
+    reasons: list[str] = Field(default_factory=list)
+
+
+class NetworkConfig(BaseModel):
+    enabled: bool = True
+    focus_top_n: int = 30
+    max_edges_per_company: int = 8
+    min_confidence: float = 0.4
+    weight: float = 0.5        # the tilt cap (network family weight)
+    alpha_event: float = 0.6   # blend weight on the edge news-event term
+    beta_state: float = 0.4    # blend weight on the neighbour-state term
+
+
 class StockData(BaseModel):
     ticker: str
     company_name: str
@@ -110,6 +162,7 @@ class StockData(BaseModel):
     news: list[NewsItem] = Field(default_factory=list)
     market_mood: Optional[MarketMood] = None
     trump_mentions: list[Mention] = Field(default_factory=list)
+    network: Optional[NetworkSignal] = None
 
 
 class Signal(BaseModel):
@@ -135,6 +188,7 @@ class AnalysisResult(BaseModel):
     risks: list[str] = Field(default_factory=list)
     disclaimer: str = DISCLAIMER
     market_mood: Optional[MarketMood] = None
+    network: Optional[NetworkSignal] = None
 
 
 class ProviderConfig(BaseModel):
@@ -182,6 +236,8 @@ class StockScore(BaseModel):
     reasons: list[str] = Field(default_factory=list)
     components: dict[str, float] = Field(default_factory=dict)
     as_of: str = ""
+    net: float = 0.0
+    network: Optional[NetworkSignal] = None
 
 
 class ScreenBoard(BaseModel):
@@ -224,3 +280,4 @@ class Settings(BaseModel):
     alerts: AlertConfig = Field(default_factory=AlertConfig)
     truth_signal: TruthSignalConfig = Field(default_factory=TruthSignalConfig)
     screener: ScreenerConfig = Field(default_factory=ScreenerConfig)
+    network: NetworkConfig = Field(default_factory=NetworkConfig)
