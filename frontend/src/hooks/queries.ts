@@ -27,6 +27,23 @@ export function useSaveSettings() {
   });
 }
 
+export function useWatchlist() {
+  const settings = useSettings();
+  const save = useSaveSettings();
+  const list = settings.data?.watchlist ?? [];
+  const add = (t: string) => {
+    const s = settings.data;
+    if (!s || s.watchlist.includes(t)) return;
+    save.mutate({ ...s, watchlist: [...s.watchlist, t] });
+  };
+  const remove = (t: string) => {
+    const s = settings.data;
+    if (!s || !s.watchlist.includes(t)) return;
+    save.mutate({ ...s, watchlist: s.watchlist.filter((x) => x !== t) });
+  };
+  return { list, add, remove, error: save.error, isError: save.isError };
+}
+
 export function useProviders() {
   return useQuery({ queryKey: ['providers'], queryFn: api.listProviders });
 }

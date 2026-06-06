@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { DiscoverBoard } from '../components/DiscoverBoard';
-import { useRefreshUniverse, useRescan, useSaveSettings, useScreen, useSectors, useSettings } from '../hooks/queries';
+import { useRefreshUniverse, useRescan, useScreen, useSectors, useWatchlist } from '../hooks/queries';
 
 export default function Discover() {
   const [sector, setSector] = useState('');
@@ -9,15 +9,8 @@ export default function Discover() {
   const sectors = useSectors();
   const board = useScreen(sector || undefined, direction || undefined, show);
   const rescan = useRescan();
-  const settings = useSettings();
-  const saveSettings = useSaveSettings();
   const refreshList = useRefreshUniverse();
-
-  const addToWatch = (t: string) => {
-    const s = settings.data;
-    if (!s || s.watchlist.includes(t)) return;
-    saveSettings.mutate({ ...s, watchlist: [...s.watchlist, t] });
-  };
+  const watch = useWatchlist();
 
   const data = board.data;
   const empty = data && data.items.length === 0 && data.as_of === '';
@@ -83,7 +76,7 @@ export default function Discover() {
         <div className="panel-head">
           <span className="section-label">Opportunity board — click a row to deep-dive</span>
         </div>
-        {data && <DiscoverBoard items={data.items} onAdd={addToWatch} />}
+        {data && <DiscoverBoard items={data.items} onAdd={watch.add} />}
       </section>
     </>
   );
