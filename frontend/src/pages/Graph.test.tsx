@@ -52,3 +52,22 @@ it('rebuild button calls the API', async () => {
   fireEvent.click(await screen.findByRole('button', { name: /rebuild graph/i }));
   await waitFor(() => expect(api.rebuildGraph).toHaveBeenCalled());
 });
+
+it('shows an empty-after-filter message with a reset that restores the graph', async () => {
+  vi.mocked(api.getGraph).mockResolvedValue(GRAPH);   // nodes AAPL/TSM, board empty -> off-board (no sector)
+  vi.mocked(api.getSectors).mockResolvedValue(['Energy']);
+  renderGraph();
+  await screen.findByTestId('graph-canvas');
+  fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Energy' } });
+  expect(await screen.findByText(/no nodes match these filters/i)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /reset filters/i }));
+  expect(await screen.findByTestId('graph-canvas')).toBeInTheDocument();
+});
+
+it('surfaces a rebuild failure', async () => {
+  vi.mocked(api.getGraph).mockResolvedValue(GRAPH);
+  vi.mocked(api.rebuildGraph).mockRejectedValue(new Error('boom'));
+  renderGraph();
+  fireEvent.click(await screen.findByRole('button', { name: /rebuild graph/i }));
+  expect(await screen.findByText(/rebuild failed: boom/i)).toBeInTheDocument();
+});

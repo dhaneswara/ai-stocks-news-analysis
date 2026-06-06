@@ -52,3 +52,8 @@ it('toggling an edge-type fires onToggleType', () => {
   fireEvent.click(screen.getByRole('checkbox', { name: /competitor/i }));
   expect(props.onToggleType).toHaveBeenCalledWith('competitor');
 });
+
+it('shows a rebuild error when provided', () => {
+  wrap(<GraphSidebar {...base()} selected={null} rebuildError="boom" />);
+  expect(screen.getByText(/rebuild failed: boom/i)).toBeInTheDocument();
+});

@@ -34,8 +34,14 @@ export default function Graph() {
       return next;
     });
 
+  const resetFilters = () => {
+    setSector('');
+    setEnabledTypes(new Set(ALL_TYPES));
+  };
+
   const g = graph.data;
   const empty = !!g && g.nodes.length === 0;
+  const filteredEmpty = !empty && !!g && view.nodes.length === 0;
 
   return (
     <div className="graph-page">
@@ -49,7 +55,13 @@ export default function Graph() {
             </p>
           </div>
         )}
-        {!empty && g && (
+        {filteredEmpty && (
+          <div className="graph-empty">
+            <p className="muted">No nodes match these filters.</p>
+            <button className="secondary" onClick={resetFilters}>Reset filters</button>
+          </div>
+        )}
+        {!empty && !filteredEmpty && g && (
           <GraphCanvas nodes={view.nodes} links={view.links} selectedId={selectedId} onSelect={setSelectedId} />
         )}
       </div>
@@ -68,6 +80,7 @@ export default function Graph() {
         selected={selected}
         onRebuild={() => rebuild.mutate()}
         rebuilding={rebuild.isPending}
+        rebuildError={rebuild.isError ? (rebuild.error as Error).message : null}
       />
     </div>
   );

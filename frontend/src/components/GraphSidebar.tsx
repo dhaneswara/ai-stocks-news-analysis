@@ -18,11 +18,12 @@ export interface GraphSidebarProps {
   selected: ViewNode | null;
   onRebuild: () => void;
   rebuilding: boolean;
+  rebuildError?: string | null;
 }
 
 export function GraphSidebar(props: GraphSidebarProps) {
   const { asOf, built, skipped, nodeCount, linkCount, sectors, sector, onSector,
-    enabledTypes, onToggleType, selected, onRebuild, rebuilding } = props;
+    enabledTypes, onToggleType, selected, onRebuild, rebuilding, rebuildError } = props;
   return (
     <aside className="graph-sidebar panel">
       <div className="panel-head"><span className="section-label">Knowledge graph</span></div>
@@ -30,6 +31,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
       <button onClick={onRebuild} disabled={rebuilding}>
         {rebuilding ? 'Rebuilding… (LLM)' : 'Rebuild graph'}
       </button>
+      {rebuildError && <p className="error">Rebuild failed: {rebuildError}</p>}
       <p className="muted">
         {asOf ? `As of ${new Date(asOf).toLocaleString()}` : 'Not built yet'}
         {built ? ` · ${built} built` : ''}{skipped ? `, ${skipped} skipped` : ''}
