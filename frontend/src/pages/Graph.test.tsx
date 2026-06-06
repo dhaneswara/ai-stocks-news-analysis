@@ -5,19 +5,32 @@ import { MemoryRouter } from 'react-router-dom';
 import Graph from './Graph';
 import type { KnowledgeGraph, ScreenBoard } from '../types';
 
-// Canvas can't render in jsdom — mock the wrapper (keeps react-force-graph-2d out of the test).
-vi.mock('../components/GraphCanvas', () => ({ GraphCanvas: () => <div data-testid="graph-canvas" /> }));
+// Canvas can't render in jsdom — mock it; render a select button per node so tests can select.
+vi.mock('../components/GraphCanvas', () => ({
+  GraphCanvas: ({ nodes, onSelect }: { nodes: { id: string }[]; onSelect: (id: string) => void }) => (
+    <div data-testid="graph-canvas">
+      {nodes.map((n) => <button key={n.id} onClick={() => onSelect(n.id)}>{`sel-${n.id}`}</button>)}
+    </div>
+  ),
+}));
 vi.mock('../api/client', () => ({
-  api: { getGraph: vi.fn(), getScreen: vi.fn(), getSectors: vi.fn(), rebuildGraph: vi.fn() },
+  api: {
+    getScreen: vi.fn(), getSectors: vi.fn(), getGraph: vi.fn(), rebuildGraph: vi.fn(),
+    getCompanyGraph: vi.fn(), listSavedGraphs: vi.fn(), saveGraph: vi.fn(),
+    loadSavedGraph: vi.fn(), deleteSavedGraph: vi.fn(),
+  },
 }));
 import { api } from '../api/client';
 
-const EMPTY: KnowledgeGraph = { as_of: '', scope: 'focus', nodes: [], edges: [], built: 0, skipped: 0 };
-const GRAPH: KnowledgeGraph = {
-  as_of: '2026-06-06', scope: 'focus', built: 1, skipped: 0, nodes: ['AAPL', 'TSM'],
-  edges: [{ source: 'AAPL', target: 'TSM', type: 'supplier', sentiment: 'negative', weight: 1, confidence: 1, evidence: 'x', url: '', as_of: '' }],
+const BOARD: ScreenBoard = { as_of: 't', scope: 'all', scanned: 0, skipped: 0, items: [] };
+const AAPL_GRAPH: KnowledgeGraph = {
+  as_of: 't', scope: 'company:AAPL', built: 1, skipped: 0, nodes: ['AAPL', 'TSM'],
+  edges: [{ source: 'AAPL', target: 'TSM', type: 'supplier', sentiment: 'negative', weight: 1, confidence: 1, evidence: '', url: '', as_of: '' }],
 };
-const BOARD: ScreenBoard = { as_of: '2026-06-06', scope: 'all', scanned: 2, skipped: 0, items: [] };
+const TSM_GRAPH: KnowledgeGraph = {
+  as_of: 't', scope: 'company:TSM', built: 1, skipped: 0, nodes: ['TSM', 'FOO'],
+  edges: [{ source: 'TSM', target: 'FOO', type: 'customer', sentiment: 'positive', weight: 1, confidence: 1, evidence: '', url: '', as_of: '' }],
+};
 
 function renderGraph() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -31,43 +44,40 @@ function renderGraph() {
 beforeEach(() => {
   vi.mocked(api.getScreen).mockResolvedValue(BOARD);
   vi.mocked(api.getSectors).mockResolvedValue([]);
-  vi.mocked(api.rebuildGraph).mockResolvedValue(GRAPH);
+  vi.mocked(api.listSavedGraphs).mockResolvedValue([]);
 });
 
-it('shows the empty state when there is no graph', async () => {
-  vi.mocked(api.getGraph).mockResolvedValue(EMPTY);
+it('shows the empty prompt before anything is loaded', async () => {
   renderGraph();
-  expect(await screen.findByText(/no graph yet/i)).toBeInTheDocument();
+  expect(await screen.findByText(/type a company ticker/i)).toBeInTheDocument();
 });
 
-it('renders the canvas when the graph has nodes', async () => {
-  vi.mocked(api.getGraph).mockResolvedValue(GRAPH);
+it('loads a root and renders the canvas', async () => {
+  vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
   renderGraph();
+  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
+  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
   expect(await screen.findByTestId('graph-canvas')).toBeInTheDocument();
+  expect(screen.getByText(/2 nodes/)).toBeInTheDocument();
 });
 
-it('rebuild button calls the API', async () => {
-  vi.mocked(api.getGraph).mockResolvedValue(EMPTY);
+it('expands a selected node and grows the graph', async () => {
+  vi.mocked(api.getCompanyGraph).mockResolvedValueOnce(AAPL_GRAPH).mockResolvedValueOnce(TSM_GRAPH);
   renderGraph();
-  fireEvent.click(await screen.findByRole('button', { name: /rebuild graph/i }));
-  await waitFor(() => expect(api.rebuildGraph).toHaveBeenCalled());
+  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
+  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
+  fireEvent.click(await screen.findByRole('button', { name: 'sel-TSM' })); // select TSM
+  fireEvent.click(screen.getByRole('button', { name: /expand neighbours/i }));
+  await waitFor(() => expect(screen.getByText(/3 nodes/)).toBeInTheDocument());
 });
 
-it('shows an empty-after-filter message with a reset that restores the graph', async () => {
-  vi.mocked(api.getGraph).mockResolvedValue(GRAPH);   // nodes AAPL/TSM, board empty -> off-board (no sector)
-  vi.mocked(api.getSectors).mockResolvedValue(['Energy']);
+it('saves the working graph', async () => {
+  vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
+  vi.mocked(api.saveGraph).mockResolvedValue({ root: 'AAPL', saved_at: 't', expanded: [], graph: AAPL_GRAPH });
   renderGraph();
+  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
+  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
   await screen.findByTestId('graph-canvas');
-  fireEvent.change(screen.getByRole('combobox'), { target: { value: 'Energy' } });
-  expect(await screen.findByText(/no nodes match these filters/i)).toBeInTheDocument();
-  fireEvent.click(screen.getByRole('button', { name: /reset filters/i }));
-  expect(await screen.findByTestId('graph-canvas')).toBeInTheDocument();
-});
-
-it('surfaces a rebuild failure', async () => {
-  vi.mocked(api.getGraph).mockResolvedValue(GRAPH);
-  vi.mocked(api.rebuildGraph).mockRejectedValue(new Error('boom'));
-  renderGraph();
-  fireEvent.click(await screen.findByRole('button', { name: /rebuild graph/i }));
-  expect(await screen.findByText(/rebuild failed: boom/i)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: /save graph/i }));
+  await waitFor(() => expect(api.saveGraph).toHaveBeenCalled());
 });

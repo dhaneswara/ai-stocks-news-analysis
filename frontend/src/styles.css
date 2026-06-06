@@ -667,6 +667,15 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
   * { scroll-behavior: auto; }
 }
 
+.graph-explore-controls { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.graph-explore-controls input { width: 100%; }
+.graph-actions { display: flex; gap: 6px; }
+.graph-actions .secondary { flex: 1; }
+.graph-saves { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+.graph-save-row { display: flex; align-items: center; gap: 6px; }
+.graph-save-row .linklike { background: none; border: none; color: #58a6ff; cursor: pointer; padding: 0; text-align: left; flex: 1; }
+.graph-save-row .icon-btn { background: none; border: none; color: #8b949e; cursor: pointer; }
+
 /* ----- Discover board ------------------------------------------------------ */
 .board-controls { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; width: 100%; }
 .board-controls > label {
