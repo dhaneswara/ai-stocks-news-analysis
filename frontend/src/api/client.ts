@@ -3,6 +3,8 @@ import type {
   KnowledgeGraph,
   MarketMood,
   ProviderInfo,
+  SavedGraphSummary,
+  SavedGraphVersion,
   ScreenBoard,
   Settings,
   StockData,
@@ -60,6 +62,20 @@ export const api = {
   getGraph: (scope = 'focus') =>
     http<KnowledgeGraph>(`/graph?scope=${encodeURIComponent(scope)}`),
   rebuildGraph: () => http<KnowledgeGraph>('/graph/rebuild', { method: 'POST' }),
+  getCompanyGraph: (ticker: string) =>
+    http<KnowledgeGraph>(`/graph/company/${encodeURIComponent(ticker)}`),
+  listSavedGraphs: () => http<SavedGraphSummary[]>('/graph/saved'),
+  saveGraph: (v: SavedGraphVersion) =>
+    http<SavedGraphVersion>('/graph/saved', { method: 'POST', body: JSON.stringify(v) }),
+  loadSavedGraph: (root: string, version?: string) =>
+    http<SavedGraphVersion>(
+      `/graph/saved/${encodeURIComponent(root)}${version ? `?version=${encodeURIComponent(version)}` : ''}`,
+    ),
+  deleteSavedGraph: (root: string, version?: string) =>
+    http<{ deleted: boolean }>(
+      `/graph/saved/${encodeURIComponent(root)}${version ? `?version=${encodeURIComponent(version)}` : ''}`,
+      { method: 'DELETE' },
+    ),
   refreshUniverse: () =>
     http<{ count: number; sectors: Record<string, number>; source: string }>('/universe/refresh', {
       method: 'POST',

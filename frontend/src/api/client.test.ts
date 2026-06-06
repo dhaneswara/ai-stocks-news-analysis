@@ -87,4 +87,45 @@ describe('api client', () => {
     expect(url as string).toContain('/graph/rebuild');
     expect((init as RequestInit).method).toBe('POST');
   });
+
+  it('getCompanyGraph GETs /graph/company/{ticker}', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ nodes: ['AAPL'], edges: [] }) });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.getCompanyGraph('AAPL');
+    expect(fetchMock.mock.calls[0][0] as string).toContain('/graph/company/AAPL');
+  });
+
+  it('saveGraph POSTs /graph/saved with a body', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ root: 'AAPL', saved_at: 't', expanded: [], graph: {} }) });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.saveGraph({ root: 'AAPL', saved_at: '', expanded: [], graph: { as_of: '', scope: 'x', nodes: [], edges: [], built: 0, skipped: 0 } });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url as string).toContain('/graph/saved');
+    expect((init as RequestInit).method).toBe('POST');
+  });
+
+  it('listSavedGraphs GETs /graph/saved', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.listSavedGraphs();
+    expect(fetchMock.mock.calls[0][0] as string).toMatch(/\/graph\/saved$/);
+  });
+
+  it('loadSavedGraph GETs a version when provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ root: 'AAPL', saved_at: 't', expanded: [], graph: {} }) });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.loadSavedGraph('AAPL', 't1');
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain('/graph/saved/AAPL');
+    expect(url).toContain('version=t1');
+  });
+
+  it('deleteSavedGraph DELETEs /graph/saved/{root}', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ deleted: true }) });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.deleteSavedGraph('AAPL');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url as string).toContain('/graph/saved/AAPL');
+    expect((init as RequestInit).method).toBe('DELETE');
+  });
 });
