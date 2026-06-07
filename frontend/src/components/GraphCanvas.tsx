@@ -1,17 +1,28 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import { directionColor, nodeRadius, sentimentColor, type ViewLink, type ViewNode } from '../lib/graphView';
+import { GraphLegend } from './GraphLegend';
+import { GraphContextMenu, type MenuItem } from './GraphContextMenu';
+import type { RelationType } from '../types';
 
 export interface GraphCanvasProps {
   nodes: ViewNode[];
   links: ViewLink[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onAddRelationship: (sourceId: string) => void;
+  onDeleteNode: (id: string) => void;
+  onDeleteEdge: (ref: { source: string; target: string; type: RelationType }) => void;
 }
 
-export function GraphCanvas({ nodes, links, selectedId, onSelect }: GraphCanvasProps) {
+interface Menu { x: number; y: number; items: MenuItem[] }
+
+export function GraphCanvas({
+  nodes, links, selectedId, onSelect, onAddRelationship, onDeleteNode, onDeleteEdge,
+}: GraphCanvasProps) {
   const wrap = useRef<HTMLDivElement>(null);
   const [dims, setDims] = useState({ width: 600, height: 480 });
+  const [menu, setMenu] = useState<Menu | null>(null);
 
   useEffect(() => {
     const el = wrap.current;
@@ -22,8 +33,6 @@ export function GraphCanvas({ nodes, links, selectedId, onSelect }: GraphCanvasP
     return () => ro.disconnect();
   }, []);
 
-  // Stable graphData (keyed on nodes/links, NOT selection) so selecting a node
-  // recolours without restarting the force simulation.
   const data = useMemo(
     () => ({ nodes: nodes.map((n) => ({ ...n })), links: links.map((l) => ({ ...l })) }),
     [nodes, links],
@@ -41,9 +50,14 @@ export function GraphCanvas({ nodes, links, selectedId, onSelect }: GraphCanvasP
   }, [links, selectedId]);
 
   const isDim = (id: string) => !!selectedId && id !== selectedId && !neighbours.has(id);
+  const endpointId = (v: unknown): string => (typeof v === 'object' && v ? (v as { id: string }).id : (v as string));
+  const localXY = (e: MouseEvent) => {
+    const r = wrap.current?.getBoundingClientRect();
+    return { x: e.clientX - (r?.left ?? 0), y: e.clientY - (r?.top ?? 0) };
+  };
 
   return (
-    <div ref={wrap} className="graph-canvas">
+    <div ref={wrap} className="graph-canvas" onContextMenu={(e) => e.preventDefault()}>
       <ForceGraph2D
         width={dims.width}
         height={dims.height}
@@ -60,12 +74,29 @@ export function GraphCanvas({ nodes, links, selectedId, onSelect }: GraphCanvasP
         }}
         linkColor={(l: any) => sentimentColor(l.sentiment)}
         linkWidth={(l: any) => 0.5 + l.weight * l.confidence * 2}
-        linkLineDash={(l: any) => (l.origin === 'imported' ? [4, 2] : [])}
+        linkLineDash={(l: any) => (l.origin === 'imported' ? [4, 2] : l.origin === 'manual' ? [1, 3] : [])}
         linkDirectionalArrowLength={4}
         linkDirectionalArrowRelPos={1}
         linkLabel={(l: any) => `${l.type} · ${l.sentiment}${l.evidence ? ` · ${l.evidence}` : ''}`}
         onNodeClick={(n: any) => onSelect(n.id)}
+        onNodeRightClick={(n: any, e: MouseEvent) => {
+          e.preventDefault();
+          setMenu({
+            ...localXY(e),
+            items: [
+              { label: 'Add relationship', onClick: () => onAddRelationship(n.id) },
+              { label: 'Delete node', danger: true, onClick: () => onDeleteNode(n.id) },
+            ],
+          });
+        }}
+        onLinkRightClick={(l: any, e: MouseEvent) => {
+          e.preventDefault();
+          const ref = { source: endpointId(l.source), target: endpointId(l.target), type: l.type as RelationType };
+          setMenu({ ...localXY(e), items: [{ label: 'Delete relationship', danger: true, onClick: () => onDeleteEdge(ref) }] });
+        }}
       />
+      <GraphLegend />
+      {menu && <GraphContextMenu items={menu.items} x={menu.x} y={menu.y} onClose={() => setMenu(null)} />}
     </div>
   );
 }
