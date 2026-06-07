@@ -1,5 +1,6 @@
 import type {
   AnalysisResult,
+  EvaluationBoard,
   KnowledgeGraph,
   MarketMood,
   ProviderInfo,
@@ -77,4 +78,12 @@ export const api = {
     http<{ count: number; sectors: Record<string, number>; source: string }>('/universe/refresh', {
       method: 'POST',
     }),
+  getEvaluation: () => http<EvaluationBoard>('/evaluation'),
+  explainPrediction: (ticker: string, callDate: string) =>
+    http<{ explanation: string }>(
+      `/evaluation/${encodeURIComponent(ticker)}/${encodeURIComponent(callDate)}/explain`,
+      { method: 'POST' },
+    ),
+  deleteTracked: (ticker: string) =>
+    http<{ deleted: number }>(`/evaluation/${encodeURIComponent(ticker)}`, { method: 'DELETE' }),
 };
