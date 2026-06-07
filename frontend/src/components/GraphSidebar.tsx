@@ -58,11 +58,12 @@ export function GraphSidebar(props: GraphSidebarProps) {
 
   const onFile = (file: File | undefined) => {
     if (!file) return;
+    setParseError(null);
     file.text().then((t) => setJsonText(t)).catch(() => setParseError('Could not read the file.'));
   };
 
   const copyPrompt = () => {
-    void navigator.clipboard?.writeText(chatGptPrompt(promptDefault));
+    navigator.clipboard?.writeText(chatGptPrompt(promptDefault)).catch(() => {});
   };
 
   return (
@@ -179,7 +180,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
             onChange={(e) => setJsonText(e.target.value)}
             rows={8}
           />
-          <input type="file" accept="application/json,.json" onChange={(e) => onFile(e.target.files?.[0])} />
+          <input type="file" accept="application/json,.json" aria-label="Upload JSON file" onChange={(e) => onFile(e.target.files?.[0])} />
           <button disabled={importing || !jsonText.trim()} onClick={doImport}>
             {importing ? 'Importing…' : 'Import model'}
           </button>
@@ -189,7 +190,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
             <p className="muted">
               Imported {importReport.edges_added} edges, {importReport.nodes_added} nodes
               {importReport.dropped ? `, ${importReport.dropped} dropped` : ''}.
-              {importReport.warnings.map((w, i) => <span key={i}><br />{w}</span>)}
+              {importReport.warnings.map((w, i) => <span key={`${i}-${w}`}><br />{w}</span>)}
             </p>
           )}
           <div className="graph-section">
