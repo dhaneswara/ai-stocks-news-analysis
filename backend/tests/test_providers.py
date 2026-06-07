@@ -212,3 +212,105 @@ def test_factory_deepseek_env_key_fallback(monkeypatch):
     provider = build_provider(s)
     assert isinstance(provider, DeepSeekProvider)
     assert provider.cfg.api_key == "env-secret"  # filled from environment
+
+
+def test_openai_list_models_sorted_deduped(monkeypatch):
+    from app.llm.openai_provider import OpenAIProvider
+
+    class M:
+        def __init__(self, id):
+            self.id = id
+
+    class Resp:
+        data = [M("gpt-b"), M("gpt-a"), M("gpt-a")]
+
+    class FakeModels:
+        def list(self):
+            return Resp()
+
+    class FakeClient:
+        models = FakeModels()
+
+    monkeypatch.setattr("app.llm.openai_provider.OpenAI", lambda api_key: FakeClient())
+    provider = OpenAIProvider(ProviderConfig(model="x", api_key="k"))
+    assert provider.list_models() == ["gpt-a", "gpt-b"]
+
+
+def test_deepseek_list_models_inherits(monkeypatch):
+    from app.llm.deepseek_provider import DeepSeekProvider
+
+    class M:
+        def __init__(self, id):
+            self.id = id
+
+    class Resp:
+        data = [M("deepseek-reasoner"), M("deepseek-chat")]
+
+    class FakeModels:
+        def list(self):
+            return Resp()
+
+    class FakeClient:
+        models = FakeModels()
+
+    monkeypatch.setattr("app.llm.deepseek_provider.OpenAI", lambda **kwargs: FakeClient())
+    provider = DeepSeekProvider(ProviderConfig(model="deepseek-chat", api_key="k"))
+    assert provider.list_models() == ["deepseek-chat", "deepseek-reasoner"]
+
+
+def test_anthropic_list_models_sorted(monkeypatch):
+    from app.llm.anthropic_provider import AnthropicProvider
+
+    class M:
+        def __init__(self, id):
+            self.id = id
+
+    class Resp:
+        data = [M("claude-b"), M("claude-a")]
+
+    class FakeModels:
+        def list(self):
+            return Resp()
+
+    class FakeClient:
+        models = FakeModels()
+
+    monkeypatch.setattr("app.llm.anthropic_provider.Anthropic", lambda api_key: FakeClient())
+    provider = AnthropicProvider(ProviderConfig(model="x", api_key="k"))
+    assert provider.list_models() == ["claude-a", "claude-b"]
+
+
+def test_gemini_list_models_strips_prefix(monkeypatch):
+    from app.llm.gemini_provider import GeminiProvider
+
+    class M:
+        def __init__(self, name):
+            self.name = name
+
+    class FakeModels:
+        def list(self):
+            return [M("models/gemini-2.0-flash"), M("models/gemini-1.5-pro")]
+
+    class FakeClient:
+        models = FakeModels()
+
+    monkeypatch.setattr("app.llm.gemini_provider.genai.Client", lambda api_key: FakeClient())
+    provider = GeminiProvider(ProviderConfig(model="x", api_key="k"))
+    assert provider.list_models() == ["gemini-1.5-pro", "gemini-2.0-flash"]
+
+
+def test_ollama_list_models(monkeypatch):
+    class FakeResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"models": [{"name": "llama3.1:latest"}, {"name": "mistral:latest"}]}
+
+    def fake_get(url, timeout):
+        assert url.endswith("/api/tags")
+        return FakeResp()
+
+    monkeypatch.setattr("app.llm.ollama_provider.httpx.get", fake_get)
+    provider = OllamaProvider(ProviderConfig(model="x", base_url="http://localhost:11434"))
+    assert provider.list_models() == ["llama3.1:latest", "mistral:latest"]

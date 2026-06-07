@@ -32,3 +32,11 @@ class OllamaProvider:
             return resp.json()["message"]["content"]
         except Exception as exc:  # noqa: BLE001
             raise LLMError(f"Ollama request failed: {exc}") from exc
+
+    def list_models(self) -> list[str]:
+        try:
+            resp = httpx.get(f"{self.base_url}/api/tags", timeout=30)
+            resp.raise_for_status()
+            return sorted({m["name"] for m in resp.json().get("models", [])})
+        except Exception as exc:  # noqa: BLE001
+            raise LLMError(f"Ollama model list failed: {exc}") from exc

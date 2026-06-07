@@ -24,3 +24,9 @@ class AnthropicProvider:
             return "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
         except Exception as exc:  # noqa: BLE001
             raise LLMError(f"Anthropic request failed: {exc}") from exc
+
+    def list_models(self) -> list[str]:
+        try:
+            return sorted({m.id for m in self.client.models.list().data})
+        except Exception as exc:  # noqa: BLE001
+            raise LLMError(f"Anthropic model list failed: {exc}") from exc

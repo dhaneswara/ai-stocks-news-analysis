@@ -27,3 +27,9 @@ class GeminiProvider:
             return resp.text or ""
         except Exception as exc:  # noqa: BLE001
             raise LLMError(f"Gemini request failed: {exc}") from exc
+
+    def list_models(self) -> list[str]:
+        try:
+            return sorted({m.name.split("/")[-1] for m in self.client.models.list()})
+        except Exception as exc:  # noqa: BLE001
+            raise LLMError(f"Gemini model list failed: {exc}") from exc

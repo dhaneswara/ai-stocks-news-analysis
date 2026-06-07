@@ -27,3 +27,9 @@ class OpenAIProvider:
             return resp.choices[0].message.content or ""
         except Exception as exc:  # noqa: BLE001
             raise LLMError(f"{self.label} request failed: {exc}") from exc
+
+    def list_models(self) -> list[str]:
+        try:
+            return sorted({m.id for m in self.client.models.list().data})
+        except Exception as exc:  # noqa: BLE001
+            raise LLMError(f"{self.label} model list failed: {exc}") from exc
