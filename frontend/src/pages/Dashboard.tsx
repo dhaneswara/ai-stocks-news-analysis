@@ -88,18 +88,20 @@ export default function Dashboard() {
       {d && (
         <>
           <section className="panel summary">
-            <div className="summary-id">
-              <span className="section-label">{d.ticker} · {d.price.currency} · {d.as_of}</span>
-              <h1 className="hero-name">{d.company_name}</h1>
-              <div className="hero-quote">
-                <span className="hero-price">
-                  <span className="cur">{d.price.currency === 'USD' ? '$' : ''}</span>
-                  {d.price.current.toFixed(2)}
-                </span>
-                <span className={`hero-change ${up ? 'up' : 'down'}`}>
-                  <span className="arrow">{up ? '▲' : '▼'}</span>
-                  {sign}{d.price.change.toFixed(2)} ({sign}{d.price.change_pct.toFixed(2)}%)
-                </span>
+            <div className="summary-head">
+              <div className="summary-id">
+                <span className="section-label">{d.ticker} · {d.price.currency} · {d.as_of}</span>
+                <h1 className="hero-name">{d.company_name}</h1>
+                <div className="hero-quote">
+                  <span className="hero-price">
+                    <span className="cur">{d.price.currency === 'USD' ? '$' : ''}</span>
+                    {d.price.current.toFixed(2)}
+                  </span>
+                  <span className={`hero-change ${up ? 'up' : 'down'}`}>
+                    <span className="arrow">{up ? '▲' : '▼'}</span>
+                    {sign}{d.price.change.toFixed(2)} ({sign}{d.price.change_pct.toFixed(2)}%)
+                  </span>
+                </div>
               </div>
               {score.data && <ScoreChip score={score.data} />}
             </div>

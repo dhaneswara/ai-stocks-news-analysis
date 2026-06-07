@@ -252,10 +252,16 @@ a { color: var(--gold); text-decoration: none; }
 
 /* ----- Summary band (company + price + indicators together) --------------- */
 .summary {
-  display: grid;
-  grid-template-columns: minmax(220px, 290px) 1fr;
-  gap: 30px;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.summary-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 18px 40px;
+  flex-wrap: wrap;
 }
 .summary-id { display: flex; flex-direction: column; gap: 9px; min-width: 0; }
 .summary-stats { min-width: 0; }
@@ -666,7 +672,7 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
   .chart-panel { height: clamp(340px, 44vh, 460px); }
 }
 @media (max-width: 900px) {
-  .summary { grid-template-columns: 1fr; gap: 16px; }
+  .summary { gap: 16px; }
 }
 @media (max-width: 800px) {
   /* Stack everything; drop the equal-height/scroll constraints for natural flow. */
@@ -741,7 +747,6 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 10px;
   flex-wrap: wrap;
 }
 
