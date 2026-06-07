@@ -146,4 +146,13 @@ describe('api client', () => {
     await api.getScore('AAPL');
     expect(fetchMock.mock.calls[0][0] as string).toContain('/score/AAPL');
   });
+
+  it('getImportSet GETs /graph/imports/{id} with the id encoded', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ scope: 'imported', edges: [] }) });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.getImportSet('2026-06-07T00:00:00+00:00');
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain('/graph/imports/');
+    expect(url).toContain('%3A'); // colon encoded
+  });
 });

@@ -86,6 +86,7 @@ export const api = {
   deleteImport: (id: string) =>
     http<{ deleted: boolean }>(`/graph/imports?set_id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
   getOverlay: () => http<KnowledgeGraph>('/graph?scope=imported'),
+  getImportSet: (id: string) => http<KnowledgeGraph>(`/graph/imports/${encodeURIComponent(id)}`),
   refreshUniverse: () =>
     http<{ count: number; sectors: Record<string, number>; source: string }>('/universe/refresh', {
       method: 'POST',
