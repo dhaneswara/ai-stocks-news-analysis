@@ -153,3 +153,18 @@ def test_list_and_delete_import(client, monkeypatch):
     assert tc.get("/api/graph/imports").json() == []
     g = tc.get("/api/graph").json()
     assert all(e.get("origin") != "imported" for e in g["edges"])
+
+
+def test_get_graph_scope_imported_returns_only_overlay(client, monkeypatch):
+    tc, cache = client
+    _stub_universe(monkeypatch)
+    from app.network.store import save_graph
+    save_graph(KnowledgeGraph(scope="focus", nodes=["AAPL", "TSM"], edges=[
+        GraphEdge(source="AAPL", target="TSM", type="supplier")]), cache)
+    tc.post("/api/graph/import", json={"name": "d", "payload": {"edges": [
+        {"source": "AAPL", "target": "MSFT", "type": "partner"}]}})
+    g = tc.get("/api/graph?scope=imported").json()
+    assert g["scope"] == "imported"
+    assert g["edges"] and all(e["origin"] == "imported" for e in g["edges"])
+    assert any(e["target"] == "MSFT" for e in g["edges"])
+    assert not any(e["target"] == "TSM" for e in g["edges"])  # focus edge excluded

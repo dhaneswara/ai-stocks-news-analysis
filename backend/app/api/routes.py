@@ -229,7 +229,7 @@ def screen_sectors() -> list[str]:
 def get_graph(scope: str = "focus", cache: Cache = Depends(get_cache)) -> KnowledgeGraph:
     if scope == "imported":
         return load_overlay(cache)
-    if scope == "focus":
+    if scope == "focus":  # overlay-merged; all other scopes return the raw snapshot
         return effective_graph(cache, "focus")
     graph = load_graph(cache, scope)
     return graph if graph is not None else KnowledgeGraph(scope=scope)
