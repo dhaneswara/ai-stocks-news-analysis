@@ -8,7 +8,10 @@ from app.analysis.scoring import score_stock
 from app.config.cache import Cache
 from app.data import truth_social
 from app.data.universe import load_universe
-from app.models.schemas import ScreenBoard, Settings
+from app.analysis.network import blend_network_into_score, compute_network_signal
+from app.models.schemas import ScreenBoard, Settings, StockScore
+from app.network.store import effective_graph
+from app.screener.store import load_snapshot
 from app.services.stock_service import get_stock_data
 
 SCAN_PERIOD = "1y"  # enough history for SMA200, RSI, 1-month momentum, 52-wk extremes
@@ -45,3 +48,33 @@ def run_scan(scope: str | None, settings: Settings, cache: Cache) -> ScreenBoard
         skipped=skipped,
         items=items,
     )
+
+
+def score_one(ticker: str, settings: Settings, cache: Cache) -> StockScore:
+    """Score a single ticker on-demand (no LLM), network-blended to match the Discover board.
+
+    Raises ValueError (via get_stock_data) when the ticker has no data — the route maps that to 404.
+    The network block is best-effort: any failure degrades to the base technical score.
+    """
+    stock = get_stock_data(ticker, SCAN_PERIOD, settings.indicator_params, cache)
+    ts = settings.truth_signal
+    posts = (
+        truth_social.fetch_recent_posts_cached(ts.lookback_hours, ts.source_url, cache)
+        if ts.enabled else []
+    )
+    mentions = political.find_mentions(posts, ticker, stock.company_name)
+    score = score_stock(stock, mentions, settings.screener)
+    score.sector = next((e.sector for e in load_universe() if e.ticker == ticker), "")
+
+    if settings.network.enabled:
+        try:
+            graph = effective_graph(cache, "focus")
+            board = load_snapshot(cache, "all")
+            base_index = {s.ticker: s for s in (board.items if board else [])}
+            edges = [e for e in graph.edges if e.source == ticker]
+            if edges:
+                sig = compute_network_signal(ticker, edges, base_index, settings.network)
+                score = blend_network_into_score(score, sig, settings)
+        except Exception:  # noqa: BLE001 — network is best-effort; base score on any failure
+            pass
+    return score
