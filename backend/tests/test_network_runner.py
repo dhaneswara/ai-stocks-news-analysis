@@ -1,7 +1,7 @@
 import app.network.runner as runner
 from app.config.cache import Cache
 from app.models.schemas import GraphEdge, KnowledgeGraph, ScreenBoard, Settings, StockScore
-from app.network.store import load_graph
+from app.network.store import add_import_set, load_graph
 from app.screener.store import load_snapshot, save_snapshot
 
 
@@ -26,3 +26,20 @@ def test_run_builds_saves_and_bakes_into_board(tmp_path, monkeypatch):
 def test_run_disabled_is_noop(tmp_path):
     settings = Settings(); settings.network.enabled = False
     assert runner.run(settings, Cache(str(tmp_path / "c.db")))["enabled"] is False
+
+
+def test_runner_bakes_overlay(tmp_path, monkeypatch):
+    cache = Cache(str(tmp_path / "c.db"))
+    save_snapshot(ScreenBoard(scope="all", items=[
+        StockScore(ticker="AAPL", name="Apple", price=1, change_pct=0, score=50,
+                   direction="hold", net=0.0, base_score=50, base_net=0.0)]), cache)
+    monkeypatch.setattr(runner, "build_graph",
+                        lambda scope, settings, cache: KnowledgeGraph(scope="focus"))
+    add_import_set("o", KnowledgeGraph(scope="imported", nodes=["AAPL", "MSFT"], edges=[
+        GraphEdge(source="AAPL", target="MSFT", type="partner", sentiment="positive",
+                  weight=1.0, confidence=1.0, origin="imported")]),
+        cache, created_at="2026-06-07T00:00:00+00:00")
+
+    runner.run(Settings(), cache)
+    aapl = next(i for i in load_snapshot(cache, "all").items if i.ticker == "AAPL")
+    assert aapl.network is not None and aapl.network.signed > 0
