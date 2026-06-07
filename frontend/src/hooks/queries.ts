@@ -48,6 +48,10 @@ export function useProviders() {
   return useQuery({ queryKey: ['providers'], queryFn: api.listProviders });
 }
 
+export function useListModels() {
+  return useMutation({ mutationFn: (id: string) => api.listModels(id) });
+}
+
 export function useSectors() {
   return useQuery({ queryKey: ['sectors'], queryFn: api.getSectors });
 }

@@ -45,6 +45,8 @@ export const api = {
   listProviders: () => http<ProviderInfo[]>('/providers'),
   testProvider: (id: string) =>
     http<TestResult>(`/providers/${encodeURIComponent(id)}/test`, { method: 'POST' }),
+  listModels: (id: string) =>
+    http<{ models: string[]; error: string }>(`/providers/${encodeURIComponent(id)}/models`),
   testAlert: () => http<TestResult>('/alerts/test', { method: 'POST' }),
   getMood: () => http<{ enabled: boolean; post_count: number; mood: MarketMood | null }>('/truth/mood'),
   getScreen: (sector?: string, direction?: string, limit?: number) => {

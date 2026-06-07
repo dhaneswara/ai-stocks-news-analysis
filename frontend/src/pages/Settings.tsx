@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import { useProviders, useSaveSettings, useSettings } from '../hooks/queries';
+import { useListModels, useProviders, useSaveSettings, useSettings } from '../hooks/queries';
 import type { AlertConfig, ProviderId, Settings as SettingsT, TestResult, TruthSignalConfig } from '../types';
 
 export default function Settings() {
@@ -11,6 +11,9 @@ export default function Settings() {
   const [test, setTest] = useState<TestResult | null>(null);
   const [alertTest, setAlertTest] = useState<TestResult | null>(null);
   const [saved, setSaved] = useState(false);
+  const listModels = useListModels();
+  const [models, setModels] = useState<Record<string, string[]>>({});
+  const [modelsMsg, setModelsMsg] = useState<TestResult | null>(null);
 
   useEffect(() => {
     if (settingsQuery.data) setForm(structuredClone(settingsQuery.data));
@@ -20,6 +23,7 @@ export default function Settings() {
 
   const active = form.active_provider;
   const cfg = form.providers[active];
+  const fetched = models[active] ?? [];
   const update = (next: Partial<SettingsT>) => { setForm({ ...form, ...next }); setSaved(false); };
   const updateCfg = (patch: Partial<typeof cfg>) =>
     update({ providers: { ...form.providers, [active]: { ...cfg, ...patch } } });
@@ -37,6 +41,20 @@ export default function Settings() {
     await save.mutateAsync(form);
     setAlertTest(await api.testAlert());
   };
+  const onFetchModels = async () => {
+    setModelsMsg(null);
+    await save.mutateAsync(form);
+    listModels.mutate(active, {
+      onSuccess: (res) => {
+        if (res.error) setModelsMsg({ ok: false, message: res.error });
+        else {
+          setModels((m) => ({ ...m, [active]: res.models }));
+          setModelsMsg({ ok: true, message: `${res.models.length} models` });
+        }
+      },
+      onError: (e) => setModelsMsg({ ok: false, message: (e as Error).message }),
+    });
+  };
 
   return (
     <div className="panel settings">
@@ -53,7 +71,23 @@ export default function Settings() {
 
       <div className="field">
         <label>Model</label>
-        <input value={cfg.model} onChange={(e) => updateCfg({ model: e.target.value })} placeholder="model name" />
+        <div className="model-row">
+          <input value={cfg.model} onChange={(e) => updateCfg({ model: e.target.value })} placeholder="model name" />
+          <button className="secondary" onClick={onFetchModels} disabled={save.isPending || listModels.isPending}>
+            {listModels.isPending ? 'Fetching…' : 'Fetch models'}
+          </button>
+          {modelsMsg && (
+            <span className={`note ${modelsMsg.ok ? 'muted' : 'error'}`}>
+              {modelsMsg.ok ? `✓ ${modelsMsg.message}` : `✗ ${modelsMsg.message}`}
+            </span>
+          )}
+        </div>
+        {fetched.length > 0 && (
+          <select value={fetched.includes(cfg.model) ? cfg.model : ''} onChange={(e) => e.target.value && updateCfg({ model: e.target.value })}>
+            <option value="">Choose a fetched model…</option>
+            {fetched.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        )}
       </div>
 
       {active === 'ollama' ? (
