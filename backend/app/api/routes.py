@@ -133,6 +133,20 @@ def test_provider(
         return {"ok": False, "message": str(exc)}
 
 
+@router.get("/providers/{provider_id}/models")
+def list_provider_models(
+    provider_id: str, store: SettingsStore = Depends(get_settings_store)
+) -> dict:
+    settings = store.load()
+    if provider_id not in settings.providers:
+        raise HTTPException(status_code=404, detail=f"Unknown provider '{provider_id}'")
+    settings.active_provider = provider_id  # type: ignore[assignment]
+    try:
+        return {"models": build_provider(settings).list_models(), "error": ""}
+    except Exception as exc:  # noqa: BLE001
+        return {"models": [], "error": str(exc)}
+
+
 @router.get("/truth/mood")
 def truth_mood(
     cache: Cache = Depends(get_cache),

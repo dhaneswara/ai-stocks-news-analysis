@@ -65,3 +65,46 @@ def test_providers_lists_deepseek(tmp_path):
     assert "deepseek" in by_id
     assert by_id["deepseek"]["label"] == "DeepSeek"
     assert by_id["deepseek"]["default_model"] == "deepseek-chat"
+
+
+def test_list_models_endpoint_ok(tmp_path, monkeypatch):
+    class FakeProvider:
+        name = "anthropic"
+
+        def __init__(self, cfg):
+            pass
+
+        def list_models(self):
+            return ["m-a", "m-b"]
+
+    monkeypatch.setattr(routes, "build_provider", lambda s: FakeProvider(None))
+    client, store = _client(tmp_path)
+    s = store.load()
+    s.providers["anthropic"].api_key = "k"
+    store.save(s)
+
+    resp = client.get("/api/providers/anthropic/models")
+    assert resp.status_code == 200
+    assert resp.json()["models"] == ["m-a", "m-b"]
+    assert resp.json()["error"] == ""
+
+
+def test_list_models_endpoint_reports_error(tmp_path, monkeypatch):
+    from app.llm.base import LLMError
+
+    def boom(_s):
+        raise LLMError("no key")
+
+    monkeypatch.setattr(routes, "build_provider", boom)
+    client, store = _client(tmp_path)
+
+    resp = client.get("/api/providers/anthropic/models")
+    assert resp.status_code == 200
+    assert resp.json()["models"] == []
+    assert "no key" in resp.json()["error"]
+
+
+def test_list_models_unknown_provider_404(tmp_path):
+    client, _ = _client(tmp_path)
+    resp = client.get("/api/providers/bogus/models")
+    assert resp.status_code == 404
