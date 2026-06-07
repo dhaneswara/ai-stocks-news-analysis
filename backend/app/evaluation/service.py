@@ -72,22 +72,26 @@ def evaluate_pending(store: PredictionStore, settings: Settings, *, persist: boo
         close_by_date = dict(series)
         index_of = {d: i for i, d in enumerate(dates)}
 
-        for p, h in missing:
-            i = index_of.get(p.call_date)
-            if i is None or i + h >= len(dates):
-                summary["pending"] += 1
-                continue
-            exit_date = dates[i + h]
-            exit_price = close_by_date[exit_date]
-            return_pct = ((exit_price - p.entry_price) / p.entry_price * 100.0
-                          if p.entry_price else 0.0)
-            hit = is_hit(p.recommendation, return_pct, settings.evaluation.hold_band_pct)
-            sc = score_call(p.recommendation, return_pct,
-                            settings.evaluation.hold_band_pct, settings.evaluation.score_scale_pct)
-            if persist:
-                store.record_eval(p.ticker, p.call_date, h, exit_date, exit_price,
-                                  return_pct, int(hit), sc)
-            summary["evaluated"] += 1
+        try:
+            for p, h in missing:
+                i = index_of.get(p.call_date)
+                if i is None or i + h >= len(dates):
+                    summary["pending"] += 1
+                    continue
+                exit_date = dates[i + h]
+                exit_price = close_by_date[exit_date]
+                return_pct = ((exit_price - p.entry_price) / p.entry_price * 100.0
+                              if p.entry_price else 0.0)
+                hit = is_hit(p.recommendation, return_pct, settings.evaluation.hold_band_pct)
+                sc = score_call(p.recommendation, return_pct,
+                                settings.evaluation.hold_band_pct, settings.evaluation.score_scale_pct)
+                if persist:
+                    store.record_eval(p.ticker, p.call_date, h, exit_date, exit_price,
+                                      return_pct, int(hit), sc)
+                summary["evaluated"] += 1
+        except Exception:  # noqa: BLE001
+            logger.warning("evaluation: failed while scoring %s", ticker)
+            continue
     return summary
 
 

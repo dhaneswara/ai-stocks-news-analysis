@@ -61,3 +61,16 @@ def test_fetch_failure_skips_ticker(tmp_path, monkeypatch):
     monkeypatch.setattr(service, "fetch_close_series", boom)
     summary = service.evaluate_pending(store, Settings())
     assert summary["evaluated"] == 0 and store.all_evals() == []
+
+
+def test_scoring_failure_is_isolated(tmp_path, monkeypatch):
+    store = _seed(tmp_path)
+    monkeypatch.setattr(service, "fetch_close_series", lambda ticker, period="2y": SERIES)
+
+    def boom(*a, **k):
+        raise RuntimeError("db locked")
+
+    monkeypatch.setattr(store, "record_eval", boom)
+    # Must not raise even though record_eval fails for this ticker.
+    summary = service.evaluate_pending(store, Settings())
+    assert store.all_evals() == []
