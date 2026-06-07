@@ -60,10 +60,9 @@ describe('Settings fetch models', () => {
     const btn = await screen.findByRole('button', { name: /fetch models/i });
     fireEvent.click(btn);
     await waitFor(() => expect(api.listModels).toHaveBeenCalledWith('anthropic'));
-    await waitFor(() => {
-      const opts = Array.from(document.querySelectorAll('#model-options option')).map((o) => o.getAttribute('value'));
-      expect(opts).toEqual(['claude-a', 'claude-b']);
-    });
+    // The fetched models render as real <select> options (pick-only dropdown).
+    expect(await screen.findByRole('option', { name: 'claude-a' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'claude-b' })).toBeInTheDocument();
   });
 
   it('clears the fetched-models status when the active provider changes', async () => {

@@ -31,6 +31,9 @@ export default function Settings() {
   const active = form.active_provider;
   const cfg = form.providers[active];
   const fetched = models[active] ?? [];
+  // Pick-only dropdown options: the fetched models, with the current model included so a saved
+  // (or custom) value is always shown and selectable even when it isn't in the fetched list.
+  const modelOptions = cfg.model && !fetched.includes(cfg.model) ? [cfg.model, ...fetched] : fetched;
   const update = (next: Partial<SettingsT>) => { setForm({ ...form, ...next }); setSaved(false); };
   const updateCfg = (patch: Partial<typeof cfg>) =>
     update({ providers: { ...form.providers, [active]: { ...cfg, ...patch } } });
@@ -91,7 +94,10 @@ export default function Settings() {
       <div className="field">
         <label>Model</label>
         <div className="model-row">
-          <input list="model-options" value={cfg.model} onChange={(e) => updateCfg({ model: e.target.value })} placeholder="model name" />
+          <select value={cfg.model} onChange={(e) => updateCfg({ model: e.target.value })}>
+            {modelOptions.length === 0 && <option value="">— fetch models to choose —</option>}
+            {modelOptions.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
           <button className="secondary" onClick={onFetchModels} disabled={save.isPending || listModels.isPending}>
             {listModels.isPending ? 'Fetching…' : 'Fetch models'}
           </button>
@@ -101,9 +107,6 @@ export default function Settings() {
             </span>
           )}
         </div>
-        <datalist id="model-options">
-          {fetched.map((m) => <option key={m} value={m} />)}
-        </datalist>
       </div>
 
       <div className="field">

@@ -649,7 +649,7 @@ input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; v
 .settings-actions { display: flex; gap: 12px; align-items: center; margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--hairline); flex-wrap: wrap; }
 .note { font-family: var(--mono); font-size: 11px; letter-spacing: 0.03em; }
 .model-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-.model-row > input { flex: 1; min-width: 220px; }
+.model-row > select { flex: 1; min-width: 220px; }
 
 /* ----- Utility ------------------------------------------------------------- */
 .muted { color: var(--ink-faint); }
