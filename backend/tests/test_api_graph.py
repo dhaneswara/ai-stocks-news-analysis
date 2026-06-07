@@ -97,3 +97,59 @@ def test_saved_graph_crud(client):
     r = tc.delete("/api/graph/saved/AAPL")
     assert r.status_code == 200 and r.json()["deleted"] is True
     assert tc.get("/api/graph/saved/AAPL").status_code == 404
+
+
+from app.models.schemas import UniverseEntry
+
+
+def _stub_universe(monkeypatch):
+    monkeypatch.setattr(routes.universe, "load_universe", lambda: [
+        UniverseEntry(ticker="AAPL", name="Apple", sector="Tech"),
+        UniverseEntry(ticker="MSFT", name="Microsoft", sector="Tech"),
+    ])
+
+
+def test_import_then_get_graph_includes_overlay(client, monkeypatch):
+    tc, _ = client
+    _stub_universe(monkeypatch)
+    body = {"name": "demo", "payload": {"edges": [
+        {"source": "AAPL", "target": "MSFT", "type": "partner",
+         "sentiment": "positive", "weight": 1.0, "confidence": 1.0}]}}
+    r = tc.post("/api/graph/import", json=body)
+    assert r.status_code == 200
+    rep = r.json()
+    assert rep["edges_added"] == 1 and rep["id"]
+    g = tc.get("/api/graph").json()  # scope defaults to focus -> effective_graph
+    assert any(e["source"] == "AAPL" and e["origin"] == "imported" for e in g["edges"])
+
+
+def test_import_feeds_scoring_after_rebuild(client, monkeypatch):
+    tc, cache = client
+    _stub_universe(monkeypatch)
+    save_snapshot(ScreenBoard(scope="all", items=[
+        StockScore(ticker="AAPL", name="Apple", price=1, change_pct=0, score=50,
+                   direction="hold", net=0.0, base_score=50, base_net=0.0)]), cache)
+    monkeypatch.setattr(routes, "build_graph",
+                        lambda scope, settings, cache: KnowledgeGraph(scope="focus"))
+    tc.post("/api/graph/import", json={"name": "d", "payload": {"edges": [
+        {"source": "AAPL", "target": "MSFT", "type": "partner",
+         "sentiment": "positive", "weight": 1.0, "confidence": 1.0}]}})
+    r = tc.post("/api/graph/rebuild")
+    assert r.status_code == 200
+    aapl = next(i for i in load_snapshot(cache, "all").items if i.ticker == "AAPL")
+    assert aapl.network is not None and aapl.network.signed > 0  # imported edge moved the signal
+
+
+def test_list_and_delete_import(client, monkeypatch):
+    tc, _ = client
+    _stub_universe(monkeypatch)
+    tc.post("/api/graph/import", json={"name": "d", "payload": {"edges": [
+        {"source": "AAPL", "target": "MSFT", "type": "partner"}]}})
+    sets = tc.get("/api/graph/imports").json()
+    assert len(sets) == 1
+    sid = sets[0]["id"]
+    r = tc.delete("/api/graph/imports", params={"set_id": sid})
+    assert r.status_code == 200 and r.json()["deleted"] is True
+    assert tc.get("/api/graph/imports").json() == []
+    g = tc.get("/api/graph").json()
+    assert all(e.get("origin") != "imported" for e in g["edges"])

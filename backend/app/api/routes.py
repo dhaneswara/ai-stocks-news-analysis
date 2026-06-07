@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.alerts.notifier import build_notifier
 from app.config.cache import Cache
@@ -15,6 +15,8 @@ from app.models.schemas import (
     DEFAULT_MODELS,
     AnalysisResult,
     EvaluationBoard,
+    ImportReport,
+    ImportSetSummary,
     KnowledgeGraph,
     SavedGraphSummary,
     SavedGraphVersion,
@@ -27,10 +29,15 @@ from app.analysis.network import apply_network
 from app.data import truth_social
 from app.network.service import build_company_graph, build_graph
 from app.network.store import (
+    add_import_set,
+    delete_import_set,
     delete_saved_graph,
+    effective_graph,
+    list_import_sets,
     list_saved_graphs,
     load_company_graph,
     load_graph,
+    load_overlay,
     save_company_graph,
     save_graph,
 )
@@ -38,6 +45,8 @@ from app.evaluation.service import build_board, evaluate_pending, explain_predic
 from app.evaluation.store import PredictionStore
 from app.services.analysis_service import run_analysis
 from app.services.stock_service import get_stock_data
+from app.analysis.relationships import TickerResolver
+from app.network.import_model import normalize_import
 from app.data import universe
 from app.data.universe import list_sectors
 from app.screener.service import run_scan
@@ -198,7 +207,7 @@ def screen_rescan(
 ) -> ScreenBoard:
     settings = store.load()
     board = run_scan(sector, settings, cache)
-    graph = load_graph(cache, "focus")
+    graph = effective_graph(cache, "focus")
     if sector:
         full = load_snapshot(cache, "all")
         merged = merge_sector(full, board) if full else board
@@ -218,6 +227,10 @@ def screen_sectors() -> list[str]:
 
 @router.get("/graph", response_model=KnowledgeGraph)
 def get_graph(scope: str = "focus", cache: Cache = Depends(get_cache)) -> KnowledgeGraph:
+    if scope == "imported":
+        return load_overlay(cache)
+    if scope == "focus":
+        return effective_graph(cache, "focus")
     graph = load_graph(cache, scope)
     return graph if graph is not None else KnowledgeGraph(scope=scope)
 
@@ -232,7 +245,7 @@ def rebuild_graph(
     save_graph(graph, cache)
     board = load_snapshot(cache, "all")
     if board is not None:
-        save_snapshot(apply_network(board, graph, settings), cache)
+        save_snapshot(apply_network(board, effective_graph(cache, "focus"), settings), cache)
     return graph
 
 
@@ -270,6 +283,30 @@ def get_saved(
 @router.delete("/graph/saved/{root}")
 def delete_saved(root: str, version: str | None = None, cache: Cache = Depends(get_cache)) -> dict:
     return {"deleted": delete_saved_graph(root, cache, version)}
+
+
+@router.post("/graph/import", response_model=ImportReport)
+def import_graph(payload: dict, cache: Cache = Depends(get_cache)) -> ImportReport:
+    body = payload or {}
+    name = str(body.get("name", ""))
+    model = body.get("payload", body)  # accept {name, payload} or a bare model
+    resolver = TickerResolver(universe.load_universe())
+    graph, report = normalize_import(model, resolver)
+    created_at = datetime.now(timezone.utc).isoformat()
+    summary = add_import_set(name, graph, cache, created_at=created_at)
+    report.id = summary.id
+    report.name = summary.name
+    return report
+
+
+@router.get("/graph/imports", response_model=list[ImportSetSummary])
+def list_imports(cache: Cache = Depends(get_cache)) -> list[ImportSetSummary]:
+    return list_import_sets(cache)
+
+
+@router.delete("/graph/imports")
+def delete_import(set_id: str = Query(...), cache: Cache = Depends(get_cache)) -> dict:
+    return {"deleted": delete_import_set(set_id, cache)}
 
 
 @router.post("/alerts/test")
