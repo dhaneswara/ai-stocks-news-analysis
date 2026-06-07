@@ -4,7 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { GraphSidebar } from './GraphSidebar';
 import type { ViewNode } from '../lib/graphView';
-import type { ImportSetSummary, RelationType, SavedGraphSummary, StockScore } from '../types';
+import type { ImportSetSummary, RelationType, SavedGraphSummary } from '../types';
 
 const SELECTED: ViewNode = {
   id: 'AAPL', label: 'AAPL', direction: 'sell', score: 80, sector: 'Tech', onBoard: true, external: false, kind: '',
@@ -31,7 +31,6 @@ function base() {
     onSubmitRelationship: vi.fn(),
     onCancelRelationship: vi.fn(),
     onMergeImport: vi.fn(),
-    board: [] as StockScore[],
     promptDefault: 'AAPL',
   };
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { EdgeSentiment, ImportReport, ImportSetSummary, RelationType, SavedGraphSummary, StockScore } from '../types';
+import type { EdgeSentiment, ImportReport, ImportSetSummary, RelationType, SavedGraphSummary } from '../types';
 import type { ViewNode } from '../lib/graphView';
 import { chatGptPrompt } from '../lib/importPrompt';
 
@@ -34,7 +34,6 @@ export interface GraphSidebarProps {
   onSubmitRelationship: (data: { target: string; type: RelationType; sentiment: EdgeSentiment; note: string }) => void;
   onCancelRelationship: () => void;
   onMergeImport: (id: string) => void;
-  board: StockScore[];
   promptDefault: string;
 }
 
@@ -43,7 +42,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
     tab, onTab, onLoadRoot, onExpand, onSave, onClear, canSave, saving, loading,
     saved, onLoadSaved, onDeleteSaved, nodeCount, linkCount, enabledTypes, onToggleType, selected,
     imports, onImport, onDeleteImport, importing, importReport, importError,
-    addingFrom, onSubmitRelationship, onCancelRelationship, onMergeImport, board,
+    addingFrom, onSubmitRelationship, onCancelRelationship, onMergeImport,
     promptDefault,
   } = props;
   const [rootInput, setRootInput] = useState('');
@@ -60,8 +59,6 @@ export function GraphSidebar(props: GraphSidebarProps) {
     onSubmitRelationship({ target: relTarget.trim(), type: relType, sentiment: relEffect, note: relNote.trim() });
     setRelTarget(''); setRelType('supplier'); setRelEffect('positive'); setRelNote('');
   };
-
-  void board;
 
   const doImport = () => {
     setParseError(null);
