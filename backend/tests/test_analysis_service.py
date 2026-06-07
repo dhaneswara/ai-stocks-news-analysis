@@ -198,3 +198,37 @@ def test_run_analysis_uses_overlay_when_no_focus_snapshot(tmp_path, monkeypatch)
     assert captured["network"] is not None, "network signal must be set from overlay edge"
     neighbours = [inf.neighbour for inf in captured["network"].influences]
     assert "TSM" in neighbours, f"TSM not found in influences: {neighbours}"
+
+
+def test_run_analysis_enriches_network_reverse_symmetric(tmp_path, monkeypatch):
+    # Edge TSM -> AAPL (partner). Analysing AAPL must enrich its network via the reverse edge.
+    import app.services.analysis_service as svc
+    from app.models.schemas import GraphEdge, KnowledgeGraph, ScreenBoard, Settings, StockScore
+    from app.network.store import save_graph
+    from app.screener.store import save_snapshot
+    from tests.test_screener_service import _stock
+
+    cache = Cache(str(tmp_path / "c.db"))
+    save_snapshot(ScreenBoard(scope="all", items=[
+        StockScore(ticker="TSM", name="Taiwan Semi", price=1, change_pct=0, score=40,
+                   direction="sell", net=-0.9)]), cache)
+    save_graph(KnowledgeGraph(scope="focus", edges=[
+        GraphEdge(source="TSM", target="AAPL", type="partner", sentiment="positive",
+                  weight=1.0, confidence=1.0)]), cache)
+
+    monkeypatch.setattr(svc, "get_stock_data", lambda *a, **k: _stock("AAPL"))
+    monkeypatch.setattr(svc, "build_provider", lambda s: object())
+    captured = {}
+
+    def fake_analyze(stock, provider, model, provider_name):
+        captured["network"] = stock.network
+        from app.models.schemas import AnalysisResult
+        return AnalysisResult(ticker="AAPL", provider=provider_name, model=model,
+                              generated_at="t", overall_summary="", news_analysis="",
+                              sentiment="neutral", current_recommendation="hold", confidence=0.5)
+
+    monkeypatch.setattr(svc, "analyze", fake_analyze)
+    settings = Settings(); settings.providers["anthropic"].api_key = "x"
+    svc.run_analysis("AAPL", "1y", settings, cache)
+    assert captured["network"] is not None
+    assert captured["network"].influences[0].neighbour == "TSM"

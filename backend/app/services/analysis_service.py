@@ -5,7 +5,7 @@ from datetime import date
 
 from app.analysis import political
 from app.analysis.analyzer import analyze
-from app.analysis.network import compute_network_signal
+from app.analysis.network import compute_network_signal, incident_edges
 from app.config.cache import Cache
 from app.data import truth_social
 from app.evaluation.service import record_prediction
@@ -55,7 +55,7 @@ def run_analysis(
         if graph.edges:
             board = load_snapshot(cache, "all")
             base_index = {s.ticker: s for s in (board.items if board else [])}
-            edges = [e for e in graph.edges if e.source == ticker]
+            edges = incident_edges(ticker, graph.edges, set(ncfg.symmetric_types))
             if edges:
                 stock.network = compute_network_signal(ticker, edges, base_index, ncfg)
 
