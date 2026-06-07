@@ -50,7 +50,7 @@ export function GraphCanvas({ nodes, links, selectedId, onSelect }: GraphCanvasP
         graphData={data}
         nodeRelSize={1}
         nodeVal={(n: any) => nodeRadius(n.score) ** 2}
-        nodeColor={(n: any) => (isDim(n.id) ? '#30363d' : directionColor(n.direction))}
+        nodeColor={(n: any) => (isDim(n.id) ? '#30363d' : n.external ? '#6e7681' : directionColor(n.direction))}
         nodeCanvasObjectMode={() => 'after'}
         nodeCanvasObject={(n: any, ctx: CanvasRenderingContext2D, scale: number) => {
           ctx.fillStyle = isDim(n.id) ? '#6e7681' : '#e6edf3';
@@ -60,6 +60,7 @@ export function GraphCanvas({ nodes, links, selectedId, onSelect }: GraphCanvasP
         }}
         linkColor={(l: any) => sentimentColor(l.sentiment)}
         linkWidth={(l: any) => 0.5 + l.weight * l.confidence * 2}
+        linkLineDash={(l: any) => (l.origin === 'imported' ? [4, 2] : [])}
         linkDirectionalArrowLength={4}
         linkDirectionalArrowRelPos={1}
         linkLabel={(l: any) => `${l.type} · ${l.sentiment}${l.evidence ? ` · ${l.evidence}` : ''}`}

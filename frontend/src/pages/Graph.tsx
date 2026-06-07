@@ -21,7 +21,7 @@ export default function Graph() {
   const loadSaved = useLoadSavedGraph();
   const deleteSaved = useDeleteSavedGraph();
 
-  const [tab, setTab] = useState<'explore' | 'saved'>('explore');
+  const [tab, setTab] = useState<'explore' | 'saved' | 'import'>('explore');
   const [working, setWorking] = useState<KnowledgeGraph | null>(restored?.working ?? null);
   const [root, setRoot] = useState(restored?.root ?? '');
   const [expanded, setExpanded] = useState<Set<string>>(new Set(restored?.expanded ?? []));
@@ -141,6 +141,13 @@ export default function Graph() {
         enabledTypes={enabledTypes}
         onToggleType={toggleType}
         selected={selected}
+        imports={[]}
+        onImport={() => {}}
+        onDeleteImport={() => {}}
+        importing={false}
+        importReport={null}
+        importError={null}
+        promptDefault={''}
       />
     </div>
   );

@@ -754,6 +754,12 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 .graph-types { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip-toggle { font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
 .graph-detail .factor-list { margin: 6px 0; }
+.graph-json {
+  width: 100%;
+  font-family: var(--mono, monospace);
+  font-size: 12px;
+  resize: vertical;
+}
 
 /* --- Evaluation page --- */
 .board-row.selected { background: var(--gold-tint); }

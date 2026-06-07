@@ -4,7 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { GraphSidebar } from './GraphSidebar';
 import type { ViewNode } from '../lib/graphView';
-import type { RelationType, SavedGraphSummary } from '../types';
+import type { ImportSetSummary, RelationType, SavedGraphSummary } from '../types';
 
 const SELECTED: ViewNode = {
   id: 'AAPL', label: 'AAPL', direction: 'sell', score: 80, sector: 'Tech', onBoard: true, external: false, kind: '',
@@ -21,6 +21,13 @@ function base() {
     saved: [] as SavedGraphSummary[], onLoadSaved: vi.fn(), onDeleteSaved: vi.fn(),
     nodeCount: 2, linkCount: 1,
     enabledTypes: new Set<RelationType>(['supplier']), onToggleType: vi.fn(),
+    imports: [] as ImportSetSummary[],
+    onImport: vi.fn(),
+    onDeleteImport: vi.fn(),
+    importing: false,
+    importReport: null,
+    importError: null,
+    promptDefault: 'AAPL',
   };
 }
 
@@ -85,4 +92,42 @@ it('toggling an edge-type fires onToggleType', () => {
   wrap(<GraphSidebar {...props} selected={null} />);
   fireEvent.click(screen.getByRole('checkbox', { name: /competitor/i }));
   expect(props.onToggleType).toHaveBeenCalledWith('competitor');
+});
+
+it('switches to the Import tab', () => {
+  const props = base();
+  wrap(<GraphSidebar {...props} selected={null} />);
+  fireEvent.click(screen.getByRole('button', { name: /^import$/i }));
+  expect(props.onTab).toHaveBeenCalledWith('import');
+});
+
+it('imports valid pasted JSON', () => {
+  const props = { ...base(), tab: 'import' as const };
+  wrap(<GraphSidebar {...props} selected={null} />);
+  fireEvent.change(screen.getByPlaceholderText(/paste.*json/i), {
+    target: { value: '{"edges":[{"source":"AAPL","target":"NVDA","type":"partner"}]}' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: /^import model$/i }));
+  expect(props.onImport).toHaveBeenCalledWith(
+    '', { edges: [{ source: 'AAPL', target: 'NVDA', type: 'partner' }] },
+  );
+});
+
+it('shows an inline error for malformed JSON and does not call onImport', () => {
+  const props = { ...base(), tab: 'import' as const };
+  wrap(<GraphSidebar {...props} selected={null} />);
+  fireEvent.change(screen.getByPlaceholderText(/paste.*json/i), { target: { value: '{not json' } });
+  fireEvent.click(screen.getByRole('button', { name: /^import model$/i }));
+  expect(props.onImport).not.toHaveBeenCalled();
+  expect(screen.getByText(/invalid json/i)).toBeInTheDocument();
+});
+
+it('lists import sets and fires delete', () => {
+  const props = {
+    ...base(), tab: 'import' as const,
+    imports: [{ id: 't1', name: 'demo', as_of: '', created_at: 't1', node_count: 2, edge_count: 1 }],
+  };
+  wrap(<GraphSidebar {...props} selected={null} />);
+  fireEvent.click(screen.getByRole('button', { name: /delete demo/i }));
+  expect(props.onDeleteImport).toHaveBeenCalledWith('t1');
 });
