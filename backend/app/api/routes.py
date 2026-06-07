@@ -23,6 +23,7 @@ from app.models.schemas import (
     ScreenBoard,
     Settings,
     StockData,
+    StockScore,
 )
 from app.analysis import political
 from app.analysis.network import apply_network
@@ -49,7 +50,7 @@ from app.analysis.relationships import TickerResolver
 from app.network.import_model import normalize_import
 from app.data import universe
 from app.data.universe import list_sectors
-from app.screener.service import run_scan
+from app.screener.service import run_scan, score_one
 from app.screener.store import load_snapshot, merge_sector, save_snapshot
 
 router = APIRouter(prefix="/api")
@@ -74,6 +75,19 @@ def stock(
     try:
         return get_stock_data(ticker, period, settings.indicator_params, cache)
     except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/score/{ticker}", response_model=StockScore)
+def get_score(
+    ticker: str,
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+) -> StockScore:
+    """No-LLM opportunity score for a single ticker (Discover parity, network-blended)."""
+    try:
+        return score_one(ticker.upper().strip(), store.load(), cache)
+    except ValueError as exc:   # no data for ticker -> 404, same convention as GET /stock/{ticker}
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
