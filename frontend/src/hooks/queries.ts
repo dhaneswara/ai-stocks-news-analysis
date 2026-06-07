@@ -111,6 +111,38 @@ export function useDeleteSavedGraph() {
   });
 }
 
+export function useImports() {
+  return useQuery({ queryKey: ['graphImports'], queryFn: api.listImports });
+}
+
+export function useOverlay() {
+  return useQuery({ queryKey: ['graph', 'imported'], queryFn: api.getOverlay });
+}
+
+export function useImportGraph() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ name, payload }: { name: string; payload: unknown }) => api.importGraph(name, payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['graphImports'] });
+      qc.invalidateQueries({ queryKey: ['graph', 'imported'] });
+      qc.invalidateQueries({ queryKey: ['screen'] });
+    },
+  });
+}
+
+export function useDeleteImport() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteImport(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['graphImports'] });
+      qc.invalidateQueries({ queryKey: ['graph', 'imported'] });
+      qc.invalidateQueries({ queryKey: ['screen'] });
+    },
+  });
+}
+
 export function useEvaluation() {
   return useQuery({ queryKey: ['evaluation'], queryFn: api.getEvaluation });
 }

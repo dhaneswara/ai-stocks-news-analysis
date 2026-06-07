@@ -1,6 +1,8 @@
 import type {
   AnalysisResult,
   EvaluationBoard,
+  ImportReport,
+  ImportSetSummary,
   KnowledgeGraph,
   MarketMood,
   ProviderInfo,
@@ -76,6 +78,12 @@ export const api = {
       `/graph/saved/${encodeURIComponent(root)}${version ? `?version=${encodeURIComponent(version)}` : ''}`,
       { method: 'DELETE' },
     ),
+  importGraph: (name: string, payload: unknown) =>
+    http<ImportReport>('/graph/import', { method: 'POST', body: JSON.stringify({ name, payload }) }),
+  listImports: () => http<ImportSetSummary[]>('/graph/imports'),
+  deleteImport: (id: string) =>
+    http<{ deleted: boolean }>(`/graph/imports?set_id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  getOverlay: () => http<KnowledgeGraph>('/graph?scope=imported'),
   refreshUniverse: () =>
     http<{ count: number; sectors: Record<string, number>; source: string }>('/universe/refresh', {
       method: 'POST',

@@ -112,4 +112,31 @@ describe('api client', () => {
     expect(url as string).toContain('/graph/saved/AAPL');
     expect((init as RequestInit).method).toBe('DELETE');
   });
+
+  it('importGraph POSTs /graph/import with {name, payload}', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 't', edges_added: 1 }) });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.importGraph('demo', { edges: [] });
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url as string).toContain('/graph/import');
+    expect((init as RequestInit).method).toBe('POST');
+    expect(JSON.parse((init as RequestInit).body as string)).toEqual({ name: 'demo', payload: { edges: [] } });
+  });
+
+  it('listImports GETs /graph/imports', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.listImports();
+    expect(fetchMock.mock.calls[0][0] as string).toMatch(/\/graph\/imports$/);
+  });
+
+  it('deleteImport DELETEs with set_id', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ deleted: true }) });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.deleteImport('2026-06-07T00:00:00+00:00');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url as string).toContain('/graph/imports?set_id=');
+    expect(url as string).toContain('%3A'); // colon encoded
+    expect((init as RequestInit).method).toBe('DELETE');
+  });
 });
