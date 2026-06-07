@@ -1,8 +1,10 @@
 """Persist knowledge graphs in the existing Cache (SQLite KV).
 
-Two namespaces:
-- `graph_snapshot:<scope>`  — the auto/daily focus snapshot (7-day TTL), unchanged.
-- `graph_user_saved:<ROOT>` — user-saved explored subgraphs (≈10y TTL, history capped to 5).
+Namespaces:
+- `graph_snapshot:<scope>`   — the auto/daily focus snapshot (7-day TTL), unchanged.
+- `graph_user_saved:<ROOT>`  — user-saved explored subgraphs (≈10y TTL, history capped to 5).
+- `graph_imported:<id>`      — imported external-ontology overlay sets (≈10y TTL, keyed by created_at).
+- `graph_imported:__index__` — the overlay index (list of set ids).
 """
 from __future__ import annotations
 

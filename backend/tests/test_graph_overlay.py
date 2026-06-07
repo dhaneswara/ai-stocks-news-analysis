@@ -44,3 +44,24 @@ def test_effective_graph_merges_focus_and_overlay(tmp_path):
     assert eff.scope == "focus"
     assert len(eff.edges) == 2
     assert {e.target for e in eff.edges} == {"TSM", "NVDA"}
+
+
+def test_effective_graph_base_none_returns_overlay(tmp_path):
+    cache = Cache(str(tmp_path / "c.db"))
+    add_import_set("o", KnowledgeGraph(nodes=["NVDA", "AMD"], edges=[_edge("NVDA", "AMD")]),
+                   cache, created_at="2026-06-07T00:00:00+00:00")
+    eff = effective_graph(cache, "focus")  # no saved focus graph -> overlay only
+    assert eff.scope == "imported"
+    assert {e.target for e in eff.edges} == {"AMD"}
+
+
+def test_effective_graph_empty_overlay_returns_base(tmp_path):
+    cache = Cache(str(tmp_path / "c.db"))
+    save_graph(KnowledgeGraph(scope="focus", nodes=["AAPL"], edges=[_edge("AAPL", "TSM", "supplier")]), cache)
+    eff = effective_graph(cache, "focus")  # no import sets -> base unchanged
+    assert eff.scope == "focus" and len(eff.edges) == 1
+
+
+def test_delete_import_set_returns_false_for_unknown(tmp_path):
+    cache = Cache(str(tmp_path / "c.db"))
+    assert delete_import_set("nope", cache) is False
