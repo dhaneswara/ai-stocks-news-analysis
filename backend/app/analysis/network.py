@@ -30,6 +30,18 @@ def _direction_word(signed: float) -> str:
     return "bullish" if signed > 0 else "bearish" if signed < 0 else "neutral"
 
 
+def incident_edges(ticker: str, edges: list[GraphEdge], symmetric: set[str]) -> list[GraphEdge]:
+    """Edges that should score ``ticker``: forward (ticker is the source, any type) plus reverse
+    (ticker is the target AND the relationship is a mutual type). A self-loop is counted once."""
+    out: list[GraphEdge] = []
+    for e in edges:
+        if e.source == ticker:
+            out.append(e)
+        elif e.target == ticker and e.type in symmetric:
+            out.append(e)
+    return out
+
+
 def compute_network_signal(
     ticker: str,
     edges: list[GraphEdge],

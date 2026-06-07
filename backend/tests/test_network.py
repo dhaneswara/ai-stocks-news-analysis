@@ -120,3 +120,20 @@ def test_network_config_defaults_symmetric_types():
     # competitor/partner/other are mutual by default; supplier/customer/owner/subsidiary are not.
     assert NetworkConfig().symmetric_types == ["competitor", "partner", "other"]
     assert "supplier" not in NetworkConfig().symmetric_types
+
+
+def test_incident_edges_forward_all_reverse_symmetric_only():
+    from app.analysis.network import incident_edges
+    edges = [
+        GraphEdge(source="A", target="X", type="partner", sentiment="neutral", weight=1, confidence=1),   # reverse + mutual -> in
+        GraphEdge(source="B", target="X", type="supplier", sentiment="neutral", weight=1, confidence=1),  # reverse + directional -> out
+        GraphEdge(source="X", target="C", type="supplier", sentiment="neutral", weight=1, confidence=1),  # forward (any type) -> in
+    ]
+    got = incident_edges("X", edges, {"partner", "competitor", "other"})
+    assert {(e.source, e.target) for e in got} == {("A", "X"), ("X", "C")}
+
+
+def test_incident_edges_self_loop_counted_once():
+    from app.analysis.network import incident_edges
+    e = GraphEdge(source="X", target="X", type="partner", sentiment="neutral", weight=1, confidence=1)
+    assert incident_edges("X", [e], {"partner"}) == [e]
