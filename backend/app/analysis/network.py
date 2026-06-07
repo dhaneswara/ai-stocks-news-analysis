@@ -6,8 +6,6 @@ task) folds the result into the board via a closed-form re-blend.
 """
 from __future__ import annotations
 
-from collections import defaultdict
-
 from app.analysis.scoring import _DIRECTION_THRESHOLD
 from app.models.schemas import (
     GraphEdge, KnowledgeGraph, NetworkConfig, NetworkInfluence, NetworkSignal,
@@ -129,13 +127,11 @@ def apply_network(board: ScreenBoard, graph: KnowledgeGraph, settings: Settings)
         return board
 
     base_index = {s.ticker: s for s in board.items}
-    edges_by_source: dict[str, list[GraphEdge]] = defaultdict(list)
-    for e in graph.edges:
-        edges_by_source[e.source].append(e)
+    symmetric = set(ncfg.symmetric_types)
 
     new_items = []
     for s in board.items:
-        edges = edges_by_source.get(s.ticker)
+        edges = incident_edges(s.ticker, graph.edges, symmetric)
         if not edges:
             new_items.append(s)
             continue

@@ -161,3 +161,37 @@ def test_reverse_uses_source_as_neighbour_state():
     sig = compute_network_signal("X", edges, idx, NetworkConfig())
     assert sig.signed < 0
     assert sig.influences[0].neighbour == "P" and sig.influences[0].neighbour_direction == "sell"
+
+
+def test_apply_network_symmetric_edge_tilts_both_endpoints():
+    # A partner edge AAA -> BBB scores AAA (forward) AND BBB (reverse).
+    board = _board(_score("AAA", net=0.0, direction="hold"), _score("BBB", net=0.0, direction="hold"))
+    graph = KnowledgeGraph(scope="focus", edges=[
+        GraphEdge(source="AAA", target="BBB", type="partner", sentiment="positive",
+                  weight=1.0, confidence=1.0)])
+    out = apply_network(board, graph, Settings())
+    a = next(i for i in out.items if i.ticker == "AAA")
+    b = next(i for i in out.items if i.ticker == "BBB")
+    assert a.network is not None and b.network is not None
+    assert a.components.get("network", 0) > 0 and b.components.get("network", 0) > 0
+
+
+def test_apply_network_directional_edge_skips_target():
+    # A supplier edge is directional: only the source (AAA) is scored, not the target (BBB).
+    board = _board(_score("AAA", net=0.0, direction="hold"), _score("BBB", net=0.0, direction="hold"))
+    graph = KnowledgeGraph(scope="focus", edges=[
+        GraphEdge(source="AAA", target="BBB", type="supplier", sentiment="positive",
+                  weight=1.0, confidence=1.0)])
+    out = apply_network(board, graph, Settings())
+    assert next(i for i in out.items if i.ticker == "BBB").network is None
+
+
+def test_apply_network_empty_symmetric_types_is_directed():
+    board = _board(_score("AAA", net=0.0, direction="hold"), _score("BBB", net=0.0, direction="hold"))
+    graph = KnowledgeGraph(scope="focus", edges=[
+        GraphEdge(source="AAA", target="BBB", type="partner", sentiment="positive",
+                  weight=1.0, confidence=1.0)])
+    settings = Settings()
+    settings.network.symmetric_types = []
+    out = apply_network(board, graph, settings)
+    assert next(i for i in out.items if i.ticker == "BBB").network is None  # directed: target unscored
