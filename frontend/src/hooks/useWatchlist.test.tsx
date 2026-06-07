@@ -17,6 +17,7 @@ const SETTINGS: Settings = {
   truth_signal: { enabled: true, source_url: '', lookback_hours: 48 },
   screener: { enabled: true, top_n: 25, default_sector: null, rsi_low: 30, rsi_high: 70, weights: {} },
   network: { enabled: true, focus_top_n: 30, max_edges_per_company: 8, min_confidence: 0.4, weight: 0.5, alpha_event: 0.6, beta_state: 0.4 },
+  evaluation: { enabled: true, horizons: [1, 5, 20], hold_band_pct: 2.0, score_scale_pct: 5.0 },
 };
 
 function wrapper({ children }: { children: ReactNode }) {

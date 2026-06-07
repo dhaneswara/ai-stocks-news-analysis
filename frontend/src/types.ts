@@ -104,6 +104,51 @@ export interface AnalysisResult {
   market_mood?: MarketMood | null;
   network?: NetworkSignal | null;
 }
+export type Grade = 'Strong' | 'Mixed' | 'Weak';
+export interface HorizonResult {
+  horizon: number;
+  status: 'pending' | 'final';
+  eval_date?: string | null;
+  return_pct?: number | null;
+  hit?: boolean | null;
+  score?: number | null;
+}
+export interface PredictionRecord {
+  ticker: string;
+  call_date: string;
+  provider: string;
+  model: string;
+  recommendation: Recommendation;
+  confidence: number;
+  sentiment: Sentiment;
+  entry_price: number;
+  results: HorizonResult[];
+}
+export interface CompanyRollup {
+  ticker: string;
+  n_calls: number;
+  n_matured: number;
+  hit_rate: number | null;
+  avg_score: number | null;
+  grade: Grade | null;
+  overconfident: boolean;
+  latest_recommendation: Recommendation | null;
+  latest_call_date: string | null;
+}
+export interface CompanyEvaluation {
+  rollup: CompanyRollup;
+  calls: PredictionRecord[];
+}
+export interface EvaluationBoard {
+  as_of: string;
+  companies: CompanyEvaluation[];
+}
+export interface EvaluationConfig {
+  enabled: boolean;
+  horizons: number[];
+  hold_band_pct: number;
+  score_scale_pct: number;
+}
 export interface ProviderConfig { model: string; api_key: string; base_url: string; }
 export interface IndicatorParams { sma_windows: number[]; rsi_length: number; }
 export interface AlertConfig {
@@ -132,6 +177,7 @@ export interface Settings {
   truth_signal: TruthSignalConfig;
   screener: ScreenerConfig;
   network: NetworkConfig;
+  evaluation: EvaluationConfig;
 }
 export interface ProviderInfo { id: string; label: string; configured: boolean; default_model: string; }
 export interface TestResult { ok: boolean; message: string; }
