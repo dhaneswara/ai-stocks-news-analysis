@@ -89,6 +89,76 @@ describe('mergeGraph', () => {
   });
 });
 
+import {
+  addManualEdge, addManualNode, deleteEdge, deleteNode, normalizeName, resolveManualTarget,
+} from './graphView';
+import type { GraphEdge } from '../types';
+
+const EMPTY = (): KnowledgeGraph => ({ as_of: '', scope: 'x', built: 0, skipped: 0, nodes: [], edges: [], node_meta: {} });
+
+describe('normalizeName', () => {
+  it('strips suffixes and punctuation', () => {
+    expect(normalizeName('NVIDIA Corporation')).toBe('nvidia');
+    expect(normalizeName('Alphabet Inc. (Class A)')).toBe('alphabet a'); // "class" stripped, "a" kept
+    expect(normalizeName('Apple')).toBe('apple');
+  });
+});
+
+describe('resolveManualTarget', () => {
+  const board = BOARD.items; // AAPL/Apple, TSM/Taiwan Semi
+  it('reuses an existing node by id (case-insensitive)', () => {
+    const g = { ...EMPTY(), nodes: ['AAPL'] };
+    expect(resolveManualTarget('aapl', g, board)).toMatchObject({ id: 'AAPL', isNew: false });
+  });
+  it('links a Discover company by name', () => {
+    expect(resolveManualTarget('Taiwan Semi', EMPTY(), board)).toMatchObject({ id: 'TSM', external: false, isNew: true });
+  });
+  it('links a Discover company by symbol', () => {
+    expect(resolveManualTarget('TSM', EMPTY(), board)).toMatchObject({ id: 'TSM', external: false });
+  });
+  it('makes a ticker node for an unknown ALL-CAPS symbol', () => {
+    expect(resolveManualTarget('ASML', EMPTY(), board)).toMatchObject({ id: 'ASML', external: false, isNew: true });
+  });
+  it('makes a concept node for free text', () => {
+    expect(resolveManualTarget('AI chip demand', EMPTY(), board)).toMatchObject({ id: 'man:ai-chip-demand', external: true });
+  });
+});
+
+describe('manual graph mutations', () => {
+  const edge = (s: string, t: string, type: RelationType = 'partner'): GraphEdge => ({
+    source: s, target: t, type, sentiment: 'positive', weight: 0.5, confidence: 0.9, evidence: '', url: '', as_of: '', origin: 'manual',
+  });
+  it('addManualEdge appends and creates missing endpoints', () => {
+    const out = addManualEdge({ ...EMPTY(), nodes: ['AAPL'] }, edge('AAPL', 'man:x'));
+    expect(out.nodes).toContain('man:x');
+    expect(out.edges[0].origin).toBe('manual');
+    expect(out.node_meta?.['man:x']?.source).toBe('manual');
+  });
+  it('addManualEdge de-dupes by source|target|type', () => {
+    let g = addManualEdge({ ...EMPTY(), nodes: ['AAPL', 'TSM'] }, edge('AAPL', 'TSM'));
+    g = addManualEdge(g, edge('AAPL', 'TSM'));
+    expect(g.edges).toHaveLength(1);
+  });
+  it('addManualNode adds a man: concept with meta', () => {
+    const out = addManualNode(EMPTY(), { id: 'man:x', label: 'X thing' });
+    expect(out.node_meta?.['man:x']).toMatchObject({ label: 'X thing', source: 'manual' });
+  });
+  it('deleteNode removes the node, its meta, and incident edges', () => {
+    let g = addManualEdge({ ...EMPTY(), nodes: ['AAPL'] }, edge('AAPL', 'man:x'));
+    g = deleteNode(g, 'man:x');
+    expect(g.nodes).not.toContain('man:x');
+    expect(g.edges).toHaveLength(0);
+    expect(g.node_meta?.['man:x']).toBeUndefined();
+  });
+  it('deleteEdge removes only the matching edge', () => {
+    let g = addManualEdge({ ...EMPTY(), nodes: ['AAPL', 'TSM'] }, edge('AAPL', 'TSM', 'partner'));
+    g = addManualEdge(g, edge('AAPL', 'TSM', 'supplier'));
+    g = deleteEdge(g, { source: 'AAPL', target: 'TSM', type: 'partner' });
+    expect(g.edges).toHaveLength(1);
+    expect(g.edges[0].type).toBe('supplier');
+  });
+});
+
 describe('imported nodes + meta', () => {
   const IMPORTED: KnowledgeGraph = {
     as_of: 't', scope: 'imported', built: 1, skipped: 0,

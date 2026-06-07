@@ -1,4 +1,4 @@
-import type { GraphEdge, KnowledgeGraph, NetworkSignal, RelationType, ScreenBoard } from '../types';
+import type { GraphEdge, KnowledgeGraph, NetworkSignal, RelationType, ScreenBoard, StockScore } from '../types';
 
 export type NodeDirection = 'buy' | 'sell' | 'hold' | 'unknown';
 
@@ -76,6 +76,82 @@ export function sentimentColor(s: ViewLink['sentiment']): string {
 
 export function nodeRadius(score: number): number {
   return 4 + (Math.max(0, Math.min(100, score)) / 100) * 8; // 4..12
+}
+
+const _SUFFIX = /\b(inc|corp|corporation|co|ltd|plc|company|companies|holdings|group|the|class)\b\.?/gi;
+
+/** Normalise a company name for matching (modelled on the backend TickerResolver). */
+export function normalizeName(s: string): string {
+  return (s || '').toLowerCase().replace(_SUFFIX, '').replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+function slug(s: string): string {
+  return (s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+export interface ResolvedTarget { id: string; label: string; external: boolean; isNew: boolean }
+
+/** Map a free-typed target to an existing node, a Discover ticker, a new ticker node, or a concept. */
+export function resolveManualTarget(input: string, graph: KnowledgeGraph, board: StockScore[]): ResolvedTarget {
+  const raw = input.trim();
+  const meta = graph.node_meta ?? {};
+  const has = (id: string) => graph.nodes.includes(id);
+
+  const byId = graph.nodes.find((n) => n.toLowerCase() === raw.toLowerCase());
+  if (byId) return { id: byId, label: meta[byId]?.label || byId, external: byId.startsWith('ext:') || byId.startsWith('man:'), isNew: false };
+
+  const byLabel = graph.nodes.find((n) => normalizeName(meta[n]?.label || n) === normalizeName(raw));
+  if (byLabel) return { id: byLabel, label: meta[byLabel]?.label || byLabel, external: byLabel.startsWith('ext:') || byLabel.startsWith('man:'), isNew: false };
+
+  const sym = board.find((s) => s.ticker.toUpperCase() === raw.toUpperCase());
+  if (sym) return { id: sym.ticker, label: sym.ticker, external: false, isNew: !has(sym.ticker) };
+  const named = board.find((s) => normalizeName(s.name) === normalizeName(raw));
+  if (named) return { id: named.ticker, label: named.ticker, external: false, isNew: !has(named.ticker) };
+
+  if (raw.length <= 10 && raw === raw.toUpperCase() && /^[A-Z0-9.\-]+$/.test(raw) && /[A-Z]/.test(raw)) {
+    return { id: raw, label: raw, external: false, isNew: !has(raw) };
+  }
+  const id = `man:${slug(raw)}`;
+  return { id, label: raw, external: true, isNew: !has(id) };
+}
+
+/** Add a node; concept/external ids (`man:`/`ext:`) get a `manual`/existing meta entry. No-op if present. */
+export function addManualNode(graph: KnowledgeGraph, meta: { id: string; label: string; kind?: string }): KnowledgeGraph {
+  if (graph.nodes.includes(meta.id)) return graph;
+  const node_meta = { ...(graph.node_meta ?? {}) };
+  if (meta.id.startsWith('man:') || meta.id.startsWith('ext:')) {
+    node_meta[meta.id] = { label: meta.label || meta.id, kind: meta.kind || 'concept', source: 'manual' };
+  }
+  return { ...graph, nodes: [...graph.nodes, meta.id], node_meta };
+}
+
+/** Append a manual edge, creating any missing endpoint nodes; de-dupes by source|target|type. */
+export function addManualEdge(graph: KnowledgeGraph, edge: GraphEdge): KnowledgeGraph {
+  let g = graph;
+  for (const ep of [edge.source, edge.target]) {
+    if (!g.nodes.includes(ep)) g = addManualNode(g, { id: ep, label: ep });
+  }
+  const key = `${edge.source}|${edge.target}|${edge.type}`;
+  if (g.edges.some((e) => `${e.source}|${e.target}|${e.type}` === key)) return g;
+  return { ...g, edges: [...g.edges, edge] };
+}
+
+export function deleteNode(graph: KnowledgeGraph, id: string): KnowledgeGraph {
+  const node_meta = { ...(graph.node_meta ?? {}) };
+  delete node_meta[id];
+  return {
+    ...graph,
+    nodes: graph.nodes.filter((n) => n !== id),
+    edges: graph.edges.filter((e) => e.source !== id && e.target !== id),
+    node_meta,
+  };
+}
+
+export function deleteEdge(graph: KnowledgeGraph, ref: { source: string; target: string; type: RelationType }): KnowledgeGraph {
+  return {
+    ...graph,
+    edges: graph.edges.filter((e) => !(e.source === ref.source && e.target === ref.target && e.type === ref.type)),
+  };
 }
 
 /** Accumulate an explored subgraph: union nodes, dedupe edges by source|target|type, union node_meta.
