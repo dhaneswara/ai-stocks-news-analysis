@@ -2,14 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import { GraphCanvas } from '../components/GraphCanvas';
 import { GraphSidebar } from '../components/GraphSidebar';
 import {
-  useDeleteSavedGraph, useEgoGraph, useLoadSavedGraph,
-  useSaveGraph, useSavedGraphs, useScreen,
+  useDeleteImport, useDeleteSavedGraph, useEgoGraph, useImportGraph, useImports,
+  useLoadSavedGraph, useOverlay, useSaveGraph, useSavedGraphs, useScreen,
 } from '../hooks/queries';
 import { applyFilters, mergeGraph, mergeNodes, toLinks, type ViewNode } from '../lib/graphView';
 import { loadExplorerState, saveExplorerState } from '../lib/explorerStore';
-import type { KnowledgeGraph, RelationType } from '../types';
+import type { ImportReport, KnowledgeGraph, RelationType } from '../types';
 
-const ALL_TYPES: RelationType[] = ['supplier', 'customer', 'partner', 'competitor', 'owner', 'subsidiary'];
+const ALL_TYPES: RelationType[] = ['supplier', 'customer', 'partner', 'competitor', 'owner', 'subsidiary', 'other'];
 const EMPTY_GRAPH: KnowledgeGraph = { as_of: '', scope: 'explore', nodes: [], edges: [], built: 0, skipped: 0 };
 
 export default function Graph() {
@@ -20,6 +20,27 @@ export default function Graph() {
   const saveGraph = useSaveGraph();
   const loadSaved = useLoadSavedGraph();
   const deleteSaved = useDeleteSavedGraph();
+
+  const imports = useImports();
+  const overlay = useOverlay();
+  const importGraph = useImportGraph();
+  const deleteImport = useDeleteImport();
+  const [importReport, setImportReport] = useState<ImportReport | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  const doImport = async (name: string, payload: unknown) => {
+    setImportError(null);
+    try {
+      const report = await importGraph.mutateAsync({ name, payload });
+      setImportReport(report);
+    } catch {
+      setImportError('Could not import this model.');
+    }
+  };
+
+  const doDeleteImport = async (id: string) => {
+    try { await deleteImport.mutateAsync(id); } catch { setImportError('Could not remove the set.'); }
+  };
 
   const [tab, setTab] = useState<'explore' | 'saved' | 'import'>('explore');
   const [working, setWorking] = useState<KnowledgeGraph | null>(restored?.working ?? null);
@@ -95,8 +116,21 @@ export default function Graph() {
 
   const view = useMemo(() => {
     const g = working ?? EMPTY_GRAPH;
-    return applyFilters(mergeNodes(g, board.data), toLinks(g), null, enabledTypes);
-  }, [working, board.data, enabledTypes]);
+    let merged = g;
+    const ov = overlay.data;
+    if (ov && ov.edges.length) {
+      const present = new Set(g.nodes);
+      const incident = ov.edges.filter((e) => present.has(e.source) || present.has(e.target));
+      if (incident.length) {
+        const frag: KnowledgeGraph = {
+          ...ov, edges: incident,
+          nodes: Array.from(new Set(incident.flatMap((e) => [e.source, e.target]))),
+        };
+        merged = mergeGraph(g, frag);
+      }
+    }
+    return applyFilters(mergeNodes(merged, board.data), toLinks(merged), null, enabledTypes);
+  }, [working, board.data, enabledTypes, overlay.data]);
 
   const selected = useMemo<ViewNode | null>(
     () => view.nodes.find((n) => n.id === selectedId) ?? null,
@@ -141,13 +175,13 @@ export default function Graph() {
         enabledTypes={enabledTypes}
         onToggleType={toggleType}
         selected={selected}
-        imports={[]}
-        onImport={() => {}}
-        onDeleteImport={() => {}}
-        importing={false}
-        importReport={null}
-        importError={null}
-        promptDefault={''}
+        imports={imports.data ?? []}
+        onImport={doImport}
+        onDeleteImport={doDeleteImport}
+        importing={importGraph.isPending}
+        importReport={importReport}
+        importError={importError}
+        promptDefault={root || selectedId || ''}
       />
     </div>
   );
