@@ -99,3 +99,18 @@ def test_apply_network_is_idempotent():
     a2 = next(i for i in twice.items if i.ticker == "AAPL")
     assert (a1.score, a1.net, a1.direction) == (a2.score, a2.net, a2.direction)
     assert a1.base_net == 0.0 and a1.base_score == 10.0  # base preserved across blends
+
+
+def test_blend_network_into_score():
+    from app.analysis.network import blend_network_into_score
+    from app.models.schemas import NetworkSignal, Settings, StockScore
+    s = StockScore(ticker="AAPL", name="Apple", price=1, change_pct=0, score=50, direction="hold",
+                   net=0.0, base_score=50.0, base_net=0.0)
+    sig = NetworkSignal(ticker="AAPL", intensity=1.0, signed=1.0, influences=[],
+                        reasons=["partner X (bullish)"])
+    out = blend_network_into_score(s, sig, Settings())
+    assert out.network is sig
+    assert out.score > 50.0                 # positive intensity raised the score
+    assert out.net > 0.0 and out.direction == "buy"
+    assert out.components["network"] == 1.0
+    assert out.reasons[0] == "partner X (bullish)"   # network reasons first

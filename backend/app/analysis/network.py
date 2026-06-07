@@ -72,23 +72,43 @@ def compute_network_signal(
 _DIRECTIONAL = ("extremes", "trend", "momentum")
 
 
+def blend_network_into_score(s: StockScore, sig: NetworkSignal, settings: Settings) -> StockScore:
+    """Fold a computed network signal into ONE row's score/direction. Closed-form re-blend from
+    base_score/base_net (never the already-blended score/net) so it stays idempotent. Shared by
+    apply_network (per row) and the single-ticker score path."""
+    weights = settings.screener.weights
+    w_base = sum(weights.values()) or 1.0
+    w_dir = sum(weights.get(f, 0.0) for f in _DIRECTIONAL) or 1.0
+    w_net = settings.network.weight
+    final_score = (s.base_score * w_base + 100.0 * sig.intensity * w_net) / (w_base + w_net)
+    final_net = _clamp((s.base_net * w_dir + sig.signed * w_net) / (w_dir + w_net), -1.0, 1.0)
+    direction = (
+        "buy" if final_net > _DIRECTION_THRESHOLD
+        else "sell" if final_net < -_DIRECTION_THRESHOLD
+        else "hold"
+    )
+    components = dict(s.components)
+    components["network"] = round(sig.intensity, 2)
+    return s.model_copy(update={
+        "score": round(_clamp(final_score, 0.0, 100.0), 1),
+        "net": round(final_net, 3),
+        "direction": direction,
+        "components": components,
+        "reasons": sig.reasons + s.reasons,   # network reasons first
+        "network": sig,
+    })
+
+
 def apply_network(board: ScreenBoard, graph: KnowledgeGraph, settings: Settings) -> ScreenBoard:
     """Fold a capped `network` family into each focus company's score/direction.
 
-    Pure: reads neighbours' BASE scores (one hop, no feedback) and returns a new board.
-    Re-blend is the closed form of adding one weighted family to `score_stock`'s own formula.
-    It blends from each row's ``base_score``/``base_net`` (never the already-blended ``score``/
-    ``net``), so applying it twice — e.g. a sector rescan that merges previously-blended rows —
-    yields the same result and never double-counts or feeds blended values back in.
+    Pure: reads neighbours' BASE scores (one hop, no feedback) and returns a new board. Blends from
+    each row's ``base_score``/``base_net`` (never the already-blended values) via
+    ``blend_network_into_score``, so applying it twice is idempotent and never double-counts.
     """
     ncfg = settings.network
     if not ncfg.enabled or not graph.edges:
         return board
-
-    weights = settings.screener.weights
-    w_base = sum(weights.values()) or 1.0
-    w_dir = sum(weights.get(f, 0.0) for f in _DIRECTIONAL) or 1.0
-    w_net = ncfg.weight
 
     base_index = {s.ticker: s for s in board.items}
     edges_by_source: dict[str, list[GraphEdge]] = defaultdict(list)
@@ -102,23 +122,7 @@ def apply_network(board: ScreenBoard, graph: KnowledgeGraph, settings: Settings)
             new_items.append(s)
             continue
         sig = compute_network_signal(s.ticker, edges, base_index, ncfg)
-        final_score = (s.base_score * w_base + 100.0 * sig.intensity * w_net) / (w_base + w_net)
-        final_net = _clamp((s.base_net * w_dir + sig.signed * w_net) / (w_dir + w_net), -1.0, 1.0)
-        direction = (
-            "buy" if final_net > _DIRECTION_THRESHOLD
-            else "sell" if final_net < -_DIRECTION_THRESHOLD
-            else "hold"
-        )
-        components = dict(s.components)
-        components["network"] = round(sig.intensity, 2)
-        new_items.append(s.model_copy(update={
-            "score": round(_clamp(final_score, 0.0, 100.0), 1),
-            "net": round(final_net, 3),
-            "direction": direction,
-            "components": components,
-            "reasons": sig.reasons + s.reasons,   # network reasons first
-            "network": sig,
-        }))
+        new_items.append(blend_network_into_score(s, sig, settings))
 
     new_items.sort(key=lambda x: x.score, reverse=True)
     return board.model_copy(update={"items": new_items})
