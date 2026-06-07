@@ -1,13 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import type { StockScore } from '../types';
-
-function ScoreBar({ score }: { score: number }) {
-  return (
-    <div className="score-bar" title={`${score.toFixed(0)} / 100`}>
-      <span style={{ width: `${Math.max(0, Math.min(100, score))}%` }} />
-    </div>
-  );
-}
+import { ScoreBar } from './ScoreBar';
 
 export function DiscoverBoard({ items, onAdd }: { items: StockScore[]; onAdd: (t: string) => void }) {
   const navigate = useNavigate();
