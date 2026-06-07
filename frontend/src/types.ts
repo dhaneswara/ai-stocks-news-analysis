@@ -167,7 +167,7 @@ export interface ScreenerConfig {
   rsi_high: number;
   weights: Record<string, number>;
 }
-export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama';
+export type ProviderId = 'anthropic' | 'openai' | 'gemini' | 'ollama' | 'deepseek';
 export interface Settings {
   active_provider: ProviderId;
   providers: Record<string, ProviderConfig>;

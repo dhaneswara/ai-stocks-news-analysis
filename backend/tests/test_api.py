@@ -129,4 +129,4 @@ def test_list_providers(tmp_path):
     resp = client.get("/api/providers")
     assert resp.status_code == 200
     ids = {p["id"] for p in resp.json()}
-    assert ids == {"anthropic", "openai", "gemini", "ollama"}
+    assert ids == {"anthropic", "openai", "gemini", "ollama", "deepseek"}

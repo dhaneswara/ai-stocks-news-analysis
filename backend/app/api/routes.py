@@ -50,6 +50,7 @@ _PROVIDER_LABELS = {
     "openai": "OpenAI",
     "gemini": "Google Gemini",
     "ollama": "Ollama (local)",
+    "deepseek": "DeepSeek",
 }
 
 

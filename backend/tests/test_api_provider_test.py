@@ -55,3 +55,13 @@ def test_provider_test_failure_reports_message(tmp_path, monkeypatch):
     assert resp.status_code == 200
     assert resp.json()["ok"] is False
     assert "bad key" in resp.json()["message"]
+
+
+def test_providers_lists_deepseek(tmp_path):
+    client, _ = _client(tmp_path)
+    resp = client.get("/api/providers")
+    assert resp.status_code == 200
+    by_id = {p["id"]: p for p in resp.json()}
+    assert "deepseek" in by_id
+    assert by_id["deepseek"]["label"] == "DeepSeek"
+    assert by_id["deepseek"]["default_model"] == "deepseek-chat"
