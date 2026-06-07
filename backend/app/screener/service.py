@@ -8,7 +8,7 @@ from app.analysis.scoring import score_stock
 from app.config.cache import Cache
 from app.data import truth_social
 from app.data.universe import load_universe
-from app.analysis.network import blend_network_into_score, compute_network_signal
+from app.analysis.network import blend_network_into_score, compute_network_signal, incident_edges
 from app.models.schemas import ScreenBoard, Settings, StockScore
 from app.network.store import effective_graph
 from app.screener.store import load_snapshot
@@ -71,7 +71,7 @@ def score_one(ticker: str, settings: Settings, cache: Cache) -> StockScore:
             graph = effective_graph(cache, "focus")
             board = load_snapshot(cache, "all")
             base_index = {s.ticker: s for s in (board.items if board else [])}
-            edges = [e for e in graph.edges if e.source == ticker]
+            edges = incident_edges(ticker, graph.edges, set(settings.network.symmetric_types))
             if edges:
                 sig = compute_network_signal(ticker, edges, base_index, settings.network)
                 score = blend_network_into_score(score, sig, settings)

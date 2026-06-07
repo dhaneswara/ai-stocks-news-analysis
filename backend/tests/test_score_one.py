@@ -55,3 +55,36 @@ def test_score_one_network_failure_degrades(tmp_path, monkeypatch):
     s.truth_signal.enabled = False
     out = score_one("AAPL", s, cache)
     assert isinstance(out, StockScore) and out.network is None
+
+
+def test_score_one_blends_reverse_symmetric_edge(tmp_path, monkeypatch):
+    # Edge MSFT -> AAPL (partner). Scoring AAPL must pick it up via the reverse direction.
+    cache = Cache(str(tmp_path / "c.db"))
+    monkeypatch.setattr(service, "get_stock_data", lambda *a, **k: _stock())
+    save_graph(KnowledgeGraph(scope="focus", nodes=["AAPL", "MSFT"], edges=[
+        GraphEdge(source="MSFT", target="AAPL", type="partner", sentiment="positive",
+                  weight=1.0, confidence=1.0)]), cache)
+    save_snapshot(ScreenBoard(scope="all", items=[
+        StockScore(ticker="MSFT", name="Microsoft", price=1, change_pct=0, score=60,
+                   direction="buy", net=0.5, base_score=60.0, base_net=0.5)]), cache)
+    s = Settings()
+    s.truth_signal.enabled = False
+    out = score_one("AAPL", s, cache)
+    assert out.network is not None and out.network.signed > 0
+    assert out.network.influences[0].neighbour == "MSFT"
+
+
+def test_score_one_skips_reverse_directional_edge(tmp_path, monkeypatch):
+    # Edge MSFT -> AAPL (supplier) is directional: AAPL (the target) gets no signal.
+    cache = Cache(str(tmp_path / "c.db"))
+    monkeypatch.setattr(service, "get_stock_data", lambda *a, **k: _stock())
+    save_graph(KnowledgeGraph(scope="focus", nodes=["AAPL", "MSFT"], edges=[
+        GraphEdge(source="MSFT", target="AAPL", type="supplier", sentiment="positive",
+                  weight=1.0, confidence=1.0)]), cache)
+    save_snapshot(ScreenBoard(scope="all", items=[
+        StockScore(ticker="MSFT", name="Microsoft", price=1, change_pct=0, score=60,
+                   direction="buy", net=0.5, base_score=60.0, base_net=0.5)]), cache)
+    s = Settings()
+    s.truth_signal.enabled = False
+    out = score_one("AAPL", s, cache)
+    assert out.network is None
