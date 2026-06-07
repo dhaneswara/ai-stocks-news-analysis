@@ -31,6 +31,7 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 - `GET  /api/health`
 - `GET  /api/stock/{ticker}?period=2y`
 - `POST /api/analyze/{ticker}?period=2y` — runs the LLM analysis (and records the call for evaluation)
+- `GET  /api/score/{ticker}` — no-LLM opportunity score for one ticker (Discover parity, network-blended)
 - `GET  /api/settings` · `PUT /api/settings`
 - `GET  /api/providers` · `POST /api/providers/{id}/test`
 - `GET  /api/truth/mood` — current Truth Social mood + post count
@@ -42,6 +43,9 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 - `POST /api/graph/rebuild` — rebuild the focus graph via LLM + bake the network signal into the board
 - `GET  /api/graph/company/{ticker}` — one-hop ego graph for a single company (explore / expand)
 - `GET`/`POST /api/graph/saved` · `GET`/`DELETE /api/graph/saved/{root}` — saved explored subgraphs
+- `POST /api/graph/import` — import an external ontology model (JSON `{name, payload}`) as a removable overlay set
+- `GET  /api/graph/imports` · `DELETE /api/graph/imports?set_id=` — list / remove import sets
+- `GET  /api/graph?scope=imported` — read the imported overlay (and `?scope=focus` returns the snapshot **merged** with it)
 - `GET  /api/evaluation` — recommendation-accuracy board (runs lazy scoring first)
 - `POST /api/evaluation/{ticker}/{call_date}/explain` — on-demand LLM post-mortem on a missed call
 - `DELETE /api/evaluation/{ticker}` — stop tracking a company (clears its recorded calls)
@@ -146,6 +150,20 @@ The interactive **Graph** tab is a separate, read-only research view on the same
 company to get its one-hop ego graph, click a node to **expand** its neighbours on demand (free
 if already extracted today), and **save/load** explored subgraphs per company. The explorer
 never touches the daily board signal.
+
+#### Import external ontology models
+
+The Graph tab's **Import** sub-tab accepts a small **app-defined JSON model** (paste or `.json`
+upload; a copy-paste **ChatGPT prompt template** is provided in the UI — this is *not* real
+OWL/RDF) and merges it into the graph as a removable, named **overlay set**
+(`graph_imported:<id>`, ~10y TTL). On import (`app/network/import_model.py`), each entity is
+resolved to a universe ticker where possible (else kept as a labelled `ext:` node with metadata),
+relation types map to the six canonical types or `other`, weight/confidence are clamped, and every
+edge is tagged `origin="imported"`. The overlay is unioned into the focus graph **at read time**
+via `effective_graph` — so imported edges feed the network signal (board rebuild/rescan, the daily
+`app.network` job, **and** the Dashboard's per-ticker score) like native edges, while the saved
+`graph_snapshot:focus` stays extracted-only (rebuilds stay idempotent; imports survive them).
+Manage sets via `POST`/`GET`/`DELETE /api/graph/imports`.
 
 #### Schedule it daily (Windows Task Scheduler)
 

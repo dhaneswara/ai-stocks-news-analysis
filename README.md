@@ -21,7 +21,9 @@ LLM calls turn out to be**.
   **timeframe selector (1M / 3M / 6M / 1Y / 2Y / 5Y)**, SMA50/200 overlays, and LLM-drawn
   **buy ▲ / sell ▼ markers**. Click a marker — or a row in the dedicated **Signals** list — to
   read that signal's reasoning. Manage your **watchlist inline**: star (★) the loaded ticker
-  to add it, or remove a chip with ×.
+  to add it, or remove a chip with ×. The header also shows an instant **no-LLM opportunity
+  score** — the same 0–100 score / buy-sell-hold call / reason chips (network-blended) as the
+  Discover board — as soon as a ticker loads, before you run any LLM analysis.
 - **LLM analysis** — runs over the chart's **selected timeframe** and weighs the latest news
   *together with* the technicals/fundamentals. Returns a plain-language summary, news
   interpretation, sentiment, a current buy/sell/hold recommendation with confidence, the
@@ -67,6 +69,10 @@ LLM calls turn out to be**.
   neighbour expansion, and save/load of explored subgraphs per company (with version history).
   Only relationship extraction uses an LLM; propagation is pure and instant. Daily build:
   `python -m app.network` (after the screener — see [backend/README.md](backend/README.md)).
+  You can also **import an external ontology model**: paste or upload a small JSON graph (e.g.
+  produced by ChatGPT — the Import tab ships a copy-paste prompt template), and it's merged into
+  the graph as a removable **overlay** that feeds the network signal like native edges. Entities
+  are resolved to your tickers where possible, others kept as labelled external nodes.
 - **Recommendation evaluation** — every **Analyze with LLM** call is recorded, then scored
   against what the price actually did at **1, 5, and 20 trading days**. A dedicated
   **Evaluation** tab tracks many companies, each with a hit-rate, a 0–100 accuracy score, a
