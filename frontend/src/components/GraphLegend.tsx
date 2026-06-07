@@ -5,7 +5,7 @@ export function GraphLegend() {
   const [open, setOpen] = useState(true);
   return (
     <div className="graph-legend-overlay">
-      <button type="button" className="graph-legend-toggle" onClick={() => setOpen((o) => !o)}>
+      <button type="button" className="graph-legend-toggle" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
         Legend {open ? '▾' : '▸'}
       </button>
       {open && (

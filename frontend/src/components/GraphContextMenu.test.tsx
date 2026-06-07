@@ -16,3 +16,10 @@ it('closes on Escape', () => {
   fireEvent.keyDown(document, { key: 'Escape' });
   expect(onClose).toHaveBeenCalled();
 });
+
+it('closes on outside mousedown', () => {
+  const onClose = vi.fn();
+  render(<GraphContextMenu x={0} y={0} onClose={onClose} items={[{ label: 'X', onClick: vi.fn() }]} />);
+  fireEvent.mouseDown(document.body);
+  expect(onClose).toHaveBeenCalled();
+});

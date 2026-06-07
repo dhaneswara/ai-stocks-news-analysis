@@ -15,7 +15,7 @@ export function GraphContextMenu({ items, x, y, onClose }: GraphContextMenuProps
   }, [onClose]);
 
   return (
-    <div ref={ref} className="graph-ctx-menu" style={{ left: x, top: y }} role="menu">
+    <div ref={ref} className="graph-ctx-menu" style={{ position: 'absolute', left: x, top: y }} role="menu">
       {items.map((it) => (
         <button
           key={it.label} type="button" role="menuitem"
