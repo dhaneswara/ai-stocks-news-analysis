@@ -222,10 +222,10 @@ export default function Graph() {
             onDeleteEdge={removeEdge}
           />
         )}
-        {mergeImport && working && (
+        {mergeImport && (
           <MergePreview
             key={mergeSetId ?? 'merge'}
-            working={working} importSet={mergeImport} board={board.data?.items ?? []}
+            working={working ?? EMPTY_GRAPH} importSet={mergeImport} board={board.data?.items ?? []}
             onApply={applyMergeResult} onCancel={cancelMerge}
           />
         )}
