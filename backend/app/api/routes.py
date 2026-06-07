@@ -8,12 +8,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.alerts.notifier import build_notifier
 from app.config.cache import Cache
 from app.config.settings_store import SettingsStore, mask_settings, merge_settings
-from app.deps import get_cache, get_settings_store
+from app.deps import get_cache, get_prediction_store, get_settings_store
 from app.llm.base import LLMError
 from app.llm.factory import build_provider
 from app.models.schemas import (
     DEFAULT_MODELS,
     AnalysisResult,
+    EvaluationBoard,
     KnowledgeGraph,
     SavedGraphSummary,
     SavedGraphVersion,
@@ -33,6 +34,8 @@ from app.network.store import (
     save_company_graph,
     save_graph,
 )
+from app.evaluation.service import build_board, evaluate_pending, explain_prediction
+from app.evaluation.store import PredictionStore
 from app.services.analysis_service import run_analysis
 from app.services.stock_service import get_stock_data
 from app.data import universe
@@ -70,10 +73,11 @@ def analyze_ticker(
     period: str = "2y",
     cache: Cache = Depends(get_cache),
     store: SettingsStore = Depends(get_settings_store),
+    prediction_store: PredictionStore = Depends(get_prediction_store),
 ) -> AnalysisResult:
     settings = store.load()
     try:
-        return run_analysis(ticker, period, settings, cache)
+        return run_analysis(ticker, period, settings, cache, prediction_store)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except LLMError as exc:
@@ -275,3 +279,39 @@ def update_universe() -> dict:
         raise HTTPException(
             status_code=502, detail=f"Could not update the S&P 500 list: {exc}"
         ) from exc
+
+
+@router.get("/evaluation", response_model=EvaluationBoard)
+def get_evaluation(
+    store: SettingsStore = Depends(get_settings_store),
+    prediction_store: PredictionStore = Depends(get_prediction_store),
+) -> EvaluationBoard:
+    settings = store.load()
+    evaluate_pending(prediction_store, settings)
+    return build_board(prediction_store, settings)
+
+
+@router.post("/evaluation/{ticker}/{call_date}/explain")
+def explain_evaluation(
+    ticker: str,
+    call_date: str,
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+    prediction_store: PredictionStore = Depends(get_prediction_store),
+) -> dict:
+    settings = store.load()
+    try:
+        text = explain_prediction(ticker, call_date, settings, cache, prediction_store)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except LLMError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return {"explanation": text}
+
+
+@router.delete("/evaluation/{ticker}")
+def delete_tracked(
+    ticker: str,
+    prediction_store: PredictionStore = Depends(get_prediction_store),
+) -> dict:
+    return {"deleted": prediction_store.delete_ticker(ticker)}
