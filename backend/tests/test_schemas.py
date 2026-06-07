@@ -4,7 +4,7 @@ from app.models.schemas import Settings, Signal, StockData
 def test_settings_defaults():
     s = Settings()
     assert s.active_provider == "anthropic"
-    assert set(s.providers) == {"anthropic", "openai", "gemini", "ollama"}
+    assert set(s.providers) == {"anthropic", "openai", "gemini", "ollama", "deepseek"}
     assert s.providers["ollama"].base_url == "http://localhost:11434"
     assert s.indicator_params.sma_windows == [50, 200]
 

@@ -2,17 +2,19 @@ from __future__ import annotations
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
-ProviderId = Literal["anthropic", "openai", "gemini", "ollama"]
+ProviderId = Literal["anthropic", "openai", "gemini", "ollama", "deepseek"]
 
 DEFAULT_MODELS: dict[str, str] = {
     "anthropic": "claude-sonnet-4-6",
     "openai": "gpt-4o-mini",
     "gemini": "gemini-2.0-flash",
     "ollama": "llama3.1",
+    "deepseek": "deepseek-chat",
 }
 DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
+DEFAULT_DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 DISCLAIMER = "Not financial advice. For educational use only."
 
 
@@ -333,6 +335,9 @@ def _default_providers() -> dict[str, ProviderConfig]:
         "ollama": ProviderConfig(
             model=DEFAULT_MODELS["ollama"], base_url=DEFAULT_OLLAMA_BASE_URL
         ),
+        "deepseek": ProviderConfig(
+            model=DEFAULT_MODELS["deepseek"], base_url=DEFAULT_DEEPSEEK_BASE_URL
+        ),
     }
 
 
@@ -346,3 +351,9 @@ class Settings(BaseModel):
     screener: ScreenerConfig = Field(default_factory=ScreenerConfig)
     network: NetworkConfig = Field(default_factory=NetworkConfig)
     evaluation: EvaluationConfig = Field(default_factory=EvaluationConfig)
+
+    @model_validator(mode="after")
+    def _ensure_all_providers(self) -> "Settings":
+        for pid, cfg in _default_providers().items():
+            self.providers.setdefault(pid, cfg)
+        return self

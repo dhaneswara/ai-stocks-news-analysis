@@ -126,3 +126,24 @@ def test_gemini_complete_returns_text(monkeypatch):
     monkeypatch.setattr("app.llm.gemini_provider.genai.Client", lambda api_key: FakeClient())
     provider = GeminiProvider(ProviderConfig(model="gem-x", api_key="k"))
     assert provider.complete("sys", "user") == '{"ok": true}'
+
+
+def test_deepseek_defaults_present():
+    from app.models.schemas import DEFAULT_DEEPSEEK_BASE_URL, DEFAULT_MODELS
+
+    assert DEFAULT_MODELS["deepseek"] == "deepseek-chat"
+    assert DEFAULT_DEEPSEEK_BASE_URL == "https://api.deepseek.com"
+    s = Settings()  # default settings include a deepseek entry
+    assert s.providers["deepseek"].model == "deepseek-chat"
+    assert s.providers["deepseek"].base_url == "https://api.deepseek.com"
+
+
+def test_settings_backfills_missing_providers():
+    # Legacy settings that predate deepseek (only anthropic stored).
+    s = Settings.model_validate({"providers": {"anthropic": {"model": "claude-x"}}})
+    assert s.providers["anthropic"].model == "claude-x"   # existing entry preserved
+    assert "deepseek" in s.providers                       # backfilled
+    assert s.providers["deepseek"].model == "deepseek-chat"
+    assert s.providers["deepseek"].base_url == "https://api.deepseek.com"
+    # other known providers are also backfilled
+    assert {"openai", "gemini", "ollama"} <= set(s.providers)
