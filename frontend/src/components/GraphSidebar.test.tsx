@@ -7,7 +7,7 @@ import type { ViewNode } from '../lib/graphView';
 import type { RelationType, SavedGraphSummary } from '../types';
 
 const SELECTED: ViewNode = {
-  id: 'AAPL', label: 'AAPL', direction: 'sell', score: 80, sector: 'Tech', onBoard: true,
+  id: 'AAPL', label: 'AAPL', direction: 'sell', score: 80, sector: 'Tech', onBoard: true, external: false, kind: '',
   network: { ticker: 'AAPL', intensity: 0.5, signed: -0.4, reasons: ['supplier TSM (bearish)'],
     influences: [{ neighbour: 'TSM', name: 'Taiwan Semi', type: 'supplier', edge_sentiment: 'negative',
       neighbour_direction: 'sell', signed: -0.4, reason: 'supplier TSM (bearish)' }] },
