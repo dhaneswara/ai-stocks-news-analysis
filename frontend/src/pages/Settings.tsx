@@ -69,27 +69,6 @@ export default function Settings() {
         </select>
       </div>
 
-      <div className="field">
-        <label>Model</label>
-        <div className="model-row">
-          <input value={cfg.model} onChange={(e) => updateCfg({ model: e.target.value })} placeholder="model name" />
-          <button className="secondary" onClick={onFetchModels} disabled={save.isPending || listModels.isPending}>
-            {listModels.isPending ? 'Fetching…' : 'Fetch models'}
-          </button>
-          {modelsMsg && (
-            <span className={`note ${modelsMsg.ok ? 'muted' : 'error'}`}>
-              {modelsMsg.ok ? `✓ ${modelsMsg.message}` : `✗ ${modelsMsg.message}`}
-            </span>
-          )}
-        </div>
-        {fetched.length > 0 && (
-          <select value={fetched.includes(cfg.model) ? cfg.model : ''} onChange={(e) => e.target.value && updateCfg({ model: e.target.value })}>
-            <option value="">Choose a fetched model…</option>
-            {fetched.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
-        )}
-      </div>
-
       {active === 'ollama' ? (
         <div className="field">
           <label>Base URL</label>
@@ -101,6 +80,24 @@ export default function Settings() {
           <input type="password" value={cfg.api_key} onChange={(e) => updateCfg({ api_key: e.target.value })} placeholder="paste API key" />
         </div>
       )}
+
+      <div className="field">
+        <label>Model</label>
+        <div className="model-row">
+          <input list="model-options" value={cfg.model} onChange={(e) => updateCfg({ model: e.target.value })} placeholder="model name" />
+          <button className="secondary" onClick={onFetchModels} disabled={save.isPending || listModels.isPending}>
+            {listModels.isPending ? 'Fetching…' : 'Fetch models'}
+          </button>
+          {modelsMsg && (
+            <span className={`note ${modelsMsg.ok ? 'muted' : 'error'}`}>
+              {modelsMsg.ok ? `✓ ${modelsMsg.message}` : `✗ ${modelsMsg.message}`}
+            </span>
+          )}
+        </div>
+        <datalist id="model-options">
+          {fetched.map((m) => <option key={m} value={m} />)}
+        </datalist>
+      </div>
 
       <div className="field">
         <label>Watchlist (comma-separated)</label>
