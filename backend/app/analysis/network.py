@@ -52,24 +52,30 @@ def compute_network_signal(
     signed_sum = 0.0
     intensity_sum = 0.0
     for e in edges:
-        nb = base_index.get(e.target)
+        is_reverse = e.source != ticker            # ticker is the TARGET -> neighbour is the source
+        neighbour_id = e.source if is_reverse else e.target
+        nb = base_index.get(neighbour_id)
         nb_net = nb.base_net if nb else 0.0   # neighbour's PRE-network vote -> one hop, no feedback
         nb_dir = nb.direction if nb else "unknown"
-        state = _type_sign(e.type) * nb_net
+        tsign = _type_sign(e.type)
+        state = tsign * nb_net
         event = _SENTIMENT.get(e.sentiment, 0.0)
+        # The edge's news sentiment was judged from the SOURCE side; on a reverse edge it lands on
+        # the neighbour with the type sign (competitor inverts; partner/other keep).
+        event_term = tsign * event if is_reverse else event
         w = e.weight * e.confidence
-        e_signed = w * (cfg.alpha_event * event + cfg.beta_state * state)
-        e_intensity = w * max(abs(event), abs(state))
+        e_signed = w * (cfg.alpha_event * event_term + cfg.beta_state * state)
+        e_intensity = w * max(abs(event_term), abs(state))
         signed_sum += e_signed
         intensity_sum += e_intensity
         influences.append(NetworkInfluence(
-            neighbour=e.target,
+            neighbour=neighbour_id,
             name=nb.name if nb else "",
             type=e.type,
             edge_sentiment=e.sentiment,
             neighbour_direction=nb_dir,
             signed=round(e_signed, 3),
-            reason=f"{e.type} {e.target} ({_direction_word(e_signed)})",
+            reason=f"{e.type} {neighbour_id} ({_direction_word(e_signed)})",
         ))
     influences.sort(key=lambda i: abs(i.signed), reverse=True)
     return NetworkSignal(

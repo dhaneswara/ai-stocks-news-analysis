@@ -137,3 +137,27 @@ def test_incident_edges_self_loop_counted_once():
     from app.analysis.network import incident_edges
     e = GraphEdge(source="X", target="X", type="partner", sentiment="neutral", weight=1, confidence=1)
     assert incident_edges("X", [e], {"partner"}) == [e]
+
+
+def test_reverse_competitor_inverts_event_sign():
+    # Edge C -> X (competitor); scoring X via the reverse edge. Positive news for C is bearish for X.
+    edges = [GraphEdge(source="C", target="X", type="competitor", sentiment="positive", weight=1, confidence=1)]
+    sig = compute_network_signal("X", edges, {}, NetworkConfig())
+    assert sig.signed < 0
+    assert sig.influences[0].neighbour == "C"
+
+
+def test_reverse_partner_keeps_event_sign():
+    edges = [GraphEdge(source="P", target="X", type="partner", sentiment="positive", weight=1, confidence=1)]
+    sig = compute_network_signal("X", edges, {}, NetworkConfig())
+    assert sig.signed > 0
+    assert sig.influences[0].neighbour == "P"
+
+
+def test_reverse_uses_source_as_neighbour_state():
+    # X is the target of a partner edge from P; P's bearish technical state drags X down.
+    idx = {"P": _score("P", net=-0.8, direction="sell")}
+    edges = [GraphEdge(source="P", target="X", type="partner", sentiment="neutral", weight=1, confidence=1)]
+    sig = compute_network_signal("X", edges, idx, NetworkConfig())
+    assert sig.signed < 0
+    assert sig.influences[0].neighbour == "P" and sig.influences[0].neighbour_direction == "sell"
