@@ -19,6 +19,13 @@ export default function Settings() {
     if (settingsQuery.data) setForm(structuredClone(settingsQuery.data));
   }, [settingsQuery.data]);
 
+  // Clear provider-specific transient statuses when the active provider changes, so a
+  // previous provider's "Fetch models" / "Test connection" result can't linger.
+  useEffect(() => {
+    setModelsMsg(null);
+    setTest(null);
+  }, [form?.active_provider]);
+
   if (!form) return <p className="muted">Loading settings…</p>;
 
   const active = form.active_provider;

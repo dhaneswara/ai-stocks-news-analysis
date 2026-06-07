@@ -20,7 +20,10 @@ import { api } from '../api/client';
 
 const SETTINGS: SettingsT = {
   active_provider: 'anthropic',
-  providers: { anthropic: { model: 'claude-x', api_key: 'k', base_url: '' } },
+  providers: {
+    anthropic: { model: 'claude-x', api_key: 'k', base_url: '' },
+    openai: { model: 'gpt-x', api_key: 'k2', base_url: '' },
+  },
   watchlist: ['AAPL'],
   indicator_params: { sma_windows: [50, 200], rsi_length: 14 },
   alerts: { enabled: false, channel: 'log', telegram_bot_token: '', telegram_chat_id: '', rsi_low: 30, rsi_high: 70 },
@@ -32,6 +35,7 @@ const SETTINGS: SettingsT = {
 
 const PROVIDERS: ProviderInfo[] = [
   { id: 'anthropic', label: 'Anthropic (Claude)', configured: true, default_model: 'claude-x' },
+  { id: 'openai', label: 'OpenAI', configured: true, default_model: 'gpt-x' },
 ];
 
 beforeEach(() => {
@@ -60,5 +64,14 @@ describe('Settings fetch models', () => {
       const opts = Array.from(document.querySelectorAll('#model-options option')).map((o) => o.getAttribute('value'));
       expect(opts).toEqual(['claude-a', 'claude-b']);
     });
+  });
+
+  it('clears the fetched-models status when the active provider changes', async () => {
+    renderSettings();
+    fireEvent.click(await screen.findByRole('button', { name: /fetch models/i }));
+    expect(await screen.findByText(/2 models/)).toBeInTheDocument();
+    // Switching the active provider must clear the stale "✓ N models" status.
+    fireEvent.change(document.querySelector('select')!, { target: { value: 'openai' } });
+    await waitFor(() => expect(screen.queryByText(/2 models/)).not.toBeInTheDocument());
   });
 });
