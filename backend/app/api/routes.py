@@ -38,6 +38,7 @@ from app.network.store import (
     list_saved_graphs,
     load_company_graph,
     load_graph,
+    load_import_graph,
     load_overlay,
     save_company_graph,
     save_graph,
@@ -314,6 +315,15 @@ def import_graph(payload: dict, cache: Cache = Depends(get_cache)) -> ImportRepo
 @router.get("/graph/imports", response_model=list[ImportSetSummary])
 def list_imports(cache: Cache = Depends(get_cache)) -> list[ImportSetSummary]:
     return list_import_sets(cache)
+
+
+@router.get("/graph/imports/{set_id}", response_model=KnowledgeGraph)
+def get_import_set(set_id: str, cache: Cache = Depends(get_cache)) -> KnowledgeGraph:
+    """One import set's graph, for the merge-into-graph preview."""
+    graph = load_import_graph(set_id, cache)
+    if graph is None:
+        raise HTTPException(status_code=404, detail=f"No import set '{set_id}'")
+    return graph
 
 
 @router.delete("/graph/imports")

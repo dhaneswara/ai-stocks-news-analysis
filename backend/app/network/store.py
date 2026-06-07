@@ -179,6 +179,12 @@ def _load_import_set(set_id: str, cache: Cache) -> tuple[ImportSetSummary, Knowl
         return None
 
 
+def load_import_graph(set_id: str, cache: Cache) -> KnowledgeGraph | None:
+    """The graph of one import set, for merging into a working graph; None if unknown."""
+    loaded = _load_import_set(set_id, cache)
+    return loaded[1] if loaded else None
+
+
 def list_import_sets(cache: Cache) -> list[ImportSetSummary]:
     out: list[ImportSetSummary] = []
     for sid in _load_import_index(cache):

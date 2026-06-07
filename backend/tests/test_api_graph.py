@@ -168,3 +168,21 @@ def test_get_graph_scope_imported_returns_only_overlay(client, monkeypatch):
     assert g["edges"] and all(e["origin"] == "imported" for e in g["edges"])
     assert any(e["target"] == "MSFT" for e in g["edges"])
     assert not any(e["target"] == "TSM" for e in g["edges"])  # focus edge excluded
+
+
+def test_get_single_import_set(client, monkeypatch):
+    tc, _ = client
+    _stub_universe(monkeypatch)
+    tc.post("/api/graph/import", json={"name": "d", "payload": {"edges": [
+        {"source": "AAPL", "target": "MSFT", "type": "partner"}]}})
+    sid = tc.get("/api/graph/imports").json()[0]["id"]
+    r = tc.get(f"/api/graph/imports/{sid}")
+    assert r.status_code == 200
+    g = r.json()
+    assert g["scope"] == "imported"
+    assert any(e["source"] == "AAPL" and e["origin"] == "imported" for e in g["edges"])
+
+
+def test_get_unknown_import_set_404(client):
+    tc, _ = client
+    assert tc.get("/api/graph/imports/nope").status_code == 404
