@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import App from '../App';
-import type { AnalysisResult, ScreenBoard, Settings, StockData } from '../types';
+import type { AnalysisResult, ScreenBoard, Settings, StockData, StockScore } from '../types';
 
 // lightweight-charts can't render in jsdom; the chart isn't what we're testing.
 vi.mock('../components/PriceChart', () => ({ PriceChart: () => null }));
@@ -20,6 +20,7 @@ vi.mock('../api/client', () => ({
     getMood: vi.fn(),
     rescan: vi.fn(),
     refreshUniverse: vi.fn(),
+    getScore: vi.fn(),
   },
 }));
 
@@ -66,12 +67,18 @@ const ANALYSIS: AnalysisResult = {
 
 const BOARD: ScreenBoard = { as_of: '2026-06-06', scope: 'all', scanned: 0, skipped: 0, items: [] };
 
+const SCORE: StockScore = {
+  ticker: 'AAPL', name: 'Apple Inc.', sector: 'Tech', price: 200, change_pct: 0.5,
+  score: 72, direction: 'buy', net: 0.3, reasons: ['RSI 28 (oversold)'], components: {}, as_of: '2026-06-06',
+};
+
 beforeEach(() => {
   vi.mocked(api.getSettings).mockResolvedValue(SETTINGS);
   vi.mocked(api.getStock).mockResolvedValue(STOCK);
   vi.mocked(api.analyze).mockResolvedValue(ANALYSIS);
   vi.mocked(api.getSectors).mockResolvedValue([]);
   vi.mocked(api.getScreen).mockResolvedValue(BOARD);
+  vi.mocked(api.getScore).mockResolvedValue(SCORE);
 });
 
 function renderApp() {
@@ -124,5 +131,13 @@ describe('Dashboard watchlist editing', () => {
     const star = await screen.findByRole('button', { name: /remove from watchlist/i });
     fireEvent.click(star);
     expect(await screen.findByText(/couldn't update watchlist/i)).toBeInTheDocument();
+  });
+});
+
+describe('Dashboard no-LLM score', () => {
+  it('shows the opportunity score chip on ticker load', async () => {
+    renderApp();
+    expect(await screen.findByText('72')).toBeInTheDocument();
+    expect(screen.getByText(/RSI 28 \(oversold\)/)).toBeInTheDocument();
   });
 });

@@ -6,7 +6,8 @@ import { NewsList } from '../components/NewsList';
 import { ReasoningPanel } from '../components/ReasoningPanel';
 import { SignalList } from '../components/SignalList';
 import { TickerBar } from '../components/TickerBar';
-import { useAnalyze, useStock, useWatchlist } from '../hooks/queries';
+import { ScoreChip } from '../components/ScoreChip';
+import { useAnalyze, useScore, useStock, useWatchlist } from '../hooks/queries';
 import { useDashboardState } from '../state/dashboardState';
 
 const RANGES: ChartRange[] = ['1M', '3M', '6M', '1Y', '2Y', '5Y'];
@@ -26,6 +27,7 @@ export default function Dashboard() {
     useDashboardState();
 
   const stock = useStock(ticker);
+  const score = useScore(ticker);
   const analyze = useAnalyze(ticker, RANGE_TO_PERIOD[range]);
 
   // Select the ticker from a ?ticker= deep-link (e.g. clicked from the Discover board).
@@ -99,6 +101,7 @@ export default function Dashboard() {
                   {sign}{d.price.change.toFixed(2)} ({sign}{d.price.change_pct.toFixed(2)}%)
                 </span>
               </div>
+              {score.data && <ScoreChip score={score.data} />}
             </div>
             <div className="summary-stats">
               <IndicatorBar data={d} />
