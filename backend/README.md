@@ -1,6 +1,7 @@
 # Backend — MarketCortex
 
-FastAPI service: US-stock data + indicators + news + multi-provider LLM analysis.
+FastAPI service: US-stock data + indicators + news + multi-provider LLM analysis,
+opportunity screening, a company knowledge graph, and recommendation-accuracy evaluation.
 
 ## Setup
 
@@ -29,13 +30,22 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 
 - `GET  /api/health`
 - `GET  /api/stock/{ticker}?period=2y`
-- `POST /api/analyze/{ticker}?period=2y`
+- `POST /api/analyze/{ticker}?period=2y` — runs the LLM analysis (and records the call for evaluation)
 - `GET  /api/settings` · `PUT /api/settings`
 - `GET  /api/providers` · `POST /api/providers/{id}/test`
 - `GET  /api/truth/mood` — current Truth Social mood + post count
 - `GET  /api/screen?sector=&direction=&limit=` — read the latest opportunity board
 - `POST /api/screen/rescan?sector=` — trigger a fresh scan and persist the result
 - `GET  /api/screen/sectors` — list available sectors from the universe file
+- `POST /api/universe/refresh` — rescrape the S&P 500 constituents from Wikipedia (validated, atomic)
+- `GET  /api/graph?scope=focus` — read the cached knowledge graph
+- `POST /api/graph/rebuild` — rebuild the focus graph via LLM + bake the network signal into the board
+- `GET  /api/graph/company/{ticker}` — one-hop ego graph for a single company (explore / expand)
+- `GET`/`POST /api/graph/saved` · `GET`/`DELETE /api/graph/saved/{root}` — saved explored subgraphs
+- `GET  /api/evaluation` — recommendation-accuracy board (runs lazy scoring first)
+- `POST /api/evaluation/{ticker}/{call_date}/explain` — on-demand LLM post-mortem on a missed call
+- `DELETE /api/evaluation/{ticker}` — stop tracking a company (clears its recorded calls)
+- `POST /api/alerts/test` — send a test alert through the configured channel
 
 ## Trump / Truth Social signal
 
@@ -84,10 +94,11 @@ families only; volume surges and Trump mentions raise the score without ever fli
 
 ### Universe
 
-`app/data/sp500.json` — a committed static snapshot of S&P 500 constituents (`ticker`,
-`name`, GICS `sector`). Ships a representative **starter subset** covering all 11 sectors;
-the loader (`app/data/universe.py`) is size-agnostic, so expanding to the full ~500 is a
-data-only change (replace the JSON file; no code change). Refresh manually, e.g. quarterly.
+`app/data/sp500.json` — a committed snapshot of S&P 500 constituents (`ticker`, `name`,
+GICS `sector`). Ships the **full S&P 500** (~503 names across all 11 GICS sectors); the
+loader (`app/data/universe.py`) is size-agnostic. Refresh from Wikipedia anytime with the
+**Update S&P 500 list** button (`POST /api/universe/refresh` — validated, atomic write, then
+the loader cache is cleared with no restart).
 
 ### Daily snapshot job
 
@@ -131,6 +142,11 @@ the network job, the board reverts to base-only until the next network build. Th
 needs care. Only `app.network` and `POST /api/graph/rebuild` make LLM calls; all read paths
 (board, deep-dive, `GET /api/graph`) are cache-only. Disable with `Settings.network.enabled = false`.
 
+The interactive **Graph** tab is a separate, read-only research view on the same data: type a
+company to get its one-hop ego graph, click a node to **expand** its neighbours on demand (free
+if already extracted today), and **save/load** explored subgraphs per company. The explorer
+never touches the daily board signal.
+
 #### Schedule it daily (Windows Task Scheduler)
 
 Create a Basic Task -> Daily (e.g. **5:15 PM**, *after* the 5:00 PM screener task) -> Start a program:
@@ -150,6 +166,55 @@ The graph is stored in the existing SQLite `Cache` (key `graph_snapshot:focus`; 
 > probability of return. Data is end-of-day (daily cadence, not intraday). A Trump mention
 > **boosts attention** (raises the score) but never votes on direction — the call stays
 > driven by technicals alone.
+
+## Recommendation evaluation
+
+Every `POST /api/analyze/{ticker}` is recorded (recommendation, confidence, and the price +
+trading date at that moment) so the app can later check how accurate the call was. The
+**Evaluation** tab then scores each recorded call against what the price actually did at
+**1, 5, and 20 trading days** and rolls the results up per company.
+
+- **Hit:** `buy` is right if the price rose, `sell` if it fell, `hold` if it stayed within a
+  band (default ±2%).
+- **Score (0–100):** magnitude-aware — 50 is neutral, higher for bigger correct moves, lower
+  for bigger wrong ones (scaled by `score_scale_pct`, default 5%).
+- **Per company:** hit-rate, average score, a **Strong / Mixed / Weak** grade, and an
+  **overconfident** flag (set when missed calls were, on average, at least as confident as
+  the correct ones). Confidence is a separate calibration stat — it is *not* folded into the score.
+- **Explain a miss:** `POST /api/evaluation/{ticker}/{call_date}/explain` runs one cached LLM
+  post-mortem on why the call was likely wrong (missed catalyst, regime shift, …).
+
+Config lives in `Settings.evaluation` (`enabled`, `horizons` = `[1, 5, 20]`, `hold_band_pct`,
+`score_scale_pct`); no secrets, so nothing is masked. Recorded calls and their verdicts are
+stored in two SQLite tables (`predictions`, `prediction_evals`) in the app DB under `DATA_DIR`.
+
+### Scoring job
+
+Scoring happens **lazily** whenever the Evaluation page loads — only newly-matured horizons are
+computed, and settled verdicts are final (idempotent). For unattended history, also run it
+post-close:
+
+```
+python -m app.evaluation            # score any matured calls
+python -m app.evaluation --dry-run  # compute + log a summary, do not persist
+```
+
+#### Schedule it daily (Windows Task Scheduler)
+
+Create a Basic Task -> Daily (e.g. **5:45 PM**, after the screener/network tasks) -> Start a program:
+
+- Program/script: `D:\workspace\ai-stocks-news-analysis\backend\.venv\Scripts\python.exe`
+- Add arguments: `-m app.evaluation`
+- Start in: `D:\workspace\ai-stocks-news-analysis\backend`
+
+(macOS/Linux: add a cron entry running the same command from `backend/`.)
+
+### Caveats
+
+> *Decision support only — not financial advice.* A "hit" is a simple directional check over
+> end-of-day prices — not risk-adjusted, dividend-adjusted, or benchmark-relative. It scores
+> only the calls you actually ran (no synthetic backfill), and a single-day horizon is noisy
+> by nature.
 
 ## Scheduled alerts
 
@@ -174,3 +239,4 @@ Create a Basic Task -> Daily (e.g. 5:30 PM, after US close) -> Start a program:
 - Start in: `D:\workspace\ai-stocks-news-analysis\backend`
 
 (macOS/Linux: add a cron entry running the same command from `backend/`.)
+```

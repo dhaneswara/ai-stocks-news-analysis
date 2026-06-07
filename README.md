@@ -5,7 +5,9 @@ data, fundamentals, and recent news for a stock, computes simple technical indic
 and asks an **LLM (Anthropic / OpenAI / Gemini / local Ollama)** to produce a structured
 analysis — a plain-language summary, a read on the news, and **buy/sell signals drawn
 directly on an interactive chart** with the reasoning shown on the page. It can also send
-**scheduled buy/sell alerts** to Telegram.
+**scheduled buy/sell alerts** to Telegram, rank opportunities across the S&P 500, map
+inter-company relationships as a **knowledge graph**, and **grade how accurate its own past
+LLM calls turn out to be**.
 
 > ⚠️ **Decision support, not financial advice.** The LLM can be confidently wrong, and the
 > on-chart/alert signals are mechanical heuristics + retrospective reasoning — **not** a
@@ -18,7 +20,8 @@ directly on an interactive chart** with the reasoning shown on the page. It can 
 - **Interactive dashboard** — candlestick chart (TradingView Lightweight Charts) with a
   **timeframe selector (1M / 3M / 6M / 1Y / 2Y / 5Y)**, SMA50/200 overlays, and LLM-drawn
   **buy ▲ / sell ▼ markers**. Click a marker — or a row in the dedicated **Signals** list — to
-  read that signal's reasoning.
+  read that signal's reasoning. Manage your **watchlist inline**: star (★) the loaded ticker
+  to add it, or remove a chip with ×.
 - **LLM analysis** — runs over the chart's **selected timeframe** and weighs the latest news
   *together with* the technicals/fundamentals. Returns a plain-language summary, news
   interpretation, sentiment, a current buy/sell/hold recommendation with confidence, the
@@ -43,7 +46,7 @@ directly on an interactive chart** with the reasoning shown on the page. It can 
   boundaries (very short tickers and multi-word names can over- or under-match). The read
   is "as of the day's first analysis per ticker" (mirrors the per-day cache); real-time
   reaction to a breaking post is out of scope.
-- **Discover — opportunity board** — a new **Discover** tab auto-ranks the S&P 500 (or a
+- **Discover — opportunity board** — a **Discover** tab auto-ranks the S&P 500 (or a
   sector slice) by a 0–100 opportunity score computed with a fast, no-LLM scorer (RSI /
   52-wk extremes, golden/death cross + SMA alignment, 1-month momentum, breakout proximity,
   volume surge, and an optional Trump-mention boost). Each row shows the score, a
@@ -56,6 +59,24 @@ directly on an interactive chart** with the reasoning shown on the page. It can 
   *Caveats:* decision support only — the board is a screen, not a recommendation system;
   ranking ≠ prediction; data is end-of-day (not intraday); a Trump mention boosts attention
   but never determines the buy/sell direction.
+- **Company knowledge graph / network signal** — an LLM extracts inter-company relationships
+  (supplier, customer, partner, competitor, owner, subsidiary) from each focus company's news;
+  a capped, **explainable network signal** then tilts the Discover board's buy/sell/hold by a
+  company's neighbours (e.g. a key supplier's bad news weighs on the customer). The **Graph**
+  tab visualises it and lets you **explore from any company** — a one-hop ego graph, on-demand
+  neighbour expansion, and save/load of explored subgraphs per company (with version history).
+  Only relationship extraction uses an LLM; propagation is pure and instant. Daily build:
+  `python -m app.network` (after the screener — see [backend/README.md](backend/README.md)).
+- **Recommendation evaluation** — every **Analyze with LLM** call is recorded, then scored
+  against what the price actually did at **1, 5, and 20 trading days**. A dedicated
+  **Evaluation** tab tracks many companies, each with a hit-rate, a 0–100 accuracy score, a
+  **Strong / Mixed / Weak** grade, and an **overconfidence** flag (are the confident calls
+  actually the right ones?). On any missed call, an on-demand **"Explain miss"** button asks
+  the LLM *why* it was wrong. Scoring runs automatically when you open the page, and can also
+  run unattended via `python -m app.evaluation`.
+  *Caveats:* a "hit" is a simple directional check (buy⇢up, sell⇢down, hold⇢flat within a
+  band) over end-of-day prices — not risk-adjusted or benchmark-relative — and only scores the
+  calls you actually ran.
 - **Free/minimal data** — `yfinance` for prices/fundamentals, Google News RSS for news.
 
 ## Architecture
@@ -63,16 +84,18 @@ directly on an interactive chart** with the reasoning shown on the page. It can 
 ```
 ┌─────────────────────────┐      REST/JSON      ┌──────────────────────────────┐
 │ Frontend (React+Vite+TS) │  ───────────────▶  │ Backend (FastAPI, Python)      │
-│  Dashboard + Settings    │  ◀───────────────  │  data · indicators · news      │
-│  Lightweight Charts      │                    │  LLM providers · analyzer      │
+│  Dashboard·Discover·Graph│  ◀───────────────  │  data · indicators · news      │
+│  Evaluation · Settings   │                    │  LLM providers · analyzer      │
 └─────────────────────────┘                    │  settings/cache (SQLite)       │
-                                                │  alerts (CLI + Telegram)       │
+                                                │  alerts·screener·network·eval  │
                                                 └──────────────────────────────┘
 ```
 
-- **Backend** (`backend/`) — FastAPI REST API + the `python -m app.alerts` and
-  `python -m app.screener` CLIs. See [backend/README.md](backend/README.md).
-- **Frontend** (`frontend/`) — React dashboard. See [frontend/README.md](frontend/README.md).
+- **Backend** (`backend/`) — FastAPI REST API + the `python -m app.alerts`,
+  `python -m app.screener`, `python -m app.network`, and `python -m app.evaluation` CLIs.
+  See [backend/README.md](backend/README.md).
+- **Frontend** (`frontend/`) — React app (Dashboard · Discover · Graph · Evaluation ·
+  Settings). See [frontend/README.md](frontend/README.md).
 - **Design docs** — specs and implementation plans under [docs/superpowers/](docs/superpowers/).
 
 ## Prerequisites
@@ -135,6 +158,10 @@ npm run dev                        # http://localhost:5173
    (from [@BotFather](https://t.me/BotFather)) + your chat id, set RSI thresholds, and click
    **Send test alert**. Then schedule `python -m app.alerts` daily (see
    [backend/README.md](backend/README.md) for Windows Task Scheduler / cron steps).
+6. **Evaluation (optional):** after you've analyzed a few tickers over several days, open the
+   **Evaluation** tab to see how accurate those calls were (1/5/20-day hit-rate, score, grade)
+   and click **Explain miss** on a bad one. For unattended scoring, schedule
+   `python -m app.evaluation` (see [backend/README.md](backend/README.md)).
 
 ## Testing
 
@@ -148,7 +175,7 @@ cd frontend; npm run build                             # type-check + bundle
 
 ```
 ai-stocks-news-analysis/
-  backend/      FastAPI service + alerts CLI (Python)
+  backend/      FastAPI service + alerts/screener/network/evaluation CLIs (Python)
   frontend/     React + Vite + TypeScript dashboard
   docs/         design specs and implementation plans
   start.ps1     one-command launcher (Windows)
@@ -160,11 +187,11 @@ Curated, high-value additions (roughly in priority order):
 
 1. **More alert channels** — email (SMTP) and Slack/Discord webhooks alongside Telegram
    (the `Notifier` interface is already pluggable).
-2. **Backtesting & signal performance** — replay the indicator rules (and/or LLM
-   recommendations) over history and report hit-rate / return so signals can be judged,
-   not just shown. This is the biggest credibility upgrade.
-3. **Analysis history** — persist each `AnalysisResult` so you can see how the LLM's
-   recommendation for a ticker changed over time (and diff against price moves).
+2. **Deeper backtesting** — the **Evaluation** page now tracks LLM-recommendation accuracy
+   forward (1/5/20-day hit-rate + score). Extend it with **risk-adjusted / benchmark-relative**
+   metrics and a true historical replay of the *indicator-rule* signals.
+3. **Per-provider accuracy** — the Evaluation page already records which provider/model made
+   each call; break the accuracy rollups out by provider to see which LLM is most reliable.
 4. **Watchlist overview page** — a multi-ticker table (price, RSI, recommendation, last
    signal) so you can scan the whole list at a glance, not one ticker at a time.
 5. **Richer indicators** — MACD and Bollinger Bands (compute + chart overlays + new alert
@@ -172,7 +199,7 @@ Curated, high-value additions (roughly in priority order):
 6. **Portfolio tracking** — enter holdings and show P/L plus position-aware context in the
    analysis.
 7. **Auth + deployment** — optional login and a Docker compose / one-box deploy so it can
-   run as an always-on service (enabling true server-side scheduled alerts without the OS scheduler).
+   run as an always-on service (enabling true server-side scheduled jobs without the OS scheduler).
 8. **Export** — download an analysis (chart + reasoning + news) as PDF/CSV.
 
 ## License & disclaimer
