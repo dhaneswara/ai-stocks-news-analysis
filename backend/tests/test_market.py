@@ -43,3 +43,17 @@ def test_build_fundamentals_uses_get():
 def test_company_name_fallback():
     assert company_name({"longName": "Apple Inc."}, "AAPL") == "Apple Inc."
     assert company_name({}, "AAPL") == "AAPL"
+
+
+def test_fetch_close_series_returns_ordered_pairs(monkeypatch):
+    import pandas as pd
+    from app.data import market
+
+    df = pd.DataFrame(
+        {"Close": [100.0, 101.0, 102.0]},
+        index=pd.to_datetime(["2026-06-01", "2026-06-02", "2026-06-03"]),
+    )
+    monkeypatch.setattr(market, "fetch_history", lambda ticker, period="2y": df)
+
+    series = market.fetch_close_series("AAPL", "1y")
+    assert series == [("2026-06-01", 100.0), ("2026-06-02", 101.0), ("2026-06-03", 102.0)]

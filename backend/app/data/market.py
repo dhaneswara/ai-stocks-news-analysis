@@ -12,6 +12,13 @@ def fetch_history(ticker: str, period: str = "2y") -> pd.DataFrame:
     return yf.Ticker(ticker).history(period=period, interval="1d", auto_adjust=False)
 
 
+def fetch_close_series(ticker: str, period: str = "2y") -> list[tuple[str, float]]:
+    """Ordered (YYYY-MM-DD, close) pairs for the period — trading days only."""
+    df = fetch_history(ticker, period)
+    closes = df["Close"].astype("float64")
+    return [(pd.Timestamp(ts).strftime("%Y-%m-%d"), float(v)) for ts, v in closes.items()]
+
+
 def fetch_info(ticker: str) -> dict:
     try:
         return dict(yf.Ticker(ticker).info)
