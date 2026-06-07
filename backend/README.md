@@ -45,6 +45,7 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 - `GET`/`POST /api/graph/saved` · `GET`/`DELETE /api/graph/saved/{root}` — saved explored subgraphs
 - `POST /api/graph/import` — import an external ontology model (JSON `{name, payload}`) as a removable overlay set
 - `GET  /api/graph/imports` · `DELETE /api/graph/imports?set_id=` — list / remove import sets
+- `GET  /api/graph/imports/{id}` — one import set's graph (for the merge-into-graph preview).
 - `GET  /api/graph?scope=imported` — read the imported overlay (and `?scope=focus` returns the snapshot **merged** with it)
 - `GET  /api/evaluation` — recommendation-accuracy board (runs lazy scoring first)
 - `POST /api/evaluation/{ticker}/{call_date}/explain` — on-demand LLM post-mortem on a missed call

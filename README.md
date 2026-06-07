@@ -72,7 +72,9 @@ LLM calls turn out to be**.
   You can also **import an external ontology model**: paste or upload a small JSON graph (e.g.
   produced by ChatGPT — the Import tab ships a copy-paste prompt template), and it's merged into
   the graph as a removable **overlay** that feeds the network signal like native edges. Entities
-  are resolved to your tickers where possible, others kept as labelled external nodes.
+  are resolved to your tickers where possible, others kept as labelled external nodes; merge
+  imported sets into a saved company graph (with conflict resolution + Discover linking), edit
+  nodes/relationships by right-click, and an on-canvas legend.
 - **Recommendation evaluation** — every **Analyze with LLM** call is recorded, then scored
   against what the price actually did at **1, 5, and 20 trading days**. A dedicated
   **Evaluation** tab tracks many companies, each with a hit-rate, a 0–100 accuracy score, a
