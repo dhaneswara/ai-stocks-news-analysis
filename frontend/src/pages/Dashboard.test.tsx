@@ -114,3 +114,14 @@ describe('Dashboard chart range', () => {
     expect(screen.getByRole('button', { name: '2Y' })).not.toHaveClass('active');
   });
 });
+
+describe('Dashboard watchlist editing', () => {
+  it('shows an error line when saving the watchlist fails', async () => {
+    vi.mocked(api.saveSettings).mockRejectedValue(new Error('save boom'));
+    renderApp();
+    // AAPL is the default watchlist ticker, so its star is the "remove" toggle.
+    const star = await screen.findByRole('button', { name: /remove from watchlist/i });
+    fireEvent.click(star);
+    expect(await screen.findByText(/couldn't update watchlist/i)).toBeInTheDocument();
+  });
+});
