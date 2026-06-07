@@ -106,3 +106,22 @@ export function useDeleteSavedGraph() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['savedGraphs'] }),
   });
 }
+
+export function useEvaluation() {
+  return useQuery({ queryKey: ['evaluation'], queryFn: api.getEvaluation });
+}
+
+export function useExplainPrediction() {
+  return useMutation({
+    mutationFn: ({ ticker, callDate }: { ticker: string; callDate: string }) =>
+      api.explainPrediction(ticker, callDate),
+  });
+}
+
+export function useDeleteTracked() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ticker: string) => api.deleteTracked(ticker),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['evaluation'] }),
+  });
+}
