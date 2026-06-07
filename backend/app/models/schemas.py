@@ -101,7 +101,13 @@ class Mention(BaseModel):
     url: str = ""
 
 
-RelationType = Literal["supplier", "customer", "partner", "competitor", "owner", "subsidiary"]
+RelationType = Literal["supplier", "customer", "partner", "competitor", "owner", "subsidiary", "other"]
+
+
+class NodeMeta(BaseModel):
+    label: str = ""
+    kind: str = ""
+    source: Literal["native", "imported"] = "native"
 
 
 class GraphEdge(BaseModel):
@@ -114,6 +120,7 @@ class GraphEdge(BaseModel):
     evidence: str = ""
     url: str = ""
     as_of: str = ""
+    origin: Literal["extracted", "imported"] = "extracted"
 
 
 class KnowledgeGraph(BaseModel):
@@ -121,6 +128,7 @@ class KnowledgeGraph(BaseModel):
     scope: str = "focus"
     nodes: list[str] = Field(default_factory=list)
     edges: list[GraphEdge] = Field(default_factory=list)
+    node_meta: dict[str, NodeMeta] = Field(default_factory=dict)
     built: int = 0
     skipped: int = 0
 
@@ -135,6 +143,24 @@ class SavedGraphVersion(BaseModel):
 class SavedGraphSummary(BaseModel):
     root: str
     versions: list[str] = Field(default_factory=list)
+
+
+class ImportSetSummary(BaseModel):
+    id: str = ""
+    name: str = ""
+    as_of: str = ""
+    created_at: str = ""
+    node_count: int = 0
+    edge_count: int = 0
+
+
+class ImportReport(BaseModel):
+    id: str = ""
+    name: str = ""
+    nodes_added: int = 0
+    edges_added: int = 0
+    dropped: int = 0
+    warnings: list[str] = Field(default_factory=list)
 
 
 class NetworkInfluence(BaseModel):
