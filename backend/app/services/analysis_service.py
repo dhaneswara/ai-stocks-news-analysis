@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from datetime import date
 
 from app.analysis import political
@@ -7,6 +8,8 @@ from app.analysis.analyzer import analyze
 from app.analysis.network import compute_network_signal
 from app.config.cache import Cache
 from app.data import truth_social
+from app.evaluation.service import record_prediction
+from app.evaluation.store import PredictionStore
 from app.llm.base import LLMError
 from app.llm.factory import build_provider, resolve_config
 from app.models.schemas import AnalysisResult, Settings
@@ -16,8 +19,16 @@ from app.services.stock_service import get_stock_data
 
 ANALYSIS_TTL_SECONDS = 24 * 60 * 60  # 1 day
 
+logger = logging.getLogger("analysis")
 
-def run_analysis(ticker: str, period: str, settings: Settings, cache: Cache) -> AnalysisResult:
+
+def run_analysis(
+    ticker: str,
+    period: str,
+    settings: Settings,
+    cache: Cache,
+    prediction_store: PredictionStore | None = None,
+) -> AnalysisResult:
     ticker = ticker.upper().strip()
     provider_id = settings.active_provider
     cfg = settings.providers.get(provider_id)
@@ -58,4 +69,9 @@ def run_analysis(ticker: str, period: str, settings: Settings, cache: Cache) -> 
 
     result = analyze(stock, provider, model=cfg.model, provider_name=provider_id)
     cache.set(cache_key, result.model_dump_json(), ANALYSIS_TTL_SECONDS)
+    if prediction_store is not None and settings.evaluation.enabled:
+        try:
+            record_prediction(stock, result, prediction_store)
+        except Exception:  # noqa: BLE001 — recording must never break analysis
+            logger.warning("prediction recording failed for %s", ticker)
     return result
