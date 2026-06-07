@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { ImportReport, ImportSetSummary, RelationType, SavedGraphSummary } from '../types';
+import type { EdgeSentiment, ImportReport, ImportSetSummary, RelationType, SavedGraphSummary, StockScore } from '../types';
 import type { ViewNode } from '../lib/graphView';
 import { chatGptPrompt } from '../lib/importPrompt';
 
@@ -30,6 +30,11 @@ export interface GraphSidebarProps {
   importing: boolean;
   importReport: ImportReport | null;
   importError: string | null;
+  addingFrom: string | null;
+  onSubmitRelationship: (data: { target: string; type: RelationType; sentiment: EdgeSentiment; note: string }) => void;
+  onCancelRelationship: () => void;
+  onMergeImport: (id: string) => void;
+  board: StockScore[];
   promptDefault: string;
 }
 
@@ -37,12 +42,26 @@ export function GraphSidebar(props: GraphSidebarProps) {
   const {
     tab, onTab, onLoadRoot, onExpand, onSave, onClear, canSave, saving, loading,
     saved, onLoadSaved, onDeleteSaved, nodeCount, linkCount, enabledTypes, onToggleType, selected,
-    imports, onImport, onDeleteImport, importing, importReport, importError, promptDefault,
+    imports, onImport, onDeleteImport, importing, importReport, importError,
+    addingFrom, onSubmitRelationship, onCancelRelationship, onMergeImport, board,
+    promptDefault,
   } = props;
   const [rootInput, setRootInput] = useState('');
   const [jsonText, setJsonText] = useState('');
   const [setName, setSetName] = useState('');
   const [parseError, setParseError] = useState<string | null>(null);
+  const [relTarget, setRelTarget] = useState('');
+  const [relType, setRelType] = useState<RelationType>('supplier');
+  const [relEffect, setRelEffect] = useState<EdgeSentiment>('positive');
+  const [relNote, setRelNote] = useState('');
+
+  const submitRel = () => {
+    if (!relTarget.trim()) return;
+    onSubmitRelationship({ target: relTarget.trim(), type: relType, sentiment: relEffect, note: relNote.trim() });
+    setRelTarget(''); setRelType('supplier'); setRelEffect('positive'); setRelNote('');
+  };
+
+  void board;
 
   const doImport = () => {
     setParseError(null);
@@ -82,6 +101,30 @@ export function GraphSidebar(props: GraphSidebarProps) {
 
       {tab === 'explore' && (
         <div className="graph-tab">
+          {addingFrom && (
+            <div className="graph-section rel-form">
+              <span className="label">Add relationship from <b>{addingFrom}</b></span>
+              <input
+                placeholder="Target (ticker or company)"
+                value={relTarget}
+                onChange={(e) => setRelTarget(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') submitRel(); }}
+              />
+              <select value={relType} onChange={(e) => setRelType(e.target.value as RelationType)} aria-label="relationship type">
+                {EDGE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <select value={relEffect} onChange={(e) => setRelEffect(e.target.value as EdgeSentiment)} aria-label="effect on source">
+                <option value="positive">helps</option>
+                <option value="negative">hurts</option>
+                <option value="neutral">neutral</option>
+              </select>
+              <input placeholder="Note (optional)" value={relNote} onChange={(e) => setRelNote(e.target.value)} />
+              <div className="graph-actions">
+                <button onClick={submitRel}>Add</button>
+                <button className="secondary" onClick={onCancelRelationship}>Cancel</button>
+              </div>
+            </div>
+          )}
           <label>Start from a company
             <input
               placeholder="Ticker (e.g. AAPL)"
@@ -134,12 +177,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
             </div>
           ) : (
             <div className="graph-legend">
-              <p className="muted">Click a node for its detail, then Expand to grow the graph.</p>
-              <p className="label">
-                <span style={{ color: '#3fb950' }}>●</span> buy{' '}
-                <span style={{ color: '#f85149' }}>●</span> sell{' '}
-                <span style={{ color: '#8b949e' }}>●</span> hold · edge colour = news effect
-              </p>
+              <p className="muted">Click a node for its detail, then Expand to grow the graph. Right-click a node or edge to add or delete.</p>
             </div>
           )}
         </div>
@@ -200,6 +238,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
                 {imports.map((s) => (
                   <div key={s.id} className="graph-save-row">
                     <span>{s.name || '(unnamed)'} · {s.edge_count} edges</span>
+                    <button className="linklike" aria-label={`merge ${s.name || s.id}`} onClick={() => onMergeImport(s.id)}>Merge into graph</button>
                     <button className="icon-btn" aria-label={`delete ${s.name || s.id}`} onClick={() => onDeleteImport(s.id)}>✕</button>
                   </div>
                 ))}

@@ -4,7 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { GraphSidebar } from './GraphSidebar';
 import type { ViewNode } from '../lib/graphView';
-import type { ImportSetSummary, RelationType, SavedGraphSummary } from '../types';
+import type { ImportSetSummary, RelationType, SavedGraphSummary, StockScore } from '../types';
 
 const SELECTED: ViewNode = {
   id: 'AAPL', label: 'AAPL', direction: 'sell', score: 80, sector: 'Tech', onBoard: true, external: false, kind: '',
@@ -27,6 +27,11 @@ function base() {
     importing: false,
     importReport: null,
     importError: null,
+    addingFrom: null as string | null,
+    onSubmitRelationship: vi.fn(),
+    onCancelRelationship: vi.fn(),
+    onMergeImport: vi.fn(),
+    board: [] as StockScore[],
     promptDefault: 'AAPL',
   };
 }
@@ -130,4 +135,24 @@ it('lists import sets and fires delete', () => {
   wrap(<GraphSidebar {...props} selected={null} />);
   fireEvent.click(screen.getByRole('button', { name: /delete demo/i }));
   expect(props.onDeleteImport).toHaveBeenCalledWith('t1');
+});
+
+it('submits an add-relationship form', () => {
+  const props = { ...base(), addingFrom: 'AAPL' as string | null };
+  wrap(<GraphSidebar {...props} selected={null} />);
+  fireEvent.change(screen.getByPlaceholderText(/ticker or company/i), { target: { value: 'NVDA' } });
+  fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
+  expect(props.onSubmitRelationship).toHaveBeenCalledWith(
+    expect.objectContaining({ target: 'NVDA', type: 'supplier', sentiment: 'positive' }),
+  );
+});
+
+it('fires merge for an import set (Import tab)', () => {
+  const props = {
+    ...base(), tab: 'import' as const,
+    imports: [{ id: 't1', name: 'demo', as_of: '', created_at: 't1', node_count: 2, edge_count: 1 }],
+  };
+  wrap(<GraphSidebar {...props} selected={null} />);
+  fireEvent.click(screen.getByRole('button', { name: /merge demo/i }));
+  expect(props.onMergeImport).toHaveBeenCalledWith('t1');
 });
