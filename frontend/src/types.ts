@@ -19,7 +19,7 @@ export interface NewsItem { title: string; source: string; published_at: string;
 export interface MoodTheme { label: string; lean: 'bullish' | 'bearish' | 'neutral'; quote: string; post_url: string; created_at: string; }
 export interface MarketMood { lean: 'risk_on' | 'neutral' | 'risk_off'; confidence: number; summary: string; themes: MoodTheme[]; as_of: string; post_count: number; }
 export interface Mention { post_id: string; created_at: string; matched: string; excerpt: string; url: string; }
-export type RelationType = 'supplier' | 'customer' | 'partner' | 'competitor' | 'owner' | 'subsidiary';
+export type RelationType = 'supplier' | 'customer' | 'partner' | 'competitor' | 'owner' | 'subsidiary' | 'other';
 export type EdgeSentiment = 'positive' | 'negative' | 'neutral';
 export interface NetworkInfluence {
   neighbour: string;
@@ -37,12 +37,15 @@ export interface NetworkSignal {
   influences: NetworkInfluence[];
   reasons: string[];
 }
+export interface NodeMeta { label: string; kind: string; source: 'native' | 'imported'; }
 export interface GraphEdge {
   source: string; target: string; type: RelationType; sentiment: EdgeSentiment;
   weight: number; confidence: number; evidence: string; url: string; as_of: string;
+  origin?: 'extracted' | 'imported';
 }
 export interface KnowledgeGraph {
   as_of: string; scope: string; nodes: string[]; edges: GraphEdge[]; built: number; skipped: number;
+  node_meta?: Record<string, NodeMeta>;
 }
 export interface NetworkConfig {
   enabled: boolean; focus_top_n: number; max_edges_per_company: number;
@@ -183,3 +186,9 @@ export interface ProviderInfo { id: string; label: string; configured: boolean; 
 export interface TestResult { ok: boolean; message: string; }
 export interface SavedGraphVersion { root: string; saved_at: string; expanded: string[]; graph: KnowledgeGraph; }
 export interface SavedGraphSummary { root: string; versions: string[]; }
+export interface ImportSetSummary {
+  id: string; name: string; as_of: string; created_at: string; node_count: number; edge_count: number;
+}
+export interface ImportReport {
+  id: string; name: string; nodes_added: number; edges_added: number; dropped: number; warnings: string[];
+}
