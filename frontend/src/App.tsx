@@ -3,6 +3,7 @@ import { Link, NavLink, Route, Routes } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import Discover from './pages/Discover';
 import Settings from './pages/Settings';
+import Evaluation from './pages/Evaluation';
 import { DashboardStateProvider } from './state/dashboardState';
 
 const Graph = lazy(() => import('./pages/Graph'));
@@ -25,6 +26,7 @@ export default function App() {
             <NavLink to="/" end className={navClass}>Dashboard</NavLink>
             <NavLink to="/discover" className={navClass}>Discover</NavLink>
             <NavLink to="/graph" className={navClass}>Graph</NavLink>
+            <NavLink to="/evaluation" className={navClass}>Evaluation</NavLink>
             <NavLink to="/settings" className={navClass}>Settings</NavLink>
           </nav>
         </header>
@@ -34,6 +36,7 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/discover" element={<Discover />} />
             <Route path="/graph" element={<Suspense fallback={<p className="muted">Loading graph…</p>}><Graph /></Suspense>} />
+            <Route path="/evaluation" element={<Evaluation />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>

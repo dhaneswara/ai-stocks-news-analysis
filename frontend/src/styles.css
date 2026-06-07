@@ -752,3 +752,19 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 .graph-types { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip-toggle { font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
 .graph-detail .factor-list { margin: 6px 0; }
+
+/* --- Evaluation page --- */
+.board-row.selected { background: var(--gold-tint); }
+.calls { display: flex; flex-direction: column; gap: 4px; }
+.call-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 9px 0; border-bottom: 1px solid var(--hairline); }
+.call-row:last-child { border-bottom: 0; }
+.outcomes { display: flex; gap: 6px; flex-wrap: wrap; }
+.outcome {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.02em;
+  border: 1px solid var(--panel-brd); border-radius: 999px; padding: 2px 9px; white-space: nowrap;
+}
+.outcome.hit { color: var(--buy); background: var(--buy-tint); border-color: rgba(95, 211, 155, 0.3); }
+.outcome.miss { color: var(--sell); background: var(--sell-tint); border-color: rgba(240, 129, 124, 0.3); }
+.outcome.pending { color: var(--ink-faint); }
+.overconf { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #cf6f6a; }
+.explain-box { flex-basis: 100%; margin: 4px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
