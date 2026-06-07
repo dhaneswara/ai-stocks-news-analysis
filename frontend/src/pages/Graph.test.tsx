@@ -94,7 +94,7 @@ it('saves the working graph', async () => {
   fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
   fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
   await screen.findByTestId('graph-canvas');
-  fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+  fireEvent.click(screen.getByRole('button', { name: /save as aapl/i }));
   await waitFor(() => expect(api.saveGraph).toHaveBeenCalled());
 });
 

@@ -17,7 +17,7 @@ function base() {
   return {
     tab: 'explore' as const, onTab: vi.fn(),
     onLoadRoot: vi.fn(), onExpand: vi.fn(), onSave: vi.fn(), onClear: vi.fn(),
-    canSave: true, saving: false, loading: false,
+    canSave: true, saveAs: 'AAPL', saving: false, loading: false,
     saved: [] as SavedGraphSummary[], onLoadSaved: vi.fn(), onDeleteSaved: vi.fn(),
     nodeCount: 2, linkCount: 1,
     enabledTypes: new Set<RelationType>(['supplier']), onToggleType: vi.fn(),
@@ -69,7 +69,7 @@ it('shows the selected node detail and a Dashboard link', () => {
 it('fires save and clear', () => {
   const props = base();
   wrap(<GraphSidebar {...props} selected={null} />);
-  fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+  fireEvent.click(screen.getByRole('button', { name: /save as aapl/i }));
   fireEvent.click(screen.getByRole('button', { name: /^clear$/i }));
   expect(props.onSave).toHaveBeenCalled();
   expect(props.onClear).toHaveBeenCalled();

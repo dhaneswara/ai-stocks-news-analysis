@@ -14,6 +14,7 @@ export interface GraphSidebarProps {
   onSave: () => void;
   onClear: () => void;
   canSave: boolean;
+  saveAs: string;
   saving: boolean;
   loading: boolean;
   saved: SavedGraphSummary[];
@@ -39,7 +40,7 @@ export interface GraphSidebarProps {
 
 export function GraphSidebar(props: GraphSidebarProps) {
   const {
-    tab, onTab, onLoadRoot, onExpand, onSave, onClear, canSave, saving, loading,
+    tab, onTab, onLoadRoot, onExpand, onSave, onClear, canSave, saveAs, saving, loading,
     saved, onLoadSaved, onDeleteSaved, nodeCount, linkCount, enabledTypes, onToggleType, selected,
     imports, onImport, onDeleteImport, importing, importReport, importError,
     addingFrom, onSubmitRelationship, onCancelRelationship, onMergeImport,
@@ -135,7 +136,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
           <div className="graph-section">
             <p className="muted">{nodeCount} nodes · {linkCount} edges</p>
             <div className="graph-actions">
-              <button disabled={!canSave || saving} onClick={onSave}>{saving ? 'Saving…' : 'Save'}</button>
+              <button disabled={!canSave || saving} onClick={onSave}>{saving ? 'Saving…' : saveAs ? `Save as ${saveAs}` : 'Save'}</button>
               <button className="secondary" disabled={!canSave} onClick={onClear}>Clear</button>
             </div>
           </div>

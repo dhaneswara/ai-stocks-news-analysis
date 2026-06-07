@@ -97,10 +97,11 @@ export default function Graph() {
 
   const doSave = async () => {
     if (!working || working.nodes.length === 0) return;
-    // No explicit root (e.g. a loaded graph) -> key the save off the first node.
+    // Save the whole exploration under the SELECTED node (what you're focused on), falling back to
+    // the start company, then the first node (e.g. a freshly-loaded graph).
     try {
       await saveGraph.mutateAsync({
-        root: root || working.nodes[0], saved_at: '', expanded: [...expanded], graph: working,
+        root: selectedId || root || working.nodes[0], saved_at: '', expanded: [...expanded], graph: working,
       });
       setDirty(false);
     } catch { setNotice('Could not save this graph.'); }
@@ -239,6 +240,7 @@ export default function Graph() {
         onSave={doSave}
         onClear={clearGraph}
         canSave={!!working && working.nodes.length > 0}
+        saveAs={selectedId || root || (working?.nodes[0] ?? '')}
         saving={saveGraph.isPending}
         loading={busy}
         saved={saved.data ?? []}
