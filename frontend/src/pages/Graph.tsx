@@ -30,6 +30,7 @@ export default function Graph() {
 
   const doImport = async (name: string, payload: unknown) => {
     setImportError(null);
+    setImportReport(null);
     try {
       const report = await importGraph.mutateAsync({ name, payload });
       setImportReport(report);
@@ -39,7 +40,10 @@ export default function Graph() {
   };
 
   const doDeleteImport = async (id: string) => {
-    try { await deleteImport.mutateAsync(id); } catch { setImportError('Could not remove the set.'); }
+    try {
+      await deleteImport.mutateAsync(id);
+      setImportReport(null);
+    } catch { setImportError('Could not remove the set.'); }
   };
 
   const [tab, setTab] = useState<'explore' | 'saved' | 'import'>('explore');
@@ -122,9 +126,14 @@ export default function Graph() {
       const present = new Set(g.nodes);
       const incident = ov.edges.filter((e) => present.has(e.source) || present.has(e.target));
       if (incident.length) {
+        const incidentIds = new Set(incident.flatMap((e) => [e.source, e.target]));
         const frag: KnowledgeGraph = {
-          ...ov, edges: incident,
-          nodes: Array.from(new Set(incident.flatMap((e) => [e.source, e.target]))),
+          ...ov,
+          edges: incident,
+          nodes: Array.from(incidentIds),
+          node_meta: Object.fromEntries(
+            Object.entries(ov.node_meta ?? {}).filter(([id]) => incidentIds.has(id)),
+          ),
         };
         merged = mergeGraph(g, frag);
       }
