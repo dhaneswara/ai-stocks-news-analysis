@@ -189,6 +189,11 @@ class NetworkConfig(BaseModel):
     weight: float = 0.5        # the tilt cap (network family weight)
     alpha_event: float = 0.6   # blend weight on the edge news-event term
     beta_state: float = 0.4    # blend weight on the neighbour-state term
+    # Relationship types scored in BOTH directions (mutual). [] reproduces the legacy
+    # purely-directed behavior. Pydantic's default backfills any legacy persisted Settings.
+    symmetric_types: list[RelationType] = Field(
+        default_factory=lambda: ["competitor", "partner", "other"]
+    )
 
 
 class EvaluationConfig(BaseModel):

@@ -114,3 +114,9 @@ def test_blend_network_into_score():
     assert out.net > 0.0 and out.direction == "buy"
     assert out.components["network"] == 1.0
     assert out.reasons[0] == "partner X (bullish)"   # network reasons first
+
+
+def test_network_config_defaults_symmetric_types():
+    # competitor/partner/other are mutual by default; supplier/customer/owner/subsidiary are not.
+    assert NetworkConfig().symmetric_types == ["competitor", "partner", "other"]
+    assert "supplier" not in NetworkConfig().symmetric_types
