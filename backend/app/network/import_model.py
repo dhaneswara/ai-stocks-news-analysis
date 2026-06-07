@@ -76,7 +76,8 @@ def normalize_import(
             return ticker
         ext = f"ext:{_slug(lbl or rid)}"
         id_map[rid] = ext
-        node_meta[ext] = NodeMeta(label=lbl or rid, kind=str(kind or ""), source="imported")
+        if ext not in node_meta:  # first-seen label wins on slug collision (deterministic)
+            node_meta[ext] = NodeMeta(label=lbl or rid, kind=str(kind or ""), source="imported")
         return ext
 
     for n in payload.get("nodes", []) or []:
@@ -107,7 +108,7 @@ def normalize_import(
         edges.append(GraphEdge(
             source=src, target=tgt, type=rel, sentiment=sent,
             weight=_clamp01(e.get("weight")), confidence=_clamp01(e.get("confidence")),
-            evidence=str(e.get("evidence", ""))[:200], url=str(e.get("url", "")),
+            evidence=str(e.get("evidence", ""))[:200], url=str(e.get("url", ""))[:2048],
             as_of=as_of, origin="imported",
         ))
 

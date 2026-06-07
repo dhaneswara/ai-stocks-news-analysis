@@ -97,3 +97,30 @@ def test_graph_round_trips_with_other_type_and_meta():
     assert restored.edges[0].type == "other"
     assert restored.edges[0].origin == "imported"
     assert restored.node_meta["ext:openai"].label == "OpenAI"
+
+
+def test_on_the_fly_ext_node_from_edge():
+    # entity appears only in an edge (not declared in nodes[]) and is unresolvable -> ext: node
+    payload = {"edges": [
+        {"source": "AAPL", "target": "PrivateCo", "type": "partner",
+         "weight": 0.6, "confidence": 0.8},
+    ]}
+    graph, report = normalize_import(payload, _resolver())
+    assert "ext:privateco" in graph.nodes
+    assert graph.node_meta["ext:privateco"].label == "PrivateCo"
+    assert graph.node_meta["ext:privateco"].source == "imported"
+    assert report.nodes_added == 2
+
+
+def test_cap_drops_lowest_weight_edges(monkeypatch):
+    import app.network.import_model as m
+    monkeypatch.setattr(m, "MAX_IMPORT_EDGES", 2)
+    payload = {"edges": [
+        {"source": "AAPL", "target": "NVDA", "type": "partner", "weight": 0.9, "confidence": 0.9},
+        {"source": "AAPL", "target": "NVDA", "type": "supplier", "weight": 0.5, "confidence": 0.5},
+        {"source": "AAPL", "target": "NVDA", "type": "competitor", "weight": 0.1, "confidence": 0.1},
+    ]}
+    graph, report = normalize_import(payload, _resolver())
+    assert len(graph.edges) == 2
+    assert report.dropped == 1
+    assert any("capped" in w for w in report.warnings)
