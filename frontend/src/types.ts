@@ -50,6 +50,7 @@ export interface KnowledgeGraph {
 export interface NetworkConfig {
   enabled: boolean; focus_top_n: number; max_edges_per_company: number;
   min_confidence: number; weight: number; alpha_event: number; beta_state: number;
+  symmetric_types: RelationType[];
 }
 export interface TruthSignalConfig { enabled: boolean; source_url: string; lookback_hours: number; }
 export interface StockScore {
