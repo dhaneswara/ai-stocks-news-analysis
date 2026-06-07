@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import App from '../App';
@@ -137,7 +137,9 @@ describe('Dashboard watchlist editing', () => {
 describe('Dashboard no-LLM score', () => {
   it('shows the opportunity score chip on ticker load', async () => {
     renderApp();
-    expect(await screen.findByText('72')).toBeInTheDocument();
-    expect(screen.getByText(/RSI 28 \(oversold\)/)).toBeInTheDocument();
+    const reason = await screen.findByText(/RSI 28 \(oversold\)/);
+    const chip = reason.closest('.score-chip');
+    expect(chip).not.toBeNull();
+    expect(within(chip as HTMLElement).getByText('72')).toBeInTheDocument();
   });
 });
