@@ -3,9 +3,11 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
+from app.config.cache import Cache
 from app.data.market import fetch_close_series
 from app.evaluation.scoring import grade_for, is_hit, is_overconfident, score_call
 from app.evaluation.store import PredictionStore
+from app.llm.factory import build_provider
 from app.models.schemas import (
     AnalysisResult,
     CompanyEvaluation,
@@ -16,10 +18,12 @@ from app.models.schemas import (
     Settings,
     StockData,
 )
+from app.services.stock_service import get_stock_data
 
 logger = logging.getLogger("evaluation")
 
 EVAL_PERIOD = "2y"
+EXPLAIN_TTL_SECONDS = 30 * 24 * 60 * 60  # 30 days
 
 
 def record_prediction(stock: StockData, result: AnalysisResult, store: PredictionStore) -> None:
@@ -141,3 +145,51 @@ def build_board(store: PredictionStore, settings: Settings) -> EvaluationBoard:
 
     companies.sort(key=lambda c: c.rollup.latest_call_date or "", reverse=True)
     return EvaluationBoard(as_of=datetime.now(timezone.utc).isoformat(), companies=companies)
+
+
+def explain_prediction(ticker: str, call_date: str, settings: Settings, cache: Cache,
+                       store: PredictionStore) -> str:
+    """One short LLM post-mortem on why a call was off. Cached so it runs once per call."""
+    ticker = ticker.upper().strip()
+    pred = store.get_prediction(ticker, call_date)
+    if pred is None:
+        raise ValueError(f"No tracked prediction for {ticker} on {call_date}")
+
+    key = f"prediction_explain:{ticker}:{call_date}"
+    cached = cache.get(key)
+    if cached is not None:
+        return cached
+
+    evals = sorted(store.evals_for(ticker, call_date), key=lambda e: e.horizon)
+    outcome_lines = [
+        f"- {e.horizon} trading days later: {e.return_pct:+.2f}% "
+        f"({'correct' if e.hit else 'wrong'})"
+        for e in evals
+    ] or ["- no matured horizons yet"]
+
+    headlines: list[str] = []
+    try:
+        stock = get_stock_data(ticker, "1y", settings.indicator_params, cache)
+        headlines = [n.title for n in stock.news[:8]]
+    except Exception:  # noqa: BLE001
+        logger.info("explain: news unavailable for %s", ticker)
+    news_block = "\n".join(f"- {h}" for h in headlines) or "- (no recent headlines available)"
+
+    system = (
+        "You are a trading-analysis reviewer. In 3-4 sentences, explain why a past stock "
+        "recommendation turned out to be inaccurate. Be concrete and concise. "
+        "Not financial advice."
+    )
+    user = (
+        f"Ticker: {ticker}\n"
+        f"Call date: {call_date}\n"
+        f"Recommendation: {pred.recommendation.upper()} (confidence {pred.confidence:.0%})\n"
+        f"Entry price: {pred.entry_price:.2f}\n"
+        "What actually happened:\n" + "\n".join(outcome_lines) + "\n\n"
+        "Recent headlines:\n" + news_block + "\n\n"
+        "Explain the most likely reasons the call was off, and what signal may have been missed."
+    )
+    provider = build_provider(settings)
+    text = provider.complete(system, user).strip()
+    cache.set(key, text, EXPLAIN_TTL_SECONDS)
+    return text
