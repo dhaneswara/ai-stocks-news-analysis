@@ -147,3 +147,68 @@ def test_settings_backfills_missing_providers():
     assert s.providers["deepseek"].base_url == "https://api.deepseek.com"
     # other known providers are also backfilled
     assert {"openai", "gemini", "ollama"} <= set(s.providers)
+
+
+def test_deepseek_complete_uses_base_url_and_returns_content(monkeypatch):
+    from app.llm.deepseek_provider import DeepSeekProvider
+
+    captured = {}
+
+    class Msg:
+        content = '{"ok": true}'
+
+    class Choice:
+        message = Msg()
+
+    class Resp:
+        choices = [Choice()]
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            assert kwargs["model"] == "deepseek-chat"
+            assert kwargs["response_format"] == {"type": "json_object"}
+            return Resp()
+
+    class FakeChat:
+        completions = FakeCompletions()
+
+    class FakeClient:
+        chat = FakeChat()
+
+    def fake_openai(**kwargs):
+        captured.update(kwargs)
+        return FakeClient()
+
+    monkeypatch.setattr("app.llm.deepseek_provider.OpenAI", fake_openai)
+    provider = DeepSeekProvider(
+        ProviderConfig(model="deepseek-chat", api_key="k", base_url="https://api.deepseek.com")
+    )
+    assert provider.complete("sys", "user") == '{"ok": true}'
+    assert captured["base_url"] == "https://api.deepseek.com"
+    assert captured["api_key"] == "k"
+    assert provider.name == "deepseek"
+
+
+def test_factory_builds_deepseek(monkeypatch):
+    from app.llm.deepseek_provider import DeepSeekProvider
+
+    monkeypatch.setattr("app.llm.deepseek_provider.OpenAI", lambda **kwargs: object())
+    s = Settings()
+    s.active_provider = "deepseek"
+    s.providers["deepseek"].api_key = "k"
+    provider = build_provider(s)
+    assert isinstance(provider, DeepSeekProvider)
+    assert provider.name == "deepseek"
+
+
+def test_factory_deepseek_env_key_fallback(monkeypatch):
+    from app.llm.deepseek_provider import DeepSeekProvider
+
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "env-secret")
+    monkeypatch.setattr("app.llm.deepseek_provider.OpenAI", lambda **kwargs: object())
+    s = Settings()
+    s.active_provider = "deepseek"
+    s.providers["deepseek"].api_key = ""  # not set in stored settings
+    provider = build_provider(s)
+    assert isinstance(provider, DeepSeekProvider)
+    assert provider.cfg.api_key == "env-secret"  # filled from environment

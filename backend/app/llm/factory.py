@@ -4,6 +4,7 @@ import os
 
 from app.llm.anthropic_provider import AnthropicProvider
 from app.llm.base import LLMError, LLMProvider
+from app.llm.deepseek_provider import DeepSeekProvider
 from app.llm.gemini_provider import GeminiProvider
 from app.llm.ollama_provider import OllamaProvider
 from app.llm.openai_provider import OpenAIProvider
@@ -14,12 +15,14 @@ _REGISTRY = {
     "openai": OpenAIProvider,
     "gemini": GeminiProvider,
     "ollama": OllamaProvider,
+    "deepseek": DeepSeekProvider,
 }
 
 _ENV_API_KEYS = {
     "anthropic": "ANTHROPIC_API_KEY",
     "openai": "OPENAI_API_KEY",
     "gemini": "GEMINI_API_KEY",
+    "deepseek": "DEEPSEEK_API_KEY",
 }
 
 

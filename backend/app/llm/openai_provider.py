@@ -8,6 +8,7 @@ from app.models.schemas import ProviderConfig
 
 class OpenAIProvider:
     name = "openai"
+    label = "OpenAI"
 
     def __init__(self, cfg: ProviderConfig) -> None:
         self.cfg = cfg
@@ -25,4 +26,4 @@ class OpenAIProvider:
             )
             return resp.choices[0].message.content or ""
         except Exception as exc:  # noqa: BLE001
-            raise LLMError(f"OpenAI request failed: {exc}") from exc
+            raise LLMError(f"{self.label} request failed: {exc}") from exc
