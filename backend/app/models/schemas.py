@@ -159,7 +159,7 @@ class ImportReport(BaseModel):
     name: str = ""
     nodes_added: int = 0
     edges_added: int = 0
-    dropped: int = 0
+    dropped: int = 0  # edges dropped during normalization (self-loops, unresolved, duplicates, over cap)
     warnings: list[str] = Field(default_factory=list)
 
 
