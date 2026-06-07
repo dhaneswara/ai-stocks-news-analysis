@@ -88,3 +88,37 @@ describe('mergeGraph', () => {
     expect(out.edges.some((e) => e.target === 'FOO')).toBe(true);
   });
 });
+
+describe('imported nodes + meta', () => {
+  const IMPORTED: KnowledgeGraph = {
+    as_of: 't', scope: 'imported', built: 1, skipped: 0,
+    nodes: ['AAPL', 'ext:openai'],
+    node_meta: { 'ext:openai': { label: 'OpenAI', kind: 'private_company', source: 'imported' } },
+    edges: [
+      { source: 'AAPL', target: 'ext:openai', type: 'other', sentiment: 'positive',
+        weight: 1, confidence: 1, evidence: '', url: '', as_of: '', origin: 'imported' },
+    ],
+  };
+
+  it('marks ext/meta nodes external with their label', () => {
+    const nodes = mergeNodes(IMPORTED, BOARD);
+    const ext = nodes.find((n) => n.id === 'ext:openai')!;
+    expect(ext.external).toBe(true);
+    expect(ext.label).toBe('OpenAI');
+    expect(ext.onBoard).toBe(false);
+    const aapl = nodes.find((n) => n.id === 'AAPL')!;
+    expect(aapl.external).toBe(false); // on the board -> not external
+  });
+
+  it('carries edge origin onto links', () => {
+    expect(toLinks(IMPORTED)[0].origin).toBe('imported');
+  });
+
+  it('mergeGraph unions node_meta', () => {
+    const out = mergeGraph(
+      { as_of: 't', scope: 'x', built: 0, skipped: 0, nodes: ['AAPL'], edges: [] },
+      IMPORTED,
+    );
+    expect(out.node_meta?.['ext:openai']?.label).toBe('OpenAI');
+  });
+});
