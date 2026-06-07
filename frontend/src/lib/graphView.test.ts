@@ -122,6 +122,11 @@ describe('resolveManualTarget', () => {
   it('makes a concept node for free text', () => {
     expect(resolveManualTarget('AI chip demand', EMPTY(), board)).toMatchObject({ id: 'man:ai-chip-demand', external: true });
   });
+  it('reuses an existing node by its node_meta label', () => {
+    const g = { ...EMPTY(), nodes: ['ext:openai'],
+      node_meta: { 'ext:openai': { label: 'OpenAI Inc.', kind: 'private_company', source: 'imported' as const } } };
+    expect(resolveManualTarget('openai', g, [])).toMatchObject({ id: 'ext:openai', external: true, isNew: false });
+  });
 });
 
 describe('manual graph mutations', () => {
@@ -156,6 +161,10 @@ describe('manual graph mutations', () => {
     g = deleteEdge(g, { source: 'AAPL', target: 'TSM', type: 'partner' });
     expect(g.edges).toHaveLength(1);
     expect(g.edges[0].type).toBe('supplier');
+  });
+  it('addManualNode is a no-op when the node already exists', () => {
+    const g = addManualNode(EMPTY(), { id: 'man:x', label: 'X' });
+    expect(addManualNode(g, { id: 'man:x', label: 'X again' })).toBe(g);
   });
 });
 

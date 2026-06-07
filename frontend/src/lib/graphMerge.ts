@@ -96,7 +96,7 @@ export function applyMerge(
   for (const id of importSet.nodes) {
     const r = map(id);
     if (r !== id && !isExt(r)) linked++;
-    else if (r === id && !isExt(id) && working.nodes.includes(id)) merged++;
+    else if (r === id && !isExt(id) && nodeSet.has(id)) merged++;
   }
 
   return { graph: { ...working, nodes, edges, node_meta }, summary: { addedNodes, addedEdges, duplicates, linked, merged } };
