@@ -107,7 +107,7 @@ RelationType = Literal["supplier", "customer", "partner", "competitor", "owner",
 class NodeMeta(BaseModel):
     label: str = ""
     kind: str = ""
-    source: Literal["native", "imported"] = "native"
+    source: Literal["native", "imported", "manual"] = "native"
 
 
 class GraphEdge(BaseModel):
@@ -120,7 +120,7 @@ class GraphEdge(BaseModel):
     evidence: str = ""
     url: str = ""
     as_of: str = ""
-    origin: Literal["extracted", "imported"] = "extracted"
+    origin: Literal["extracted", "imported", "manual"] = "extracted"
 
 
 class KnowledgeGraph(BaseModel):

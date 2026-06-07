@@ -23,7 +23,7 @@ export interface ViewLink {
   confidence: number;
   evidence: string;
   url: string;
-  origin?: 'extracted' | 'imported';
+  origin?: 'extracted' | 'imported' | 'manual';
 }
 
 export function mergeNodes(graph: KnowledgeGraph, board?: ScreenBoard | null): ViewNode[] {

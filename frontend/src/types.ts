@@ -37,11 +37,11 @@ export interface NetworkSignal {
   influences: NetworkInfluence[];
   reasons: string[];
 }
-export interface NodeMeta { label: string; kind: string; source: 'native' | 'imported'; }
+export interface NodeMeta { label: string; kind: string; source: 'native' | 'imported' | 'manual'; }
 export interface GraphEdge {
   source: string; target: string; type: RelationType; sentiment: EdgeSentiment;
   weight: number; confidence: number; evidence: string; url: string; as_of: string;
-  origin?: 'extracted' | 'imported';
+  origin?: 'extracted' | 'imported' | 'manual';
 }
 export interface KnowledgeGraph {
   as_of: string; scope: string; nodes: string[]; edges: GraphEdge[]; built: number; skipped: number;
