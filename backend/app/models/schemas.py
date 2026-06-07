@@ -163,6 +163,13 @@ class NetworkConfig(BaseModel):
     beta_state: float = 0.4    # blend weight on the neighbour-state term
 
 
+class EvaluationConfig(BaseModel):
+    enabled: bool = True
+    horizons: list[int] = Field(default_factory=lambda: [1, 5, 20])
+    hold_band_pct: float = 2.0     # |return %| <= this counts as "flat" (the hold target)
+    score_scale_pct: float = 5.0   # the move size (in %) that maps to a full 0 or 100 score
+
+
 class StockData(BaseModel):
     ticker: str
     company_name: str
@@ -201,6 +208,49 @@ class AnalysisResult(BaseModel):
     disclaimer: str = DISCLAIMER
     market_mood: Optional[MarketMood] = None
     network: Optional[NetworkSignal] = None
+
+
+class HorizonResult(BaseModel):
+    horizon: int
+    status: Literal["pending", "final"] = "pending"
+    eval_date: Optional[str] = None
+    return_pct: Optional[float] = None
+    hit: Optional[bool] = None
+    score: Optional[float] = None
+
+
+class PredictionRecord(BaseModel):
+    ticker: str
+    call_date: str
+    provider: str = ""
+    model: str = ""
+    recommendation: Literal["buy", "sell", "hold"]
+    confidence: float = 0.0
+    sentiment: Literal["bullish", "neutral", "bearish"] = "neutral"
+    entry_price: float
+    results: list[HorizonResult] = Field(default_factory=list)
+
+
+class CompanyRollup(BaseModel):
+    ticker: str
+    n_calls: int = 0
+    n_matured: int = 0
+    hit_rate: Optional[float] = None
+    avg_score: Optional[float] = None
+    grade: Optional[Literal["Strong", "Mixed", "Weak"]] = None
+    overconfident: bool = False
+    latest_recommendation: Optional[Literal["buy", "sell", "hold"]] = None
+    latest_call_date: Optional[str] = None
+
+
+class CompanyEvaluation(BaseModel):
+    rollup: CompanyRollup
+    calls: list[PredictionRecord] = Field(default_factory=list)
+
+
+class EvaluationBoard(BaseModel):
+    as_of: str = ""
+    companies: list[CompanyEvaluation] = Field(default_factory=list)
 
 
 class ProviderConfig(BaseModel):
@@ -295,3 +345,4 @@ class Settings(BaseModel):
     truth_signal: TruthSignalConfig = Field(default_factory=TruthSignalConfig)
     screener: ScreenerConfig = Field(default_factory=ScreenerConfig)
     network: NetworkConfig = Field(default_factory=NetworkConfig)
+    evaluation: EvaluationConfig = Field(default_factory=EvaluationConfig)
