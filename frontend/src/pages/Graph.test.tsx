@@ -7,9 +7,14 @@ import type { KnowledgeGraph, ScreenBoard } from '../types';
 
 // Canvas can't render in jsdom — mock it; render a select button per node so tests can select.
 vi.mock('../components/GraphCanvas', () => ({
-  GraphCanvas: ({ nodes, onSelect }: { nodes: { id: string }[]; onSelect: (id: string) => void }) => (
+  GraphCanvas: ({ nodes, onSelect, onDeleteNode, onAddRelationship }: {
+    nodes: { id: string }[]; onSelect: (id: string) => void;
+    onDeleteNode: (id: string) => void; onAddRelationship: (id: string) => void;
+  }) => (
     <div data-testid="graph-canvas">
       {nodes.map((n) => <button key={n.id} onClick={() => onSelect(n.id)}>{`sel-${n.id}`}</button>)}
+      {nodes.map((n) => <button key={`del-${n.id}`} onClick={() => onDeleteNode(n.id)}>{`del-${n.id}`}</button>)}
+      {nodes.map((n) => <button key={`add-${n.id}`} onClick={() => onAddRelationship(n.id)}>{`add-${n.id}`}</button>)}
     </div>
   ),
 }));
@@ -19,6 +24,7 @@ vi.mock('../api/client', () => ({
     getCompanyGraph: vi.fn(), listSavedGraphs: vi.fn(), saveGraph: vi.fn(),
     loadSavedGraph: vi.fn(), deleteSavedGraph: vi.fn(),
     listImports: vi.fn(), getOverlay: vi.fn(), importGraph: vi.fn(), deleteImport: vi.fn(),
+    getImportSet: vi.fn(),
   },
 }));
 import { api } from '../api/client';
@@ -137,4 +143,28 @@ it('unions an imported overlay edge incident to a working node', async () => {
   // AAPL + TSM (working) + ext:openai (overlay, incident to AAPL) = 3 nodes
   await waitFor(() => expect(screen.getByText(/3 nodes/)).toBeInTheDocument());
   expect(screen.getByRole('button', { name: 'sel-ext:openai' })).toBeInTheDocument();
+});
+
+it('deletes a node from the working graph', async () => {
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
+  vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
+  renderGraph();
+  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
+  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
+  await screen.findByTestId('graph-canvas');
+  await waitFor(() => expect(screen.getByText(/2 nodes/)).toBeInTheDocument());
+  fireEvent.click(screen.getByRole('button', { name: 'del-TSM' }));
+  await waitFor(() => expect(screen.getByText(/1 nodes/)).toBeInTheDocument());
+});
+
+it('adds a manual relationship via the form', async () => {
+  vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
+  renderGraph();
+  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
+  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
+  await screen.findByTestId('graph-canvas');
+  fireEvent.click(screen.getByRole('button', { name: 'add-AAPL' }));
+  fireEvent.change(await screen.findByPlaceholderText(/ticker or company/i), { target: { value: 'BIDU' } });
+  fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
+  await waitFor(() => expect(screen.getByText(/3 nodes/)).toBeInTheDocument());
 });

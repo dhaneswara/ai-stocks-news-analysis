@@ -10,7 +10,11 @@ export interface MergePreviewProps {
   onCancel: () => void;
 }
 
-/** Preview the merge of one import set: link externals to Discover tickers, resolve duplicates. */
+/**
+ * Preview the merge of one import set. NOTE: `resolved` is seeded once from the initial plan,
+ * so the parent must pass a stable `key` tied to the import-set identity to force a remount
+ * (and re-seed) whenever the import set changes.
+ */
 export function MergePreview({ working, importSet, board, onApply, onCancel }: MergePreviewProps) {
   const plan = useMemo(() => planMerge(working, importSet, board), [working, importSet, board]);
   const [resolved, setResolved] = useState<Record<string, string>>(
