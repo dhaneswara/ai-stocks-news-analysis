@@ -11,6 +11,7 @@ import type {
   ScreenBoard,
   Settings,
   StockData,
+  StockScore,
   TestResult,
 } from '../types';
 
@@ -64,6 +65,7 @@ export const api = {
       method: 'POST',
     }),
   getSectors: () => http<string[]>('/screen/sectors'),
+  getScore: (ticker: string) => http<StockScore>(`/score/${encodeURIComponent(ticker)}`),
   getCompanyGraph: (ticker: string) =>
     http<KnowledgeGraph>(`/graph/company/${encodeURIComponent(ticker)}`),
   listSavedGraphs: () => http<SavedGraphSummary[]>('/graph/saved'),

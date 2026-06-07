@@ -139,4 +139,11 @@ describe('api client', () => {
     expect(url as string).toContain('%3A'); // colon encoded
     expect((init as RequestInit).method).toBe('DELETE');
   });
+
+  it('getScore GETs /score/{ticker}', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ticker: 'AAPL', score: 72 }) });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.getScore('AAPL');
+    expect(fetchMock.mock.calls[0][0] as string).toContain('/score/AAPL');
+  });
 });

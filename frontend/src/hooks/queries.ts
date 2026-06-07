@@ -63,6 +63,15 @@ export function useScreen(sector?: string, direction?: string, limit?: number) {
   });
 }
 
+export function useScore(ticker: string) {
+  return useQuery({
+    queryKey: ['score', ticker],
+    queryFn: () => api.getScore(ticker),
+    enabled: ticker.length > 0,
+    retry: false,
+  });
+}
+
 export function useRescan() {
   const qc = useQueryClient();
   return useMutation({
