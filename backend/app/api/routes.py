@@ -211,12 +211,10 @@ def screen_rescan(
     if sector:
         full = load_snapshot(cache, "all")
         merged = merge_sector(full, board) if full else board
-        if graph is not None:
-            merged = apply_network(merged, graph, settings)
+        merged = apply_network(merged, graph, settings)
         save_snapshot(merged, cache)
     else:
-        to_save = apply_network(board, graph, settings) if graph is not None else board
-        save_snapshot(to_save, cache)
+        save_snapshot(apply_network(board, graph, settings), cache)
     return board
 
 

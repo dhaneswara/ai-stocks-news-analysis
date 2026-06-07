@@ -9,12 +9,10 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime, timezone
-from typing import get_args
-
 from app.analysis.analyzer import extract_json
 from app.config.cache import Cache
 from app.llm.base import LLMProvider
-from app.models.schemas import GraphEdge, NetworkConfig, NewsItem, RelationType, UniverseEntry
+from app.models.schemas import GraphEdge, NetworkConfig, NewsItem, UniverseEntry
 
 _SUFFIX_RE = re.compile(
     r"\b(inc|corp|corporation|co|ltd|plc|company|companies|holdings|group|the|class [abc])\b\.?",
@@ -40,7 +38,7 @@ class TickerResolver:
         return self._by_name.get(norm) if norm else None
 
 
-_RELATION_TYPES = set(get_args(RelationType))
+_RELATION_TYPES: set[str] = {"supplier", "customer", "partner", "competitor", "owner", "subsidiary"}
 
 _REL_TTL_SECONDS = 24 * 60 * 60
 

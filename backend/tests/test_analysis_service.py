@@ -151,3 +151,50 @@ def test_run_analysis_enriches_network(tmp_path, monkeypatch):
     settings = Settings(); settings.providers["anthropic"].api_key = "x"
     svc.run_analysis("AAPL", "1y", settings, cache)
     assert captured["network"] is not None and captured["network"].influences[0].neighbour == "TSM"
+
+
+def test_run_analysis_uses_overlay_when_no_focus_snapshot(tmp_path, monkeypatch):
+    """Imported overlay edges must feed the network signal even with no focus snapshot saved."""
+    import app.services.analysis_service as svc
+    from app.models.schemas import GraphEdge, KnowledgeGraph, ScreenBoard, Settings, StockScore
+    from app.network.store import add_import_set
+    from app.screener.store import save_snapshot
+    from tests.test_screener_service import _stock
+
+    cache = Cache(str(tmp_path / "overlay.db"))
+    # Save a board so the neighbour TSM has a base score.
+    save_snapshot(ScreenBoard(scope="all", items=[
+        StockScore(ticker="TSM", name="Taiwan Semi", price=1, change_pct=0, score=40,
+                   direction="sell", net=-0.9)]), cache)
+    # Add an overlay import set with an AAPL->TSM partner edge — NO focus snapshot saved.
+    add_import_set(
+        "test-overlay",
+        KnowledgeGraph(
+            scope="imported",
+            nodes=["AAPL", "TSM"],
+            edges=[GraphEdge(source="AAPL", target="TSM", type="partner",
+                             sentiment="positive", weight=1.0, confidence=1.0,
+                             origin="imported")],
+        ),
+        cache,
+        created_at="2026-06-07T00:00:00+00:00",
+    )
+
+    monkeypatch.setattr(svc, "get_stock_data", lambda *a, **k: _stock("AAPL"))
+    monkeypatch.setattr(svc, "build_provider", lambda s: object())
+    captured = {}
+
+    def fake_analyze(stock, provider, model, provider_name):
+        captured["network"] = stock.network
+        from app.models.schemas import AnalysisResult
+        return AnalysisResult(ticker="AAPL", provider=provider_name, model=model,
+                              generated_at="t", overall_summary="", news_analysis="",
+                              sentiment="neutral", current_recommendation="hold", confidence=0.5)
+
+    monkeypatch.setattr(svc, "analyze", fake_analyze)
+    settings = Settings()
+    settings.providers["anthropic"].api_key = "x"
+    svc.run_analysis("AAPL", "1y", settings, cache)
+    assert captured["network"] is not None, "network signal must be set from overlay edge"
+    neighbours = [inf.neighbour for inf in captured["network"].influences]
+    assert "TSM" in neighbours, f"TSM not found in influences: {neighbours}"

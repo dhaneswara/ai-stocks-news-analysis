@@ -13,7 +13,7 @@ from app.evaluation.store import PredictionStore
 from app.llm.base import LLMError
 from app.llm.factory import build_provider, resolve_config
 from app.models.schemas import AnalysisResult, Settings
-from app.network.store import load_graph
+from app.network.store import effective_graph
 from app.screener.store import load_snapshot
 from app.services.stock_service import get_stock_data
 
@@ -51,8 +51,8 @@ def run_analysis(
 
     ncfg = settings.network
     if ncfg.enabled:
-        graph = load_graph(cache, "focus")
-        if graph is not None and graph.edges:
+        graph = effective_graph(cache, "focus")
+        if graph.edges:
             board = load_snapshot(cache, "all")
             base_index = {s.ticker: s for s in (board.items if board else [])}
             edges = [e for e in graph.edges if e.source == ticker]
