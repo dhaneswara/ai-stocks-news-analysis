@@ -29,43 +29,45 @@ export function MergePreview({ working, importSet, board, onApply, onCancel }: M
   );
 
   return (
-    <div className="merge-preview">
-      <h4>Merge into graph</h4>
-      {plan.links.length > 0 ? (
-        <div className="merge-links">
-          <span className="label">Link imported companies</span>
-          {plan.links.map((l) => (
-            <label key={l.importId} className="merge-link-row">
-              <span className="merge-link-label">{l.label}</span>
-              <select value={resolved[l.importId]} onChange={(e) => setResolved((r) => ({ ...r, [l.importId]: e.target.value }))}>
-                <option value={l.importId}>keep as external</option>
-                {tickers.map((s) => (
-                  <option key={s.ticker} value={s.ticker}>{s.ticker} — {s.name}</option>
-                ))}
-              </select>
-            </label>
-          ))}
+    <div className="merge-preview" role="dialog" aria-modal="true" onClick={onCancel}>
+      <div className="merge-preview-panel" onClick={(e) => e.stopPropagation()}>
+        <h4>Merge into graph</h4>
+        {plan.links.length > 0 ? (
+          <div className="merge-links">
+            <span className="label">Link imported companies</span>
+            {plan.links.map((l) => (
+              <label key={l.importId} className="merge-link-row">
+                <span className="merge-link-label">{l.label}</span>
+                <select value={resolved[l.importId]} onChange={(e) => setResolved((r) => ({ ...r, [l.importId]: e.target.value }))}>
+                  <option value={l.importId}>keep as external</option>
+                  {tickers.map((s) => (
+                    <option key={s.ticker} value={s.ticker}>{s.ticker} — {s.name}</option>
+                  ))}
+                </select>
+              </label>
+            ))}
+          </div>
+        ) : (
+          <p className="muted">No external companies to link.</p>
+        )}
+
+        <label className="merge-duppolicy">
+          Duplicate relationships:{' '}
+          <select value={dupPolicy} onChange={(e) => setDupPolicy(e.target.value as DupPolicy)}>
+            <option value="keep">keep mine</option>
+            <option value="import">use imported</option>
+          </select>
+        </label>
+
+        <p className="muted merge-summary">
+          +{summary.addedNodes} nodes, +{summary.addedEdges} edges · {summary.linked} linked ·{' '}
+          {summary.merged} already in graph · {summary.duplicates} duplicate{summary.duplicates === 1 ? '' : 's'}
+        </p>
+
+        <div className="graph-actions">
+          <button onClick={() => onApply(graph)}>Apply merge</button>
+          <button className="secondary" onClick={onCancel}>Cancel</button>
         </div>
-      ) : (
-        <p className="muted">No external companies to link.</p>
-      )}
-
-      <label className="merge-duppolicy">
-        Duplicate relationships:{' '}
-        <select value={dupPolicy} onChange={(e) => setDupPolicy(e.target.value as DupPolicy)}>
-          <option value="keep">keep mine</option>
-          <option value="import">use imported</option>
-        </select>
-      </label>
-
-      <p className="muted merge-summary">
-        +{summary.addedNodes} nodes, +{summary.addedEdges} edges · {summary.linked} linked ·{' '}
-        {summary.merged} already in graph · {summary.duplicates} duplicate{summary.duplicates === 1 ? '' : 's'}
-      </p>
-
-      <div className="graph-actions">
-        <button onClick={() => onApply(graph)}>Apply merge</button>
-        <button className="secondary" onClick={onCancel}>Cancel</button>
       </div>
     </div>
   );

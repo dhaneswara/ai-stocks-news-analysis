@@ -819,11 +819,21 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 .legend-group .line.dotted { border-top-style: dotted; }
 .legend-note { color: #6e7681; font-style: italic; }
 
-.merge-preview { border: 1px solid #30363d; border-radius: 8px; padding: 12px; margin-top: 12px; background: #0d1117; }
-.merge-preview h4 { margin: 0 0 8px; }
+.merge-preview {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(1, 4, 9, 0.7);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.merge-preview-panel {
+  width: 100%; max-width: 560px; max-height: 85vh; overflow: auto;
+  background: #161b22; border: 1px solid #30363d; border-radius: 10px;
+  padding: 20px; box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+}
+.merge-preview-panel h4 { margin: 0 0 10px; }
 .merge-links { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
-.merge-link-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.merge-link-label { font-weight: 600; }
+.merge-link-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.merge-link-label { font-weight: 600; flex: 1 1 auto; min-width: 0; }
+.merge-link-row select { flex: 0 0 220px; max-width: 220px; }
 .merge-duppolicy { display: block; margin: 8px 0; }
 .merge-summary { margin: 8px 0; }
 
