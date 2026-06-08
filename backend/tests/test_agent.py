@@ -4,6 +4,7 @@ import app.analysis.agent as agent_mod
 from app.analysis.agent import (
     TOOL_BY_NAME,
     TOOLS,
+    AgentEvent,
     AgentStep,
     AgentTrace,
     ReActAgent,
@@ -271,3 +272,24 @@ def test_agent_falls_back_when_final_answer_fails_validation():
     assert trace.stopped_reason == "parse_error"
     assert trace.fell_back is True
     assert result.current_recommendation == "buy"  # from the fallback
+
+
+def test_stream_yields_steps_then_final():
+    provider = FakeProvider([
+        'Thought: check\nAction: echo({"q": "hi"})',
+        f'Thought: done\nFinal Answer: {json.dumps(VALID_PAYLOAD)}',
+    ])
+    events = list(ReActAgent(tools=[_ECHO]).stream(provider, "m", "fake", _ctx()))
+    assert [e.type for e in events] == ["step", "step", "final"]
+    assert events[0].step.action == "echo"
+    assert events[-1].result.current_recommendation == "buy"
+    assert events[-1].trace.stopped_reason == "final"
+    assert events[-1].trace.fell_back is False
+
+
+def test_stream_emits_final_on_fallback():
+    provider = FakeProvider(["garbage", "garbage", json.dumps(VALID_PAYLOAD)])
+    events = list(ReActAgent(tools=[_ECHO], max_steps=5).stream(provider, "m", "fake", _ctx()))
+    assert events[-1].type == "final"
+    assert events[-1].trace.fell_back is True
+    assert events[-1].result.current_recommendation == "buy"

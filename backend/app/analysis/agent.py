@@ -5,7 +5,7 @@ import re
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Callable, Literal, Optional
+from typing import Callable, Iterator, Literal, Optional
 
 import pandas as pd
 from pydantic import BaseModel, Field, ValidationError
@@ -256,31 +256,56 @@ def _finalize(payload: dict, stock: StockData, provider_name: str, model: str) -
     return _filter_incoherent_signals(_snap_signals(result, stock), stock)
 
 
+class AgentEvent(BaseModel):
+    type: Literal["step", "final", "error"]
+    step: Optional[AgentStep] = None
+    result: Optional[AnalysisResult] = None
+    trace: Optional[AgentTrace] = None
+    message: str = ""
+
+
 class ReActAgent:
     def __init__(self, tools: Optional[list[Tool]] = None, max_steps: int = DEFAULT_MAX_STEPS) -> None:
         self.tools = tools if tools is not None else TOOLS
         self.tool_by_name = {t.name: t for t in self.tools}
         self.max_steps = max_steps
 
-    def run(self, provider: LLMProvider, model: str, provider_name: str,
-            ctx: ToolContext) -> tuple[AnalysisResult, AgentTrace]:
+    def stream(self, provider: LLMProvider, model: str, provider_name: str,
+               ctx: ToolContext) -> Iterator[AgentEvent]:
+        """Single source of truth: yields one 'step' AgentEvent per completed step, then a
+        terminal 'final' carrying the AnalysisResult + AgentTrace. Never raises — any agent
+        failure falls back to the single-shot analyze()."""
         stock = ctx.stock
         trace = AgentTrace(ticker=stock.ticker, provider=provider_name, model=model,
                            started_at=_now_iso())
         t0 = time.monotonic()
         try:
-            result = self._drive(provider, model, provider_name, ctx, trace)
+            for step in self._run_loop(provider, model, provider_name, ctx, trace):
+                yield AgentEvent(type="step", step=step)
+            result = trace.final  # set by _run_loop on a valid final answer
         except _AgentFailure:
             # Agent couldn't produce a valid final answer — fall back to the single-shot path.
             # An LLMError from here propagates by design: nothing is left to fall back to.
             trace.fell_back = True
             result = analyze(stock, provider, model=model, provider_name=provider_name)
-        trace.final = result
+            trace.final = result
         trace.elapsed_ms = int((time.monotonic() - t0) * 1000)
+        yield AgentEvent(type="final", result=result, trace=trace)
+
+    def run(self, provider: LLMProvider, model: str, provider_name: str,
+            ctx: ToolContext) -> tuple[AnalysisResult, AgentTrace]:
+        """Drain stream() to its terminal event; return (result, trace). For CLI / non-streaming."""
+        result: Optional[AnalysisResult] = None
+        trace: Optional[AgentTrace] = None
+        for ev in self.stream(provider, model, provider_name, ctx):
+            if ev.type == "final":
+                result, trace = ev.result, ev.trace
         return result, trace
 
-    def _drive(self, provider: LLMProvider, model: str, provider_name: str,
-               ctx: ToolContext, trace: AgentTrace) -> AnalysisResult:
+    def _run_loop(self, provider: LLMProvider, model: str, provider_name: str,
+                  ctx: ToolContext, trace: AgentTrace) -> Iterator[AgentStep]:
+        """Yields each AgentStep as it completes; sets trace.final and returns on a valid final
+        answer; raises _AgentFailure on parse_error / no_action / max_steps."""
         stock = ctx.stock
         system = build_react_system(self.tools)
         transcript = build_user_prompt(stock)
@@ -293,8 +318,10 @@ class ReActAgent:
             if parsed.final_json is not None:
                 step.is_final = True
                 trace.steps.append(step)
+                yield step
                 try:
-                    return _finalize(parsed.final_json, stock, provider_name, model)
+                    trace.final = _finalize(parsed.final_json, stock, provider_name, model)
+                    return
                 except (json.JSONDecodeError, ValidationError, TypeError) as exc:
                     trace.stopped_reason = "parse_error"
                     raise _AgentFailure("invalid final answer") from exc
@@ -305,12 +332,14 @@ class ReActAgent:
                 step.action_args = parsed.action_args
                 step.observation = obs
                 trace.steps.append(step)
+                yield step
                 transcript += (
                     f"\n\nThought: {parsed.thought}\nAction: {parsed.action}"
                     f"({json.dumps(parsed.action_args)})\nObservation: {obs}\n"
                 )
                 continue
             trace.steps.append(step)
+            yield step
             if not nudged:
                 nudged = True
                 transcript += (
