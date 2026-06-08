@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Callable, Optional
+from typing import Callable, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -42,7 +42,7 @@ class AgentTrace(BaseModel):
     model: str
     started_at: str
     elapsed_ms: int = 0
-    stopped_reason: str = "final"          # final | max_steps | parse_error | no_action
+    stopped_reason: Literal["final", "max_steps", "parse_error", "no_action"] = "final"
     fell_back: bool = False                # True when the single-shot fallback produced `final`
     steps: list[AgentStep] = Field(default_factory=list)
     final: Optional[AnalysisResult] = None
