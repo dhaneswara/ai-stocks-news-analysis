@@ -232,3 +232,18 @@ def test_run_analysis_enriches_network_reverse_symmetric(tmp_path, monkeypatch):
     svc.run_analysis("AAPL", "1y", settings, cache)
     assert captured["network"] is not None
     assert captured["network"].influences[0].neighbour == "TSM"
+
+
+def test_gather_stock_context_returns_get_stock_data_result(monkeypatch):
+    from app.config.cache import Cache
+    from app.models.schemas import Settings
+    from app.services import analysis_service
+    from tests.test_analysis_service import _stock
+
+    sentinel = _stock()
+    monkeypatch.setattr(analysis_service, "get_stock_data", lambda t, p, ip, c: sentinel)
+    settings = Settings()
+    settings.network.enabled = False
+    settings.truth_signal.enabled = False  # both off -> gather returns the stock unmodified
+    out = analysis_service.gather_stock_context("aapl", "1y", settings, Cache(":memory:"), provider=None)
+    assert out is sentinel

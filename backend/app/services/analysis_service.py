@@ -12,7 +12,7 @@ from app.evaluation.service import record_prediction
 from app.evaluation.store import PredictionStore
 from app.llm.base import LLMError
 from app.llm.factory import build_provider, resolve_config
-from app.models.schemas import AnalysisResult, Settings
+from app.models.schemas import AnalysisResult, Settings, StockData
 from app.network.store import effective_graph
 from app.screener.store import load_snapshot
 from app.services.stock_service import get_stock_data
@@ -20,6 +20,33 @@ from app.services.stock_service import get_stock_data
 ANALYSIS_TTL_SECONDS = 24 * 60 * 60  # 1 day
 
 logger = logging.getLogger("analysis")
+
+
+def gather_stock_context(ticker, period, settings, cache, provider) -> StockData:
+    """Build the StockData the analyzers consume: price/indicators/news + the company-network
+    signal + the truth-social mood. Shared by the fast (run_analysis) and deep (agent) paths."""
+    ticker = ticker.upper().strip()
+    stock = get_stock_data(ticker, period, settings.indicator_params, cache)
+
+    ncfg = settings.network
+    if ncfg.enabled:
+        graph = effective_graph(cache, "focus")
+        if graph.edges:
+            board = load_snapshot(cache, "all")
+            base_index = {s.ticker: s for s in (board.items if board else [])}
+            edges = incident_edges(ticker, graph.edges, set(ncfg.symmetric_types))
+            if edges:
+                stock.network = compute_network_signal(ticker, edges, base_index, ncfg)
+
+    ts = settings.truth_signal
+    if ts.enabled:
+        posts = truth_social.fetch_recent_posts_cached(ts.lookback_hours, ts.source_url, cache)
+        stock.trump_mentions = political.find_mentions(posts, ticker, stock.company_name)
+        cfg = settings.providers[settings.active_provider]
+        stock.market_mood = political.summarize_market_mood(
+            posts, provider, cfg.model, settings.active_provider, cache
+        )
+    return stock
 
 
 def run_analysis(
@@ -46,26 +73,8 @@ def run_analysis(
     if cached is not None:
         return AnalysisResult.model_validate_json(cached)
 
-    stock = get_stock_data(ticker, period, settings.indicator_params, cache)
     provider = build_provider(settings)
-
-    ncfg = settings.network
-    if ncfg.enabled:
-        graph = effective_graph(cache, "focus")
-        if graph.edges:
-            board = load_snapshot(cache, "all")
-            base_index = {s.ticker: s for s in (board.items if board else [])}
-            edges = incident_edges(ticker, graph.edges, set(ncfg.symmetric_types))
-            if edges:
-                stock.network = compute_network_signal(ticker, edges, base_index, ncfg)
-
-    ts = settings.truth_signal
-    if ts.enabled:
-        posts = truth_social.fetch_recent_posts_cached(ts.lookback_hours, ts.source_url, cache)
-        stock.trump_mentions = political.find_mentions(posts, ticker, stock.company_name)
-        stock.market_mood = political.summarize_market_mood(
-            posts, provider, cfg.model, provider_id, cache
-        )
+    stock = gather_stock_context(ticker, period, settings, cache, provider)
 
     result = analyze(stock, provider, model=cfg.model, provider_name=provider_id)
     cache.set(cache_key, result.model_dump_json(), ANALYSIS_TTL_SECONDS)
