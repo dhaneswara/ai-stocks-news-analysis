@@ -122,9 +122,11 @@ def analyze_deep_stream(
     cache: Cache = Depends(get_cache),
     store: SettingsStore = Depends(get_settings_store),
 ) -> StreamingResponse:
-    """Agentic (ReAct) deep analysis, streamed step-by-step as Server-Sent Events. Pre-stream
-    failures (no data / missing key) return a normal 404/502; once streaming, the agent's
-    single-shot fallback guarantees a terminal `final` (or an `error`) event."""
+    """Agentic (ReAct) deep analysis, streamed step-by-step as Server-Sent Events. Failures that
+    prevent starting (no price data -> 404, no provider config -> 502) are normal HTTP errors;
+    provider/LLM failures (incl. a missing API key) surface as an in-stream `event: error` —
+    EventSource can't read an HTTP error body, so streaming the message gives the client a usable
+    error. The agent's single-shot fallback otherwise guarantees a terminal `final` event."""
     settings = store.load()
     provider_id = settings.active_provider
     cfg = settings.providers.get(provider_id)
@@ -145,7 +147,7 @@ def analyze_deep_stream(
         try:
             for event in agent.stream(provider, cfg.model, provider_id, ctx):
                 yield _sse(event)
-        except LLMError as exc:  # fallback analyze() also failed — surface as a clean SSE error
+        except LLMError as exc:  # provider/LLM failure (e.g. missing key) -> usable in-stream error
             yield _sse(AgentEvent(type="error", message=str(exc)))
 
     return StreamingResponse(
