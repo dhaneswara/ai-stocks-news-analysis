@@ -1,8 +1,21 @@
+import json
+
 import app.analysis.agent as agent_mod
-from app.analysis.agent import AgentStep, AgentTrace, Tool, ToolContext
+from app.analysis.agent import (
+    TOOL_BY_NAME,
+    TOOLS,
+    AgentStep,
+    AgentTrace,
+    ReActAgent,
+    Tool,
+    ToolContext,
+    build_react_system,
+    parse_step,
+    render_tool_catalog,
+)
 from app.config.cache import Cache
-from app.models.schemas import Settings
-from tests.test_analyzer import _stock  # reuse the existing minimal StockData factory
+from app.models.schemas import Candle, NewsItem, Settings, StockScore
+from tests.test_analyzer import VALID_PAYLOAD, FakeProvider, _stock
 
 
 def test_tool_context_holds_dependencies():
@@ -27,9 +40,6 @@ def test_agent_trace_serializes_with_steps():
     assert dumped["fell_back"] is False
     assert dumped["steps"][0]["action"] == "echo"
     assert dumped["steps"][0]["is_final"] is False
-
-
-from app.analysis.agent import parse_step
 
 
 def test_parse_action_with_json_args():
@@ -63,8 +73,6 @@ def test_parse_action_with_malformed_args_defaults_to_empty():
     assert p.action_args == {}
 
 
-from app.analysis.agent import build_react_system, render_tool_catalog
-
 _DUMMY_TOOLS = [Tool("fetch_news", "Search recent headlines.", '{"query": str}', lambda a, c: "")]
 
 
@@ -81,9 +89,6 @@ def test_build_react_system_includes_protocol_catalog_and_schema():
     assert "Final Answer:" in sysprompt
     assert "fetch_news" in sysprompt          # the catalog
     assert "current_recommendation" in sysprompt  # the AnalysisResult schema hint
-
-
-from app.models.schemas import NewsItem
 
 
 def test_fetch_news_tool_formats_headlines(monkeypatch):
@@ -128,9 +133,6 @@ def test_get_fundamentals_tool_unknown_detail():
     assert out.startswith("ERROR")
 
 
-from app.models.schemas import Candle
-
-
 def _stock_with_prices():
     s = _stock()
     s.candles = [Candle(time=f"2026-05-{d:02d}", open=p, high=p, low=p, close=p, volume=1)
@@ -164,9 +166,6 @@ def test_price_window_tool_suppresses_indicator_when_history_short():
     assert "SMA" not in out  # only 5 candles -> SMA(50) is NaN -> line suppressed
 
 
-from app.models.schemas import StockScore
-
-
 def test_app_signals_score(monkeypatch):
     monkeypatch.setattr(agent_mod, "score_one", lambda t, s, c: StockScore(
         ticker=t, name="Apple Inc.", price=150.0, change_pct=0.7, score=63.0,
@@ -191,18 +190,10 @@ def test_app_signals_network_none_when_no_edges(monkeypatch):
     assert "no company-network signal" in out
 
 
-from app.analysis.agent import TOOL_BY_NAME, TOOLS
-
-
 def test_registry_has_the_four_tools():
     assert {t.name for t in TOOLS} == {"fetch_news", "get_fundamentals", "price_window", "app_signals"}
     assert TOOL_BY_NAME["fetch_news"].run is agent_mod._tool_fetch_news
 
-
-import json
-
-from app.analysis.agent import ReActAgent
-from tests.test_analyzer import VALID_PAYLOAD, FakeProvider, _stock
 
 _ECHO = Tool("echo", "echo a value", '{"q": str}', lambda args, ctx: f"observed:{args.get('q', '')}")
 

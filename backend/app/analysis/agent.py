@@ -241,7 +241,7 @@ TOOL_BY_NAME: dict[str, Tool] = {t.name: t for t in TOOLS}
 # ---------------------------------------------------------------------------
 
 DEFAULT_MAX_STEPS = 6
-MAX_TOOL_CALLS = 8
+MAX_TOOL_CALLS = 8        # secondary guard; under the default max_steps the step cap binds first
 _MAX_OBS_CHARS = 1500
 
 
@@ -271,6 +271,8 @@ class ReActAgent:
         try:
             result = self._drive(provider, model, provider_name, ctx, trace)
         except _AgentFailure:
+            # Agent couldn't produce a valid final answer — fall back to the single-shot path.
+            # An LLMError from here propagates by design: nothing is left to fall back to.
             trace.fell_back = True
             result = analyze(stock, provider, model=model, provider_name=provider_name)
         trace.final = result
