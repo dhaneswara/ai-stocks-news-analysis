@@ -60,3 +60,23 @@ def test_parse_action_with_malformed_args_defaults_to_empty():
     p = parse_step("Thought: t\nAction: price_window(not json)")
     assert p.action == "price_window"
     assert p.action_args == {}
+
+
+from app.analysis.agent import build_react_system, render_tool_catalog
+
+_DUMMY_TOOLS = [Tool("fetch_news", "Search recent headlines.", '{"query": str}', lambda a, c: "")]
+
+
+def test_render_tool_catalog_lists_name_args_and_description():
+    cat = render_tool_catalog(_DUMMY_TOOLS)
+    assert "fetch_news" in cat
+    assert '{"query": str}' in cat
+    assert "Search recent headlines." in cat
+
+
+def test_build_react_system_includes_protocol_catalog_and_schema():
+    sysprompt = build_react_system(_DUMMY_TOOLS)
+    assert "Action:" in sysprompt
+    assert "Final Answer:" in sysprompt
+    assert "fetch_news" in sysprompt          # the catalog
+    assert "current_recommendation" in sysprompt  # the AnalysisResult schema hint

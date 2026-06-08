@@ -8,7 +8,7 @@ from typing import Callable, Literal, Optional
 
 from pydantic import BaseModel, Field
 
-from app.analysis.analyzer import extract_json
+from app.analysis.analyzer import _JSON_SCHEMA_HINT, _SYSTEM_PROMPT, extract_json
 from app.config.cache import Cache
 from app.models.schemas import AnalysisResult, Settings, StockData
 
@@ -91,3 +91,23 @@ def parse_step(text: str) -> ParsedStep:
         return ParsedStep(thought, action_m.group(1), args, None)
 
     return ParsedStep(thought, None, {}, None)
+
+
+def render_tool_catalog(tools: list[Tool]) -> str:
+    return "\n".join(f"- {t.name}({t.args_spec}): {t.description}" for t in tools)
+
+
+def build_react_system(tools: list[Tool]) -> str:
+    return (
+        _SYSTEM_PROMPT
+        + "\n\nYou work step by step using TOOLS to gather evidence. On each turn reply with "
+        "EXACTLY one of:\n"
+        "  Thought: <your reasoning>\n  Action: <tool_name>({<json args>})\n"
+        "OR, once you have enough evidence:\n"
+        "  Thought: <final reasoning>\n  Final Answer: <one JSON object for the schema below>\n\n"
+        "Rules: at most one Action per turn; after each Action you receive an Observation; never "
+        "invent Observations; only call a tool if it could change your recommendation.\n\n"
+        "TOOLS:\n" + render_tool_catalog(tools) + "\n\n"
+        "Your Final Answer MUST be a single JSON object (no prose, no code fences) with these "
+        "fields:\n" + _JSON_SCHEMA_HINT
+    )
