@@ -50,6 +50,7 @@ class AgentStep(BaseModel):
     observation: Optional[str] = None
     is_final: bool = False
     elapsed_ms: int = 0
+    raw: str = ""                         # the model's raw output for this turn (trace/debug visibility)
 
 
 class AgentTrace(BaseModel):
@@ -68,8 +69,8 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-_THOUGHT_RE = re.compile(r"Thought:\s*(.*?)(?=\n(?:Action:|Final Answer:)|\Z)", re.S)
-_ACTION_RE = re.compile(r"Action:\s*([A-Za-z_]\w*)\s*\((.*)\)\s*\Z", re.S)
+_THOUGHT_RE = re.compile(r"Thought:\s*(.*?)(?=\n\s*(?:Action:|Final Answer:)|\Z)", re.S)
+_ACTION_RE = re.compile(r"Action:\s*([A-Za-z_]\w*)", re.S)  # tool NAME only; args parsed separately
 _FINAL_RE = re.compile(r"Final Answer:\s*(.*)\Z", re.S)
 
 
@@ -81,7 +82,24 @@ class ParsedStep:
     final_json: Optional[dict]     # parsed Final Answer JSON, or None
 
 
+def _extract_args(after_name: str) -> dict:
+    """Pull the first JSON object after an action name, tolerating a leading `(`, code fences,
+    and any trailing prose. `json.JSONDecoder().raw_decode` reads exactly one value and ignores
+    the rest, so nested braces AND a hallucinated `Observation:` after the call are both fine."""
+    start = after_name.find("{")
+    if start == -1:
+        return {}
+    try:
+        obj, _ = json.JSONDecoder().raw_decode(after_name[start:])
+    except json.JSONDecodeError:
+        return {}
+    return obj if isinstance(obj, dict) else {}
+
+
 def parse_step(text: str) -> ParsedStep:
+    """Tolerant ReAct parser. Real models add trailing text, code fences, and skip the literal
+    'Thought:' label — the action is matched by NAME (not anchored to end-of-string) and its
+    args are JSON-decoded out of the surrounding noise, so a turn is no longer dropped wholesale."""
     thought_m = _THOUGHT_RE.search(text)
     thought = thought_m.group(1).strip() if thought_m else ""
 
@@ -94,14 +112,9 @@ def parse_step(text: str) -> ParsedStep:
 
     action_m = _ACTION_RE.search(text)
     if action_m:
-        raw_args = action_m.group(2).strip()
-        try:
-            args = json.loads(raw_args) if raw_args else {}
-        except json.JSONDecodeError:
-            args = {}
-        if not isinstance(args, dict):
-            args = {}
-        return ParsedStep(thought, action_m.group(1), args, None)
+        if not thought:  # no 'Thought:' label — use any reasoning written before the Action line
+            thought = text[: action_m.start()].strip()[:600]
+        return ParsedStep(thought, action_m.group(1), _extract_args(text[action_m.end():]), None)
 
     return ParsedStep(thought, None, {}, None)
 
@@ -314,7 +327,7 @@ class ReActAgent:
         for i in range(self.max_steps):
             raw = provider.complete(system, transcript)
             parsed = parse_step(raw)
-            step = AgentStep(index=i, thought=parsed.thought)
+            step = AgentStep(index=i, thought=parsed.thought, raw=raw)
             if parsed.final_json is not None:
                 step.is_final = True
                 trace.steps.append(step)

@@ -20,6 +20,9 @@ export function TracePanel({
               </p>
             )}
             {s.observation && <pre className="trace-obs">{s.observation}</pre>}
+            {!s.thought && !s.action && !s.is_final && s.raw && (
+              <pre className="trace-raw muted">{s.raw}</pre>
+            )}
             {s.is_final && <p className="trace-final-label">→ final answer</p>}
           </li>
         ))}

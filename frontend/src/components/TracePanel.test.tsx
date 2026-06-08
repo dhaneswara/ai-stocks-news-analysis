@@ -19,3 +19,12 @@ it('shows live progress while running', () => {
   render(<TracePanel running steps={[]} />);
   expect(screen.getByText(/step 0\s*\/\s*6/i)).toBeInTheDocument();
 });
+
+it('falls back to the raw model output when a step has no parsed content', () => {
+  const rawStep: AgentStep = {
+    index: 0, thought: '', action: null, action_args: {}, observation: null,
+    is_final: false, elapsed_ms: 0, raw: 'model said something off-format',
+  };
+  render(<TracePanel running={false} steps={[rawStep]} />);
+  expect(screen.getByText('model said something off-format')).toBeInTheDocument();
+});

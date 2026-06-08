@@ -74,6 +74,36 @@ def test_parse_action_with_malformed_args_defaults_to_empty():
     assert p.action_args == {}
 
 
+def test_parse_action_tolerates_trailing_text():
+    # A chatty model appends an Observation/commentary after the Action line — the old
+    # \Z-anchored regex failed here, producing an empty (no-action) step.
+    p = parse_step(
+        'Thought: check news\nAction: fetch_news({"query": "GLW Amazon"})\n'
+        'Observation: I will wait for the result.'
+    )
+    assert p.action == "fetch_news"
+    assert p.action_args == {"query": "GLW Amazon"}
+
+
+def test_parse_action_inside_code_fence():
+    p = parse_step('Thought: t\n```\nAction: fetch_news({"query": "x"})\n```')
+    assert p.action == "fetch_news"
+    assert p.action_args == {"query": "x"}
+
+
+def test_parse_action_with_nested_json_and_trailing_text():
+    p = parse_step('Action: app_signals({"kind": "score", "opts": {"deep": true}}) then I observe.')
+    assert p.action == "app_signals"
+    assert p.action_args == {"kind": "score", "opts": {"deep": True}}
+
+
+def test_parse_uses_leading_prose_as_thought_when_no_label():
+    # Model omits the literal "Thought:" label but reasons before acting.
+    p = parse_step('I should look at recent headlines first.\nAction: fetch_news({"query": "x"})')
+    assert p.action == "fetch_news"
+    assert "look at recent headlines" in p.thought
+
+
 _DUMMY_TOOLS = [Tool("fetch_news", "Search recent headlines.", '{"query": str}', lambda a, c: "")]
 
 
@@ -293,3 +323,13 @@ def test_stream_emits_final_on_fallback():
     assert events[-1].type == "final"
     assert events[-1].trace.fell_back is True
     assert events[-1].result.current_recommendation == "buy"
+
+
+def test_steps_capture_raw_model_output():
+    # Each step carries the model's raw output, so the trace is never a blank box even when
+    # the model strays from the format (the symptom that motivated this).
+    raw = "I am rambling and not following the format."
+    provider = FakeProvider([raw, raw, json.dumps(VALID_PAYLOAD)])
+    _result, trace = ReActAgent(tools=[_ECHO], max_steps=2).run(provider, "m", "fake", _ctx())
+    assert trace.steps[0].raw == raw
+    assert trace.fell_back is True  # no parseable action -> fell back to single-shot

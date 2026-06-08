@@ -201,6 +201,7 @@ export interface AgentStep {
   observation: string | null;
   is_final: boolean;
   elapsed_ms: number;
+  raw?: string;
 }
 export interface AgentTrace {
   ticker: string;
