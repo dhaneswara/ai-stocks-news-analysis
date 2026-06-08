@@ -6,9 +6,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Literal, Optional
 
+import pandas as pd
 from pydantic import BaseModel, Field
 
 from app.analysis.analyzer import _JSON_SCHEMA_HINT, _SYSTEM_PROMPT, extract_json
+from app.analysis.indicators import rsi, sma
 from app.config.cache import Cache
 from app.data.market import fetch_info
 from app.data.news import search_news
@@ -151,3 +153,28 @@ def _tool_fetch_news(args: dict, ctx: ToolContext) -> str:
     if not items:
         return "(no headlines found)"
     return "\n".join(f"- [{n.published_at}] {n.title} ({n.source})" for n in items)
+
+
+def _tool_price_window(args: dict, ctx: ToolContext) -> str:
+    candles = ctx.stock.candles
+    if not candles:
+        return "(no price history)"
+    lookback = max(2, min(len(candles), _int_arg(args, "lookback_days", 21)))
+    window = candles[-lookback:]
+    closes = [c.close for c in window]
+    start, end, lo, hi = closes[0], closes[-1], min(closes), max(closes)
+    move = (end / start - 1.0) * 100 if start else 0.0
+    out = [
+        f"Window: last {lookback} trading days ({window[0].time} to {window[-1].time})",
+        f"Close start -> end: {start:.2f} -> {end:.2f} ({move:+.1f}%)",
+        f"Window low / high: {lo:.2f} / {hi:.2f}",
+    ]
+    indicator = str(args.get("indicator") or "").strip().lower()
+    if indicator in ("rsi", "sma"):
+        period = _int_arg(args, "period", 14 if indicator == "rsi" else 50)
+        series = pd.Series([c.close for c in candles], dtype="float64")
+        computed = rsi(series, period) if indicator == "rsi" else sma(series, period)
+        val = computed.iloc[-1]
+        if pd.notna(val):
+            out.append(f"{indicator.upper()}({period}) latest: {float(val):.2f}")
+    return "\n".join(out)

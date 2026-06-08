@@ -126,3 +126,27 @@ def test_get_fundamentals_tool_unknown_detail():
     ctx = ToolContext(stock=_stock(), settings=Settings(), cache=Cache(":memory:"))
     out = agent_mod._tool_get_fundamentals({"detail": "nonsense"}, ctx)
     assert out.startswith("ERROR")
+
+
+from app.models.schemas import Candle
+
+
+def _stock_with_prices():
+    s = _stock()
+    s.candles = [Candle(time=f"2026-05-{d:02d}", open=p, high=p, low=p, close=p, volume=1)
+                 for d, p in [(1, 100.0), (4, 102.0), (5, 98.0), (6, 105.0), (7, 110.0)]]
+    return s
+
+
+def test_price_window_tool_summarizes_window():
+    ctx = ToolContext(stock=_stock_with_prices(), settings=Settings(), cache=Cache(":memory:"))
+    out = agent_mod._tool_price_window({"lookback_days": 5}, ctx)
+    assert "last 5 trading days" in out
+    assert "100.00 -> 110.00" in out        # start -> end
+    assert "98.00 / 110.00" in out          # low / high
+
+
+def test_price_window_tool_no_candles():
+    ctx = ToolContext(stock=_stock(), settings=Settings(), cache=Cache(":memory:"))  # _stock() has []
+    out = agent_mod._tool_price_window({"lookback_days": 5}, ctx)
+    assert out == "(no price history)"
