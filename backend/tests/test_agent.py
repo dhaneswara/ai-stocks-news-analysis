@@ -26,3 +26,37 @@ def test_agent_trace_serializes_with_steps():
     assert dumped["fell_back"] is False
     assert dumped["steps"][0]["action"] == "echo"
     assert dumped["steps"][0]["is_final"] is False
+
+
+from app.analysis.agent import parse_step
+
+
+def test_parse_action_with_json_args():
+    p = parse_step('Thought: check the news\nAction: fetch_news({"query": "NVDA earnings", "limit": 3})')
+    assert p.thought == "check the news"
+    assert p.action == "fetch_news"
+    assert p.action_args == {"query": "NVDA earnings", "limit": 3}
+    assert p.final_json is None
+
+
+def test_parse_final_answer_json():
+    p = parse_step('Thought: done\nFinal Answer: {"current_recommendation": "buy"}')
+    assert p.action is None
+    assert p.final_json == {"current_recommendation": "buy"}
+
+
+def test_parse_final_answer_in_code_fence():
+    p = parse_step('Thought: x\nFinal Answer:\n```json\n{"a": 1}\n```')
+    assert p.final_json == {"a": 1}
+
+
+def test_parse_garbage_yields_no_action_no_final():
+    p = parse_step("I am not following the format at all.")
+    assert p.action is None
+    assert p.final_json is None
+
+
+def test_parse_action_with_malformed_args_defaults_to_empty():
+    p = parse_step("Thought: t\nAction: price_window(not json)")
+    assert p.action == "price_window"
+    assert p.action_args == {}
