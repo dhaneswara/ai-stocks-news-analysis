@@ -4,6 +4,7 @@ import os
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from app.alerts.notifier import build_notifier
 from app.config.cache import Cache
@@ -45,7 +46,8 @@ from app.network.store import (
 )
 from app.evaluation.service import build_board, evaluate_pending, explain_prediction
 from app.evaluation.store import PredictionStore
-from app.services.analysis_service import run_analysis
+from app.analysis.agent import AgentEvent, ReActAgent, ToolContext
+from app.services.analysis_service import gather_stock_context, run_analysis
 from app.services.stock_service import get_stock_data
 from app.analysis.relationships import TickerResolver
 from app.network.import_model import normalize_import
@@ -107,6 +109,50 @@ def analyze_ticker(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except LLMError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+def _sse(event: AgentEvent) -> str:
+    return f"event: {event.type}\ndata: {event.model_dump_json()}\n\n"
+
+
+@router.get("/analyze/{ticker}/deep/stream")
+def analyze_deep_stream(
+    ticker: str,
+    period: str = "2y",
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+) -> StreamingResponse:
+    """Agentic (ReAct) deep analysis, streamed step-by-step as Server-Sent Events. Pre-stream
+    failures (no data / missing key) return a normal 404/502; once streaming, the agent's
+    single-shot fallback guarantees a terminal `final` (or an `error`) event."""
+    settings = store.load()
+    provider_id = settings.active_provider
+    cfg = settings.providers.get(provider_id)
+    if cfg is None:
+        raise HTTPException(status_code=502, detail=f"No configuration for provider '{provider_id}'")
+    try:
+        provider = build_provider(settings)
+        stock = gather_stock_context(ticker, period, settings, cache, provider)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except LLMError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    ctx = ToolContext(stock=stock, settings=settings, cache=cache)
+    agent = ReActAgent()
+
+    def event_stream():
+        try:
+            for event in agent.stream(provider, cfg.model, provider_id, ctx):
+                yield _sse(event)
+        except LLMError as exc:  # fallback analyze() also failed — surface as a clean SSE error
+            yield _sse(AgentEvent(type="error", message=str(exc)))
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/settings", response_model=Settings)
