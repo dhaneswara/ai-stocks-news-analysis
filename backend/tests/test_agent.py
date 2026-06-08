@@ -189,3 +189,11 @@ def test_app_signals_network_none_when_no_edges(monkeypatch):
     ctx = ToolContext(stock=_stock(), settings=Settings(), cache=Cache(":memory:"))
     out = agent_mod._tool_app_signals({"kind": "network"}, ctx)
     assert "no company-network signal" in out
+
+
+from app.analysis.agent import TOOL_BY_NAME, TOOLS
+
+
+def test_registry_has_the_four_tools():
+    assert {t.name for t in TOOLS} == {"fetch_news", "get_fundamentals", "price_window", "app_signals"}
+    assert TOOL_BY_NAME["fetch_news"].run is agent_mod._tool_fetch_news

@@ -216,3 +216,17 @@ def _tool_app_signals(args: dict, ctx: ToolContext) -> str:
             return f"({ticker}: no company-network signal)"
         return "\n".join(f"- {i.type} {i.neighbour} ({i.name}): {i.reason}" for i in sig.influences[:6])
     return "ERROR: 'kind' must be 'score' or 'network'"
+
+
+TOOLS: list[Tool] = [
+    Tool("fetch_news", "Search recent news headlines for a topic worth investigating.",
+         '{"query": str, "limit": int=5}', _tool_fetch_news),
+    Tool("get_fundamentals", "Pull deeper financials beyond the snapshot.",
+         '{"detail": "earnings|revenue|margins|valuation|growth"}', _tool_get_fundamentals),
+    Tool("price_window", "Summarize a recent price window; optional indicator (rsi/sma).",
+         '{"lookback_days": int=21, "indicator": "rsi|sma" (optional), "period": int (optional)}',
+         _tool_price_window),
+    Tool("app_signals", "Get the app's deterministic opportunity score or company-network signal.",
+         '{"kind": "score|network", "ticker": str (optional)}', _tool_app_signals),
+]
+TOOL_BY_NAME: dict[str, Tool] = {t.name: t for t in TOOLS}
