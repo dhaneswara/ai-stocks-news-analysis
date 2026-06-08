@@ -162,3 +162,30 @@ def test_price_window_tool_suppresses_indicator_when_history_short():
     ctx = ToolContext(stock=_stock_with_prices(), settings=Settings(), cache=Cache(":memory:"))
     out = agent_mod._tool_price_window({"lookback_days": 5, "indicator": "sma", "period": 50}, ctx)
     assert "SMA" not in out  # only 5 candles -> SMA(50) is NaN -> line suppressed
+
+
+from app.models.schemas import StockScore
+
+
+def test_app_signals_score(monkeypatch):
+    monkeypatch.setattr(agent_mod, "score_one", lambda t, s, c: StockScore(
+        ticker=t, name="Apple Inc.", price=150.0, change_pct=0.7, score=63.0,
+        direction="buy", reasons=["RSI 33 (oversold)", "above SMA50"]))
+    ctx = ToolContext(stock=_stock(), settings=Settings(), cache=Cache(":memory:"))
+    out = agent_mod._tool_app_signals({"kind": "score"}, ctx)
+    assert "63/100" in out
+    assert "lean buy" in out
+    assert "RSI 33 (oversold)" in out
+
+
+def test_app_signals_invalid_kind():
+    ctx = ToolContext(stock=_stock(), settings=Settings(), cache=Cache(":memory:"))
+    out = agent_mod._tool_app_signals({"kind": "bogus"}, ctx)
+    assert out.startswith("ERROR")
+
+
+def test_app_signals_network_none_when_no_edges(monkeypatch):
+    monkeypatch.setattr(agent_mod, "_network_signal_for", lambda ticker, ctx: None)
+    ctx = ToolContext(stock=_stock(), settings=Settings(), cache=Cache(":memory:"))
+    out = agent_mod._tool_app_signals({"kind": "network"}, ctx)
+    assert "no company-network signal" in out

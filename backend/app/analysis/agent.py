@@ -11,10 +11,14 @@ from pydantic import BaseModel, Field
 
 from app.analysis.analyzer import _JSON_SCHEMA_HINT, _SYSTEM_PROMPT, extract_json
 from app.analysis.indicators import rsi, sma
+from app.analysis.network import compute_network_signal, incident_edges
 from app.config.cache import Cache
 from app.data.market import fetch_info
 from app.data.news import search_news
-from app.models.schemas import AnalysisResult, Settings, StockData
+from app.models.schemas import AnalysisResult, NetworkSignal, Settings, StockData
+from app.network.store import effective_graph
+from app.screener.service import score_one
+from app.screener.store import load_snapshot
 
 
 @dataclass
@@ -178,3 +182,37 @@ def _tool_price_window(args: dict, ctx: ToolContext) -> str:
         if pd.notna(val):
             out.append(f"{indicator.upper()}({period}) latest: {float(val):.2f}")
     return "\n".join(out)
+
+
+def _network_signal_for(ticker: str, ctx: ToolContext) -> Optional[NetworkSignal]:
+    ncfg = ctx.settings.network
+    if not ncfg.enabled:
+        return None
+    try:
+        graph = effective_graph(ctx.cache, "focus")
+        board = load_snapshot(ctx.cache, "all")
+        base_index = {s.ticker: s for s in (board.items if board else [])}
+        edges = incident_edges(ticker, graph.edges, set(ncfg.symmetric_types))
+        if not edges:
+            return None
+        return compute_network_signal(ticker, edges, base_index, ncfg)
+    except Exception:  # noqa: BLE001 — network is best-effort
+        return None
+
+
+def _tool_app_signals(args: dict, ctx: ToolContext) -> str:
+    kind = str(args.get("kind") or "score").strip().lower()
+    ticker = str(args.get("ticker") or ctx.stock.ticker).strip().upper()
+    if kind == "score":
+        try:
+            s = score_one(ticker, ctx.settings, ctx.cache)
+        except Exception as exc:  # noqa: BLE001
+            return f"ERROR: score unavailable for {ticker}: {exc}"
+        reasons = "; ".join(s.reasons[:5]) or "(none)"
+        return f"{ticker} opportunity score {s.score:.0f}/100, lean {s.direction}. Drivers: {reasons}"
+    if kind == "network":
+        sig = _network_signal_for(ticker, ctx)
+        if sig is None or not sig.influences:
+            return f"({ticker}: no company-network signal)"
+        return "\n".join(f"- {i.type} {i.neighbour} ({i.name}): {i.reason}" for i in sig.influences[:6])
+    return "ERROR: 'kind' must be 'score' or 'network'"
