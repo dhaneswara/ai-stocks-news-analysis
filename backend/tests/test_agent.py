@@ -150,3 +150,15 @@ def test_price_window_tool_no_candles():
     ctx = ToolContext(stock=_stock(), settings=Settings(), cache=Cache(":memory:"))  # _stock() has []
     out = agent_mod._tool_price_window({"lookback_days": 5}, ctx)
     assert out == "(no price history)"
+
+
+def test_price_window_tool_appends_indicator_when_history_suffices():
+    ctx = ToolContext(stock=_stock_with_prices(), settings=Settings(), cache=Cache(":memory:"))
+    out = agent_mod._tool_price_window({"lookback_days": 5, "indicator": "sma", "period": 3}, ctx)
+    assert "SMA(3) latest: 104.33" in out  # (98 + 105 + 110) / 3
+
+
+def test_price_window_tool_suppresses_indicator_when_history_short():
+    ctx = ToolContext(stock=_stock_with_prices(), settings=Settings(), cache=Cache(":memory:"))
+    out = agent_mod._tool_price_window({"lookback_days": 5, "indicator": "sma", "period": 50}, ctx)
+    assert "SMA" not in out  # only 5 candles -> SMA(50) is NaN -> line suppressed
