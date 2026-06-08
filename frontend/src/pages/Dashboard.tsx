@@ -6,6 +6,8 @@ import { NewsList } from '../components/NewsList';
 import { ReasoningPanel } from '../components/ReasoningPanel';
 import { SignalList } from '../components/SignalList';
 import { TickerBar } from '../components/TickerBar';
+import { TracePanel } from '../components/TracePanel';
+import { useDeepAnalyze } from '../hooks/useDeepAnalyze';
 import { ScoreChip } from '../components/ScoreChip';
 import { useAnalyze, useScore, useStock, useWatchlist } from '../hooks/queries';
 import { useDashboardState } from '../state/dashboardState';
@@ -29,6 +31,7 @@ export default function Dashboard() {
   const stock = useStock(ticker);
   const score = useScore(ticker);
   const analyze = useAnalyze(ticker, RANGE_TO_PERIOD[range]);
+  const deep = useDeepAnalyze(ticker, RANGE_TO_PERIOD[range]);
 
   // Select the ticker from a ?ticker= deep-link (e.g. clicked from the Discover board).
   useEffect(() => {
@@ -60,6 +63,9 @@ export default function Dashboard() {
     });
   };
 
+  const runDeepAnalyze = () => { setSelected(null); deep.start(); };
+  useEffect(() => { if (deep.result) setAnalysis(deep.result); }, [deep.result, setAnalysis]);
+
   const d = stock.data;
   const up = d ? d.price.change >= 0 : false;
   const sign = up ? '+' : '';
@@ -76,6 +82,8 @@ export default function Dashboard() {
           onAnalyze={runAnalyze}
           analyzing={analyze.isPending}
           canAnalyze={!!stock.data}
+          onDeepAnalyze={runDeepAnalyze}
+          deepAnalyzing={deep.running}
         />
       </div>
 
@@ -83,6 +91,7 @@ export default function Dashboard() {
       {stock.isLoading && <p className="muted">Loading {ticker}…</p>}
       {stock.isError && <p className="error">Could not load {ticker}: {(stock.error as Error).message}</p>}
       {analyze.isError && <p className="error">Analysis failed: {(analyze.error as Error).message}</p>}
+      {deep.error && <p className="error">Deep analysis failed: {deep.error}</p>}
       {watch.isError && <p className="error">Couldn't update watchlist: {(watch.error as Error).message}</p>}
 
       {d && (
@@ -137,11 +146,14 @@ export default function Dashboard() {
               <div className="panel-head">
                 <span className="section-label">Analysis</span>
               </div>
+              {(deep.running || deep.steps.length > 0) && (
+                <TracePanel steps={deep.steps} running={deep.running} fellBack={deep.fellBack} />
+              )}
               {analysis ? (
                 <div className="analysis-scroll"><ReasoningPanel result={analysis} /></div>
-              ) : (
-                <p className="muted">Click “Analyze with LLM” to generate a reasoned recommendation and buy/sell signals drawn on the chart.</p>
-              )}
+              ) : !deep.running && deep.steps.length === 0 ? (
+                <p className="muted">Click "Analyze with LLM" for a fast call, or "Deep Analysis" to watch the agent pull data step-by-step.</p>
+              ) : null}
             </section>
 
             <aside className="side-col">

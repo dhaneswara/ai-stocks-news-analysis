@@ -9,6 +9,8 @@ export function TickerBar({
   onAnalyze,
   analyzing,
   canAnalyze,
+  onDeepAnalyze,
+  deepAnalyzing,
 }: {
   watchlist: string[];
   current: string;
@@ -18,6 +20,8 @@ export function TickerBar({
   onAnalyze: () => void;
   analyzing: boolean;
   canAnalyze: boolean;
+  onDeepAnalyze: () => void;
+  deepAnalyzing: boolean;
 }) {
   const [input, setInput] = useState('');
   const submit = (e: React.FormEvent) => {
@@ -69,6 +73,15 @@ export function TickerBar({
       <span className="spacer" />
       <button type="button" onClick={onAnalyze} disabled={!canAnalyze || analyzing}>
         {analyzing ? 'Analyzing…' : 'Analyze with LLM'}
+      </button>
+      <button
+        type="button"
+        className="secondary"
+        onClick={onDeepAnalyze}
+        disabled={!canAnalyze || deepAnalyzing}
+        title="Agentic analysis — the LLM pulls data step-by-step; slower, streamed live"
+      >
+        {deepAnalyzing ? 'Deep analyzing…' : 'Deep Analysis'}
       </button>
     </div>
   );
