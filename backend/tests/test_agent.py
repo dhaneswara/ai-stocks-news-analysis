@@ -101,3 +101,12 @@ def test_fetch_news_tool_requires_query():
     ctx = ToolContext(stock=_stock(), settings=Settings(), cache=Cache(":memory:"))
     out = agent_mod._tool_fetch_news({}, ctx)
     assert out.startswith("ERROR")
+
+
+def test_fetch_news_tool_tolerates_non_numeric_limit(monkeypatch):
+    monkeypatch.setattr(agent_mod, "search_news", lambda q, limit=5: [
+        NewsItem(title="NVDA beats", source="Reuters", published_at="2026-06-01"),
+    ])
+    ctx = ToolContext(stock=_stock(), settings=Settings(), cache=Cache(":memory:"))
+    out = agent_mod._tool_fetch_news({"query": "x", "limit": "abc"}, ctx)  # must not raise
+    assert "NVDA beats (Reuters)" in out

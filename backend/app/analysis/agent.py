@@ -114,11 +114,19 @@ def build_react_system(tools: list[Tool]) -> str:
     )
 
 
+def _int_arg(args: dict, key: str, default: int) -> int:
+    """Parse an int tool-arg defensively — the LLM may emit a string or a non-number."""
+    try:
+        return int(args.get(key, default))
+    except (TypeError, ValueError):
+        return default
+
+
 def _tool_fetch_news(args: dict, ctx: ToolContext) -> str:
     query = str(args.get("query") or "").strip()
     if not query:
         return "ERROR: 'query' is required"
-    limit = max(1, min(10, int(args.get("limit", 5) or 5)))
+    limit = max(1, min(10, _int_arg(args, "limit", 5)))
     items = search_news(f"{query} stock", limit)
     if not items:
         return "(no headlines found)"
