@@ -197,3 +197,73 @@ from app.analysis.agent import TOOL_BY_NAME, TOOLS
 def test_registry_has_the_four_tools():
     assert {t.name for t in TOOLS} == {"fetch_news", "get_fundamentals", "price_window", "app_signals"}
     assert TOOL_BY_NAME["fetch_news"].run is agent_mod._tool_fetch_news
+
+
+import json
+
+from app.analysis.agent import ReActAgent
+from tests.test_analyzer import VALID_PAYLOAD, FakeProvider, _stock
+
+_ECHO = Tool("echo", "echo a value", '{"q": str}', lambda args, ctx: f"observed:{args.get('q', '')}")
+
+
+def _ctx(stock=None):
+    return ToolContext(stock=stock or _stock(), settings=Settings(), cache=Cache(":memory:"))
+
+
+def test_agent_returns_final_answer_in_one_turn():
+    provider = FakeProvider([f'Thought: enough info\nFinal Answer: {json.dumps(VALID_PAYLOAD)}'])
+    agent = ReActAgent(tools=[_ECHO])
+    result, trace = agent.run(provider, "m", "fake", _ctx())
+    assert result.current_recommendation == "buy"
+    assert trace.stopped_reason == "final"
+    assert trace.fell_back is False
+    assert trace.steps[-1].is_final is True
+    assert provider.calls == 1
+
+
+def test_agent_runs_a_tool_then_finalizes():
+    provider = FakeProvider([
+        'Thought: check echo\nAction: echo({"q": "hi"})',
+        f'Thought: done\nFinal Answer: {json.dumps(VALID_PAYLOAD)}',
+    ])
+    agent = ReActAgent(tools=[_ECHO])
+    result, trace = agent.run(provider, "m", "fake", _ctx())
+    assert result.sentiment == "bullish"
+    assert trace.steps[0].action == "echo"
+    assert trace.steps[0].observation == "observed:hi"
+    assert provider.calls == 2
+
+
+def test_agent_falls_back_to_single_shot_on_max_steps():
+    # Always emits a tool action, never a final answer -> hits max_steps -> single-shot fallback.
+    # The fallback analyze() consumes one more provider output (valid JSON).
+    actions = ['Thought: loop\nAction: echo({"q": "x"})'] * 3
+    provider = FakeProvider([*actions, json.dumps(VALID_PAYLOAD)])
+    agent = ReActAgent(tools=[_ECHO], max_steps=3)
+    result, trace = agent.run(provider, "m", "fake", _ctx())
+    assert result.current_recommendation == "buy"   # came from the fallback
+    assert trace.stopped_reason == "max_steps"
+    assert trace.fell_back is True
+
+
+def test_agent_nudges_once_then_falls_back_on_garbage():
+    # Two garbage turns (one nudge, then still garbage) -> fallback consumes the final valid JSON.
+    provider = FakeProvider(["garbage one", "garbage two", json.dumps(VALID_PAYLOAD)])
+    agent = ReActAgent(tools=[_ECHO], max_steps=5)
+    result, trace = agent.run(provider, "m", "fake", _ctx())
+    assert result.current_recommendation == "buy"
+    assert trace.stopped_reason == "no_action"
+    assert trace.fell_back is True
+
+
+def test_agent_tool_error_becomes_observation_not_crash():
+    boom = Tool("boom", "always raises", "{}", lambda args, ctx: (_ for _ in ()).throw(RuntimeError("nope")))
+    provider = FakeProvider([
+        'Thought: try boom\nAction: boom({})',
+        f'Thought: recover\nFinal Answer: {json.dumps(VALID_PAYLOAD)}',
+    ])
+    agent = ReActAgent(tools=[boom])
+    result, trace = agent.run(provider, "m", "fake", _ctx())
+    assert "ERROR: boom failed: nope" in trace.steps[0].observation
+    assert result.current_recommendation == "buy"

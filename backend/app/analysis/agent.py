@@ -2,14 +2,19 @@ from __future__ import annotations
 
 import json
 import re
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable, Literal, Optional
 
 import pandas as pd
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
-from app.analysis.analyzer import _JSON_SCHEMA_HINT, _SYSTEM_PROMPT, extract_json
+from app.analysis.analyzer import (
+    _JSON_SCHEMA_HINT, _SYSTEM_PROMPT, _filter_incoherent_signals,
+    _snap_signals, _to_result, analyze, build_user_prompt, extract_json,
+)
+from app.llm.base import LLMProvider
 from app.analysis.indicators import rsi, sma
 from app.analysis.network import compute_network_signal, incident_edges
 from app.config.cache import Cache
@@ -230,3 +235,95 @@ TOOLS: list[Tool] = [
          '{"kind": "score|network", "ticker": str (optional)}', _tool_app_signals),
 ]
 TOOL_BY_NAME: dict[str, Tool] = {t.name: t for t in TOOLS}
+
+# ---------------------------------------------------------------------------
+# ReAct loop
+# ---------------------------------------------------------------------------
+
+DEFAULT_MAX_STEPS = 6
+MAX_TOOL_CALLS = 8
+_MAX_OBS_CHARS = 1500
+
+
+class _AgentFailure(Exception):
+    """Internal: the agent could not produce a valid final answer; triggers single-shot fallback."""
+
+
+def _finalize(payload: dict, stock: StockData, provider_name: str, model: str) -> AnalysisResult:
+    result = _to_result(payload, stock.ticker, provider_name, model)
+    result.market_mood = stock.market_mood
+    result.network = stock.network
+    return _filter_incoherent_signals(_snap_signals(result, stock), stock)
+
+
+class ReActAgent:
+    def __init__(self, tools: Optional[list[Tool]] = None, max_steps: int = DEFAULT_MAX_STEPS) -> None:
+        self.tools = tools if tools is not None else TOOLS
+        self.tool_by_name = {t.name: t for t in self.tools}
+        self.max_steps = max_steps
+
+    def run(self, provider: LLMProvider, model: str, provider_name: str,
+            ctx: ToolContext) -> tuple[AnalysisResult, AgentTrace]:
+        stock = ctx.stock
+        trace = AgentTrace(ticker=stock.ticker, provider=provider_name, model=model,
+                           started_at=_now_iso())
+        t0 = time.monotonic()
+        try:
+            result = self._drive(provider, model, provider_name, ctx, trace)
+        except _AgentFailure:
+            trace.fell_back = True
+            result = analyze(stock, provider, model=model, provider_name=provider_name)
+        trace.final = result
+        trace.elapsed_ms = int((time.monotonic() - t0) * 1000)
+        return result, trace
+
+    def _drive(self, provider: LLMProvider, model: str, provider_name: str,
+               ctx: ToolContext, trace: AgentTrace) -> AnalysisResult:
+        stock = ctx.stock
+        system = build_react_system(self.tools)
+        transcript = build_user_prompt(stock)
+        tool_calls = 0
+        nudged = False
+        for i in range(self.max_steps):
+            raw = provider.complete(system, transcript)
+            parsed = parse_step(raw)
+            step = AgentStep(index=i, thought=parsed.thought)
+            if parsed.final_json is not None:
+                step.is_final = True
+                trace.steps.append(step)
+                try:
+                    return _finalize(parsed.final_json, stock, provider_name, model)
+                except (json.JSONDecodeError, ValidationError, TypeError) as exc:
+                    trace.stopped_reason = "parse_error"
+                    raise _AgentFailure("invalid final answer") from exc
+            if parsed.action in self.tool_by_name and tool_calls < MAX_TOOL_CALLS:
+                tool_calls += 1
+                obs = self._run_tool(parsed.action, parsed.action_args, ctx)
+                step.action = parsed.action
+                step.action_args = parsed.action_args
+                step.observation = obs
+                trace.steps.append(step)
+                transcript += (
+                    f"\n\nThought: {parsed.thought}\nAction: {parsed.action}"
+                    f"({json.dumps(parsed.action_args)})\nObservation: {obs}\n"
+                )
+                continue
+            trace.steps.append(step)
+            if not nudged:
+                nudged = True
+                transcript += (
+                    "\n\nYour reply had no valid Action or Final Answer. Reply with exactly one "
+                    "'Action: <tool>({json})' or 'Final Answer: {json}'."
+                )
+                continue
+            trace.stopped_reason = "no_action"
+            raise _AgentFailure("no valid action or final answer")
+        trace.stopped_reason = "max_steps"
+        raise _AgentFailure("reached max steps")
+
+    def _run_tool(self, name: str, args: dict, ctx: ToolContext) -> str:
+        try:
+            obs = self.tool_by_name[name].run(args, ctx)
+        except Exception as exc:  # noqa: BLE001 — tool errors must never break the loop
+            return f"ERROR: {name} failed: {exc}"
+        return obs if len(obs) <= _MAX_OBS_CHARS else obs[:_MAX_OBS_CHARS] + " …(truncated)"
