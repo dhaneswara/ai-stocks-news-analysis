@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from app.analysis.analyzer import _JSON_SCHEMA_HINT, _SYSTEM_PROMPT, extract_json
 from app.config.cache import Cache
+from app.data.news import search_news
 from app.models.schemas import AnalysisResult, Settings, StockData
 
 
@@ -111,3 +112,14 @@ def build_react_system(tools: list[Tool]) -> str:
         "Your Final Answer MUST be a single JSON object (no prose, no code fences) with these "
         "fields:\n" + _JSON_SCHEMA_HINT
     )
+
+
+def _tool_fetch_news(args: dict, ctx: ToolContext) -> str:
+    query = str(args.get("query") or "").strip()
+    if not query:
+        return "ERROR: 'query' is required"
+    limit = max(1, min(10, int(args.get("limit", 5) or 5)))
+    items = search_news(f"{query} stock", limit)
+    if not items:
+        return "(no headlines found)"
+    return "\n".join(f"- [{n.published_at}] {n.title} ({n.source})" for n in items)

@@ -35,6 +35,14 @@ def parse_feed(xml: str, limit: int = 10) -> list[NewsItem]:
     return items
 
 
+def search_news(query: str, limit: int = 5) -> list[NewsItem]:
+    """Targeted feed search for an arbitrary query (used by the deep-analysis agent)."""
+    try:
+        return parse_feed(_fetch_feed(query), limit)
+    except Exception:
+        return []
+
+
 def get_news(ticker: str, company_name: str = "", limit: int = 10) -> list[NewsItem]:
     query = f"{company_name} ({ticker}) stock" if company_name else f"{ticker} stock"
     try:

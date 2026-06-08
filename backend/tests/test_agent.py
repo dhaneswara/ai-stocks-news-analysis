@@ -1,3 +1,4 @@
+import app.analysis.agent as agent_mod
 from app.analysis.agent import AgentStep, AgentTrace, Tool, ToolContext
 from app.config.cache import Cache
 from app.models.schemas import Settings
@@ -80,3 +81,23 @@ def test_build_react_system_includes_protocol_catalog_and_schema():
     assert "Final Answer:" in sysprompt
     assert "fetch_news" in sysprompt          # the catalog
     assert "current_recommendation" in sysprompt  # the AnalysisResult schema hint
+
+
+from app.models.schemas import NewsItem
+
+
+def test_fetch_news_tool_formats_headlines(monkeypatch):
+    monkeypatch.setattr(agent_mod, "search_news", lambda q, limit=5: [
+        NewsItem(title="NVDA beats", source="Reuters", published_at="2026-06-01"),
+        NewsItem(title="Guidance raised", source="CNBC", published_at="2026-06-02"),
+    ])
+    ctx = ToolContext(stock=_stock(), settings=Settings(), cache=Cache(":memory:"))
+    out = agent_mod._tool_fetch_news({"query": "NVDA earnings", "limit": 2}, ctx)
+    assert "NVDA beats (Reuters)" in out
+    assert "Guidance raised (CNBC)" in out
+
+
+def test_fetch_news_tool_requires_query():
+    ctx = ToolContext(stock=_stock(), settings=Settings(), cache=Cache(":memory:"))
+    out = agent_mod._tool_fetch_news({}, ctx)
+    assert out.startswith("ERROR")
