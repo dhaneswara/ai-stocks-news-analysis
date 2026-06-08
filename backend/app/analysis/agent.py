@@ -267,6 +267,9 @@ TOOL_BY_NAME: dict[str, Tool] = {t.name: t for t in TOOLS}
 DEFAULT_MAX_STEPS = 6
 MAX_TOOL_CALLS = 8        # secondary guard; under the default max_steps the step cap binds first
 _MAX_OBS_CHARS = 1500
+# Halt generation before the model can fabricate an Observation: it stops after one Action and we
+# feed it the REAL tool result, so the loop is genuinely turn-by-turn (not a hallucinated trace).
+_REACT_STOP = ["\nObservation:"]
 
 
 class _AgentFailure(Exception):
@@ -336,7 +339,7 @@ class ReActAgent:
         tool_calls = 0
         nudged = False
         for i in range(self.max_steps):
-            raw = provider.complete(system, transcript, json_mode=False)  # ReAct needs free text
+            raw = provider.complete(system, transcript, json_mode=False, stop=_REACT_STOP)
             parsed = parse_step(raw)
             step = AgentStep(index=i, thought=parsed.thought, raw=raw)
             if parsed.final_json is not None:

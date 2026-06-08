@@ -13,16 +13,20 @@ class AnthropicProvider:
         self.cfg = cfg
         self.client = Anthropic(api_key=cfg.api_key)
 
-    def complete(self, system: str, user: str, json_mode: bool = True) -> str:
+    def complete(self, system: str, user: str, json_mode: bool = True,
+                 stop: list[str] | None = None) -> str:
         # json_mode is accepted for interface parity; Anthropic isn't constrained to JSON here
         # (the single-shot path prompts for it; the agent's ReAct path passes json_mode=False).
         try:
-            resp = self.client.messages.create(
-                model=self.cfg.model,
-                max_tokens=2000,
-                system=system,
-                messages=[{"role": "user", "content": user}],
-            )
+            kwargs: dict = {
+                "model": self.cfg.model,
+                "max_tokens": 2000,
+                "system": system,
+                "messages": [{"role": "user", "content": user}],
+            }
+            if stop:
+                kwargs["stop_sequences"] = stop
+            resp = self.client.messages.create(**kwargs)
             return "".join(b.text for b in resp.content if getattr(b, "type", None) == "text")
         except Exception as exc:  # noqa: BLE001
             raise LLMError(f"Anthropic request failed: {exc}") from exc

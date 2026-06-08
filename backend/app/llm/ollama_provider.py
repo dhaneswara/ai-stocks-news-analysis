@@ -13,7 +13,8 @@ class OllamaProvider:
         self.cfg = cfg
         self.base_url = (cfg.base_url or "http://localhost:11434").rstrip("/")
 
-    def complete(self, system: str, user: str, json_mode: bool = True) -> str:
+    def complete(self, system: str, user: str, json_mode: bool = True,
+                 stop: list[str] | None = None) -> str:
         try:
             body: dict = {
                 "model": self.cfg.model,
@@ -25,6 +26,8 @@ class OllamaProvider:
             }
             if json_mode:  # the ReAct agent (free-text turns) passes json_mode=False
                 body["format"] = "json"
+            if stop:       # halt before the model fabricates an Observation
+                body["options"] = {"stop": stop}
             resp = httpx.post(f"{self.base_url}/api/chat", json=body, timeout=120)
             resp.raise_for_status()
             return resp.json()["message"]["content"]

@@ -14,11 +14,14 @@ class GeminiProvider:
         self.cfg = cfg
         self.client = genai.Client(api_key=cfg.api_key)
 
-    def complete(self, system: str, user: str, json_mode: bool = True) -> str:
+    def complete(self, system: str, user: str, json_mode: bool = True,
+                 stop: list[str] | None = None) -> str:
         try:
             cfg_kwargs: dict = {"system_instruction": system}
             if json_mode:  # the ReAct agent (free-text turns) passes json_mode=False
                 cfg_kwargs["response_mime_type"] = "application/json"
+            if stop:       # halt before the model fabricates an Observation
+                cfg_kwargs["stop_sequences"] = stop
             resp = self.client.models.generate_content(
                 model=self.cfg.model,
                 contents=user,

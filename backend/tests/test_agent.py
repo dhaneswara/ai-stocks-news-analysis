@@ -356,3 +356,11 @@ def test_agent_uses_free_text_mode_for_react_turns_but_json_for_fallback():
     provider = FakeProvider(["off-format one", "off-format two", json.dumps(VALID_PAYLOAD)])
     ReActAgent(tools=[_ECHO], max_steps=2).run(provider, "m", "fake", _ctx())
     assert provider.json_modes == [False, False, True]  # 2 ReAct turns free-text; fallback JSON
+
+
+def test_agent_passes_stop_sequence_for_react_turns():
+    # Each ReAct turn halts at "Observation:" so the model can't fabricate the tool result; the
+    # single-shot fallback runs with no stop sequence.
+    provider = FakeProvider(["off-format one", "off-format two", json.dumps(VALID_PAYLOAD)])
+    ReActAgent(tools=[_ECHO], max_steps=2).run(provider, "m", "fake", _ctx())
+    assert provider.stops == [["\nObservation:"], ["\nObservation:"], None]

@@ -14,7 +14,8 @@ class OpenAIProvider:
         self.cfg = cfg
         self.client = OpenAI(api_key=cfg.api_key)
 
-    def complete(self, system: str, user: str, json_mode: bool = True) -> str:
+    def complete(self, system: str, user: str, json_mode: bool = True,
+                 stop: list[str] | None = None) -> str:
         try:
             kwargs: dict = {
                 "model": self.cfg.model,
@@ -25,6 +26,8 @@ class OpenAIProvider:
             }
             if json_mode:  # the ReAct agent (free-text turns) passes json_mode=False
                 kwargs["response_format"] = {"type": "json_object"}
+            if stop:       # halt before the model fabricates an Observation
+                kwargs["stop"] = stop
             resp = self.client.chat.completions.create(**kwargs)
             return resp.choices[0].message.content or ""
         except Exception as exc:  # noqa: BLE001

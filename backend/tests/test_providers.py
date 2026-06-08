@@ -389,3 +389,103 @@ def test_ollama_complete_omits_json_format_when_json_mode_false(monkeypatch):
     provider = OllamaProvider(ProviderConfig(model="llama3.1", base_url="http://localhost:11434"))
     assert provider.complete("sys", "user", json_mode=False) == "Thought: x"
     assert "format" not in captured  # JSON mode was opted out
+
+
+def test_openai_complete_passes_stop_sequences(monkeypatch):
+    from app.llm.openai_provider import OpenAIProvider
+
+    captured = {}
+
+    class Msg:
+        content = "Thought: x"
+
+    class Choice:
+        message = Msg()
+
+    class Resp:
+        choices = [Choice()]
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+            return Resp()
+
+    class FakeChat:
+        completions = FakeCompletions()
+
+    class FakeClient:
+        chat = FakeChat()
+
+    monkeypatch.setattr("app.llm.openai_provider.OpenAI", lambda api_key: FakeClient())
+    provider = OpenAIProvider(ProviderConfig(model="gpt-x", api_key="k"))
+    provider.complete("sys", "user", json_mode=False, stop=["\nObservation:"])
+    assert captured["stop"] == ["\nObservation:"]
+
+
+def test_anthropic_complete_passes_stop_sequences(monkeypatch):
+    from app.llm.anthropic_provider import AnthropicProvider
+
+    captured = {}
+
+    class Block:
+        type = "text"
+        text = "x"
+
+    class FakeMessages:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+
+            class R:
+                content = [Block()]
+
+            return R()
+
+    class FakeClient:
+        messages = FakeMessages()
+
+    monkeypatch.setattr("app.llm.anthropic_provider.Anthropic", lambda api_key: FakeClient())
+    provider = AnthropicProvider(ProviderConfig(model="claude-x", api_key="k"))
+    provider.complete("sys", "user", stop=["\nObservation:"])
+    assert captured["stop_sequences"] == ["\nObservation:"]
+
+
+def test_gemini_complete_passes_stop_sequences(monkeypatch):
+    from app.llm.gemini_provider import GeminiProvider
+
+    captured = {}
+
+    class Resp:
+        text = "x"
+
+    class FakeModels:
+        def generate_content(self, **kwargs):
+            captured.update(kwargs)
+            return Resp()
+
+    class FakeClient:
+        models = FakeModels()
+
+    monkeypatch.setattr("app.llm.gemini_provider.genai.Client", lambda api_key: FakeClient())
+    provider = GeminiProvider(ProviderConfig(model="gem-x", api_key="k"))
+    provider.complete("sys", "user", json_mode=False, stop=["\nObservation:"])
+    assert getattr(captured["config"], "stop_sequences", None) == ["\nObservation:"]
+
+
+def test_ollama_complete_passes_stop_sequences(monkeypatch):
+    captured = {}
+
+    class FakeResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"message": {"content": "x"}}
+
+    def fake_post(url, json, timeout):
+        captured.update(json)
+        return FakeResp()
+
+    monkeypatch.setattr("app.llm.ollama_provider.httpx.post", fake_post)
+    provider = OllamaProvider(ProviderConfig(model="llama3.1", base_url="http://localhost:11434"))
+    provider.complete("sys", "user", json_mode=False, stop=["\nObservation:"])
+    assert captured["options"] == {"stop": ["\nObservation:"]}
