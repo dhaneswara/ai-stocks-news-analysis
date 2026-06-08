@@ -839,3 +839,66 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 
 .rel-form { display: flex; flex-direction: column; gap: 6px; }
 .unsaved-hint { color: #e8c87e; }
+
+/* ----- Agent trace (Deep Analysis) ---------------------------------------- */
+.trace {
+  border: 1px solid var(--gold-line);
+  border-radius: 10px;
+  background: var(--gold-tint);
+  margin-bottom: 14px;
+  overflow: hidden;          /* keep rounded corners + clip children */
+}
+.trace-head {                /* a real <button> — neutralise the global gold-gradient button */
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+.trace-head:hover { color: var(--ink); background: rgba(232, 200, 126, 0.06); }
+.trace-caret { color: var(--gold); font-size: 11px; width: 12px; flex: none; }
+.trace-progress { color: var(--gold); font-variant-numeric: tabular-nums; }
+.trace-count { color: var(--ink-faint); margin-left: auto; }
+.trace-steps {
+  list-style: decimal;
+  margin: 0;
+  padding: 6px 14px 12px 30px;
+  max-height: 300px;         /* the fix: scroll instead of overflowing the panel */
+  overflow-y: auto;
+  border-top: 1px solid var(--hairline);
+}
+.trace-step { margin: 9px 0; padding-left: 4px; }
+.trace-step.final { list-style-type: '✓ '; }
+.trace-thought {
+  margin: 0 0 6px;
+  color: var(--ink-soft);
+  font-size: 13.5px;
+  white-space: pre-wrap;     /* wrap long reasoning inside the box */
+  overflow-wrap: anywhere;
+}
+.trace-action { margin: 0 0 6px; color: var(--ink); overflow-wrap: anywhere; }
+.trace-action code { color: var(--gold); font-family: var(--mono, monospace); font-size: 12px; }
+.trace-obs, .trace-raw {
+  margin: 4px 0 0;
+  padding: 7px 9px;
+  background: var(--panel);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  color: var(--ink-soft);
+  font-family: var(--mono, monospace);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 150px;         /* big/hallucinated blobs scroll within their own box */
+  overflow: auto;
+}
+.trace-raw { color: var(--ink-faint); }
+.trace-final-label { margin: 6px 0 0; color: var(--buy); font-size: 12px; }
+.trace-step.pending { color: var(--ink-faint); list-style: none; }

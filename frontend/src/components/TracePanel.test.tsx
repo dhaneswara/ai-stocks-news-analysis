@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { TracePanel } from './TracePanel';
 import type { AgentStep } from '../types';
 
@@ -27,4 +27,13 @@ it('falls back to the raw model output when a step has no parsed content', () =>
   };
   render(<TracePanel running={false} steps={[rawStep]} />);
   expect(screen.getByText('model said something off-format')).toBeInTheDocument();
+});
+
+it('collapses the trace when a run finishes, and toggles open again', () => {
+  const { rerender } = render(<TracePanel running steps={[step]} />);
+  expect(screen.getByText('check the news')).toBeInTheDocument();         // expanded while running
+  rerender(<TracePanel running={false} steps={[step]} />);               // run completes
+  expect(screen.queryByText('check the news')).not.toBeInTheDocument();   // auto-collapsed
+  fireEvent.click(screen.getByRole('button', { name: /agent trace/i }));  // user expands again
+  expect(screen.getByText('check the news')).toBeInTheDocument();
 });
