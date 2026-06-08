@@ -258,3 +258,16 @@ def test_agent_tool_error_becomes_observation_not_crash():
     result, trace = agent.run(provider, "m", "fake", _ctx())
     assert "ERROR: boom failed: nope" in trace.steps[0].observation
     assert result.current_recommendation == "buy"
+
+
+def test_agent_falls_back_when_final_answer_fails_validation():
+    # Final Answer is valid JSON but not a valid AnalysisResult -> parse_error -> single-shot fallback.
+    provider = FakeProvider([
+        'Thought: done\nFinal Answer: {"sentiment": "not-an-enum"}',
+        json.dumps(VALID_PAYLOAD),  # consumed by the fallback analyze()
+    ])
+    agent = ReActAgent(tools=[_ECHO])
+    result, trace = agent.run(provider, "m", "fake", _ctx())
+    assert trace.stopped_reason == "parse_error"
+    assert trace.fell_back is True
+    assert result.current_recommendation == "buy"  # from the fallback
