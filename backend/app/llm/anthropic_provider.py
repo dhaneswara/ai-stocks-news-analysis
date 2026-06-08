@@ -13,7 +13,9 @@ class AnthropicProvider:
         self.cfg = cfg
         self.client = Anthropic(api_key=cfg.api_key)
 
-    def complete(self, system: str, user: str) -> str:
+    def complete(self, system: str, user: str, json_mode: bool = True) -> str:
+        # json_mode is accepted for interface parity; Anthropic isn't constrained to JSON here
+        # (the single-shot path prompts for it; the agent's ReAct path passes json_mode=False).
         try:
             resp = self.client.messages.create(
                 model=self.cfg.model,

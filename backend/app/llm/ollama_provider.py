@@ -13,21 +13,19 @@ class OllamaProvider:
         self.cfg = cfg
         self.base_url = (cfg.base_url or "http://localhost:11434").rstrip("/")
 
-    def complete(self, system: str, user: str) -> str:
+    def complete(self, system: str, user: str, json_mode: bool = True) -> str:
         try:
-            resp = httpx.post(
-                f"{self.base_url}/api/chat",
-                json={
-                    "model": self.cfg.model,
-                    "messages": [
-                        {"role": "system", "content": system},
-                        {"role": "user", "content": user},
-                    ],
-                    "stream": False,
-                    "format": "json",
-                },
-                timeout=120,
-            )
+            body: dict = {
+                "model": self.cfg.model,
+                "messages": [
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": user},
+                ],
+                "stream": False,
+            }
+            if json_mode:  # the ReAct agent (free-text turns) passes json_mode=False
+                body["format"] = "json"
+            resp = httpx.post(f"{self.base_url}/api/chat", json=body, timeout=120)
             resp.raise_for_status()
             return resp.json()["message"]["content"]
         except Exception as exc:  # noqa: BLE001

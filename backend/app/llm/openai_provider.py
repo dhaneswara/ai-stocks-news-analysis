@@ -14,16 +14,18 @@ class OpenAIProvider:
         self.cfg = cfg
         self.client = OpenAI(api_key=cfg.api_key)
 
-    def complete(self, system: str, user: str) -> str:
+    def complete(self, system: str, user: str, json_mode: bool = True) -> str:
         try:
-            resp = self.client.chat.completions.create(
-                model=self.cfg.model,
-                messages=[
+            kwargs: dict = {
+                "model": self.cfg.model,
+                "messages": [
                     {"role": "system", "content": system},
                     {"role": "user", "content": user},
                 ],
-                response_format={"type": "json_object"},
-            )
+            }
+            if json_mode:  # the ReAct agent (free-text turns) passes json_mode=False
+                kwargs["response_format"] = {"type": "json_object"}
+            resp = self.client.chat.completions.create(**kwargs)
             return resp.choices[0].message.content or ""
         except Exception as exc:  # noqa: BLE001
             raise LLMError(f"{self.label} request failed: {exc}") from exc

@@ -40,7 +40,7 @@ def test_deep_stream_emits_error_event_when_provider_fails(monkeypatch):
     class _Raising:
         name = "raise"
 
-        def complete(self, system, user):
+        def complete(self, system, user, json_mode=True):
             raise LLMError("provider down")
 
     monkeypatch.setattr(routes, "gather_stock_context", lambda t, p, s, c, prov: _stock())

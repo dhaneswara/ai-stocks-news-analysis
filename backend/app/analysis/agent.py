@@ -116,6 +116,17 @@ def parse_step(text: str) -> ParsedStep:
             thought = text[: action_m.start()].strip()[:600]
         return ParsedStep(thought, action_m.group(1), _extract_args(text[action_m.end():]), None)
 
+    # Last resort: some models skip the protocol and emit the answer JSON directly, with no
+    # 'Final Answer:' label (a model deciding the seeded context is enough is a valid outcome).
+    # Accept it as the final answer iff it carries the schema signature — a tool-result-shaped
+    # blob without 'current_recommendation' stays a non-final step.
+    try:
+        obj = extract_json(text)
+        if isinstance(obj, dict) and "current_recommendation" in obj:
+            return ParsedStep(thought, None, {}, obj)
+    except (json.JSONDecodeError, ValueError):
+        pass
+
     return ParsedStep(thought, None, {}, None)
 
 
@@ -325,7 +336,7 @@ class ReActAgent:
         tool_calls = 0
         nudged = False
         for i in range(self.max_steps):
-            raw = provider.complete(system, transcript)
+            raw = provider.complete(system, transcript, json_mode=False)  # ReAct needs free text
             parsed = parse_step(raw)
             step = AgentStep(index=i, thought=parsed.thought, raw=raw)
             if parsed.final_json is not None:

@@ -104,6 +104,21 @@ def test_parse_uses_leading_prose_as_thought_when_no_label():
     assert "look at recent headlines" in p.thought
 
 
+def test_parse_accepts_bare_answer_json_without_final_label():
+    # Some models (e.g. deepseek-v4-pro) skip the protocol and emit the AnalysisResult JSON
+    # directly, with no 'Final Answer:' label. Accept it as the final answer.
+    p = parse_step('{"current_recommendation": "buy", "overall_summary": "uptrend", "sentiment": "bullish"}')
+    assert p.action is None
+    assert p.final_json is not None
+    assert p.final_json["current_recommendation"] == "buy"
+
+
+def test_parse_does_not_treat_tool_result_json_as_final():
+    # A bare JSON lacking the schema signature (e.g. a price-window blob) stays a non-final step.
+    p = parse_step('{"lookback_days": 251, "current_price": 191.0}')
+    assert p.final_json is None
+
+
 _DUMMY_TOOLS = [Tool("fetch_news", "Search recent headlines.", '{"query": str}', lambda a, c: "")]
 
 
@@ -333,3 +348,11 @@ def test_steps_capture_raw_model_output():
     _result, trace = ReActAgent(tools=[_ECHO], max_steps=2).run(provider, "m", "fake", _ctx())
     assert trace.steps[0].raw == raw
     assert trace.fell_back is True  # no parseable action -> fell back to single-shot
+
+
+def test_agent_uses_free_text_mode_for_react_turns_but_json_for_fallback():
+    # The root-cause fix: ReAct turns MUST NOT force JSON mode (a JSON-only constraint makes the
+    # free-text Thought/Action protocol impossible). The single-shot fallback DOES want JSON.
+    provider = FakeProvider(["off-format one", "off-format two", json.dumps(VALID_PAYLOAD)])
+    ReActAgent(tools=[_ECHO], max_steps=2).run(provider, "m", "fake", _ctx())
+    assert provider.json_modes == [False, False, True]  # 2 ReAct turns free-text; fallback JSON

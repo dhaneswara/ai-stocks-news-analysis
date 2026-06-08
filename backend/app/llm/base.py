@@ -11,6 +11,9 @@ class LLMError(Exception):
 class LLMProvider(Protocol):
     name: str
 
-    def complete(self, system: str, user: str) -> str: ...
+    # json_mode=True constrains providers that support it to emit a JSON object (the single-shot
+    # analyzer path). The ReAct agent passes json_mode=False because it needs free-text
+    # Thought/Action turns — a JSON-only constraint makes the text protocol impossible.
+    def complete(self, system: str, user: str, json_mode: bool = True) -> str: ...
 
     def list_models(self) -> list[str]: ...

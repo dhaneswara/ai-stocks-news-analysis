@@ -14,15 +14,15 @@ class GeminiProvider:
         self.cfg = cfg
         self.client = genai.Client(api_key=cfg.api_key)
 
-    def complete(self, system: str, user: str) -> str:
+    def complete(self, system: str, user: str, json_mode: bool = True) -> str:
         try:
+            cfg_kwargs: dict = {"system_instruction": system}
+            if json_mode:  # the ReAct agent (free-text turns) passes json_mode=False
+                cfg_kwargs["response_mime_type"] = "application/json"
             resp = self.client.models.generate_content(
                 model=self.cfg.model,
                 contents=user,
-                config=types.GenerateContentConfig(
-                    system_instruction=system,
-                    response_mime_type="application/json",
-                ),
+                config=types.GenerateContentConfig(**cfg_kwargs),
             )
             return resp.text or ""
         except Exception as exc:  # noqa: BLE001

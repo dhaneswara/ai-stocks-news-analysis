@@ -314,3 +314,78 @@ def test_ollama_list_models(monkeypatch):
     monkeypatch.setattr("app.llm.ollama_provider.httpx.get", fake_get)
     provider = OllamaProvider(ProviderConfig(model="x", base_url="http://localhost:11434"))
     assert provider.list_models() == ["llama3.1:latest", "mistral:latest"]
+
+
+def test_openai_complete_omits_json_format_when_json_mode_false(monkeypatch):
+    # json_mode=False (the ReAct agent path) must NOT force a JSON object — the model needs to be
+    # free to emit the Thought/Action text protocol.
+    from app.llm.openai_provider import OpenAIProvider
+
+    captured = {}
+
+    class Msg:
+        content = "Thought: x"
+
+    class Choice:
+        message = Msg()
+
+    class Resp:
+        choices = [Choice()]
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            captured.update(kwargs)
+            return Resp()
+
+    class FakeChat:
+        completions = FakeCompletions()
+
+    class FakeClient:
+        chat = FakeChat()
+
+    monkeypatch.setattr("app.llm.openai_provider.OpenAI", lambda api_key: FakeClient())
+    provider = OpenAIProvider(ProviderConfig(model="gpt-x", api_key="k"))
+    assert provider.complete("sys", "user", json_mode=False) == "Thought: x"
+    assert "response_format" not in captured  # JSON mode was opted out
+
+
+def test_gemini_complete_omits_json_mime_when_json_mode_false(monkeypatch):
+    from app.llm.gemini_provider import GeminiProvider
+
+    captured = {}
+
+    class Resp:
+        text = "Thought: x"
+
+    class FakeModels:
+        def generate_content(self, **kwargs):
+            captured.update(kwargs)
+            return Resp()
+
+    class FakeClient:
+        models = FakeModels()
+
+    monkeypatch.setattr("app.llm.gemini_provider.genai.Client", lambda api_key: FakeClient())
+    provider = GeminiProvider(ProviderConfig(model="gem-x", api_key="k"))
+    assert provider.complete("sys", "user", json_mode=False) == "Thought: x"
+    assert getattr(captured["config"], "response_mime_type", None) is None
+
+
+def test_ollama_complete_omits_json_format_when_json_mode_false(monkeypatch):
+    captured = {}
+
+    class FakeResp:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"message": {"content": "Thought: x"}}
+
+    def fake_post(url, json, timeout):
+        captured.update(json)
+        return FakeResp()
+
+    monkeypatch.setattr("app.llm.ollama_provider.httpx.post", fake_post)
+    provider = OllamaProvider(ProviderConfig(model="llama3.1", base_url="http://localhost:11434"))
+    assert provider.complete("sys", "user", json_mode=False) == "Thought: x"
+    assert "format" not in captured  # JSON mode was opted out

@@ -45,9 +45,11 @@ class FakeProvider:
     def __init__(self, outputs):
         self.outputs = list(outputs)
         self.calls = 0
+        self.json_modes = []   # records the json_mode of each call (agent passes False)
 
-    def complete(self, system, user):
+    def complete(self, system, user, json_mode=True):
         self.calls += 1
+        self.json_modes.append(json_mode)
         return self.outputs.pop(0)
 
 
