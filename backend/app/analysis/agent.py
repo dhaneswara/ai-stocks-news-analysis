@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from app.analysis.analyzer import _JSON_SCHEMA_HINT, _SYSTEM_PROMPT, extract_json
 from app.config.cache import Cache
+from app.data.market import fetch_info
 from app.data.news import search_news
 from app.models.schemas import AnalysisResult, Settings, StockData
 
@@ -120,6 +121,25 @@ def _int_arg(args: dict, key: str, default: int) -> int:
         return int(args.get(key, default))
     except (TypeError, ValueError):
         return default
+
+
+_FUND_FIELDS: dict[str, list[str]] = {
+    "earnings": ["trailingEps", "forwardEps", "earningsGrowth", "earningsQuarterlyGrowth"],
+    "revenue": ["totalRevenue", "revenueGrowth", "revenuePerShare"],
+    "margins": ["grossMargins", "operatingMargins", "profitMargins", "ebitdaMargins"],
+    "valuation": ["trailingPE", "forwardPE", "priceToBook", "pegRatio"],
+    "growth": ["earningsGrowth", "revenueGrowth"],
+}
+
+
+def _tool_get_fundamentals(args: dict, ctx: ToolContext) -> str:
+    detail = str(args.get("detail") or "valuation").strip().lower()
+    fields = _FUND_FIELDS.get(detail)
+    if fields is None:
+        return f"ERROR: unknown detail '{detail}'. Options: {', '.join(_FUND_FIELDS)}"
+    info = fetch_info(ctx.stock.ticker)
+    lines = [f"- {f}: {info.get(f)}" for f in fields if info.get(f) is not None]
+    return "\n".join(lines) if lines else f"({detail} data not available)"
 
 
 def _tool_fetch_news(args: dict, ctx: ToolContext) -> str:

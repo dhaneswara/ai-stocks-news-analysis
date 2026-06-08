@@ -110,3 +110,19 @@ def test_fetch_news_tool_tolerates_non_numeric_limit(monkeypatch):
     ctx = ToolContext(stock=_stock(), settings=Settings(), cache=Cache(":memory:"))
     out = agent_mod._tool_fetch_news({"query": "x", "limit": "abc"}, ctx)  # must not raise
     assert "NVDA beats (Reuters)" in out
+
+
+def test_get_fundamentals_tool_returns_requested_fields(monkeypatch):
+    monkeypatch.setattr(agent_mod, "fetch_info", lambda ticker: {
+        "trailingEps": 5.2, "forwardEps": 6.1, "earningsGrowth": 0.18, "marketCap": 1e12})
+    ctx = ToolContext(stock=_stock(), settings=Settings(), cache=Cache(":memory:"))
+    out = agent_mod._tool_get_fundamentals({"detail": "earnings"}, ctx)
+    assert "trailingEps: 5.2" in out
+    assert "forwardEps: 6.1" in out
+    assert "marketCap" not in out  # not part of the 'earnings' field set
+
+
+def test_get_fundamentals_tool_unknown_detail():
+    ctx = ToolContext(stock=_stock(), settings=Settings(), cache=Cache(":memory:"))
+    out = agent_mod._tool_get_fundamentals({"detail": "nonsense"}, ctx)
+    assert out.startswith("ERROR")
