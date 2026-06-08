@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api } from './client';
+import { api, streamDeepAnalysis } from './client';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -155,4 +155,36 @@ describe('api client', () => {
     expect(url).toContain('/graph/imports/');
     expect(url).toContain('%3A'); // colon encoded
   });
+});
+
+class FakeEventSource {
+  static last: FakeEventSource | null = null;
+  url: string;
+  listeners: Record<string, (e: { data?: string }) => void> = {};
+  closed = false;
+  constructor(url: string) { this.url = url; FakeEventSource.last = this; }
+  addEventListener(type: string, cb: (e: { data?: string }) => void) { this.listeners[type] = cb; }
+  close() { this.closed = true; }
+  emit(type: string, data?: string) { this.listeners[type]?.({ data }); }
+}
+
+it('forwards step then final events and closes after final', () => {
+  (globalThis as unknown as { EventSource: unknown }).EventSource = FakeEventSource;
+  const events: { type: string }[] = [];
+  streamDeepAnalysis('AAPL', '1y', { onEvent: (e) => events.push(e), onError: vi.fn() });
+  const es = FakeEventSource.last!;
+  expect(es.url).toContain('/analyze/AAPL/deep/stream?period=1y');
+  es.emit('step', JSON.stringify({ step: { index: 0, thought: 'hi', action: 'fetch_news' } }));
+  es.emit('final', JSON.stringify({ result: { current_recommendation: 'buy' }, trace: { steps: [] } }));
+  expect(events.map((e) => e.type)).toEqual(['step', 'final']);
+  expect(es.closed).toBe(true);
+});
+
+it('reports a connection error when the native error event has no data', () => {
+  (globalThis as unknown as { EventSource: unknown }).EventSource = FakeEventSource;
+  const onError = vi.fn();
+  streamDeepAnalysis('ZZZZ', '1y', { onEvent: vi.fn(), onError });
+  FakeEventSource.last!.emit('error');
+  expect(onError).toHaveBeenCalled();
+  expect(FakeEventSource.last!.closed).toBe(true);
 });

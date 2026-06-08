@@ -1,4 +1,5 @@
 import type {
+  AgentEvent,
   AnalysisResult,
   EvaluationBoard,
   ImportReport,
@@ -100,3 +101,38 @@ export const api = {
   deleteTracked: (ticker: string) =>
     http<{ deleted: number }>(`/evaluation/${encodeURIComponent(ticker)}`, { method: 'DELETE' }),
 };
+
+export interface DeepStreamHandlers {
+  onEvent: (event: AgentEvent) => void;
+  onError: (message: string) => void;
+}
+
+/** Open an SSE stream for an agentic deep analysis. Returns a closer the caller MUST keep and
+ *  invoke on unmount — EventSource auto-reconnects otherwise, which would restart the analysis. */
+export function streamDeepAnalysis(
+  ticker: string,
+  period: string,
+  handlers: DeepStreamHandlers,
+): () => void {
+  const url =
+    `${BASE}/analyze/${encodeURIComponent(ticker)}/deep/stream?period=${encodeURIComponent(period)}`;
+  const es = new EventSource(url);
+  const forward = (type: AgentEvent['type']) => (e: MessageEvent) => {
+    try {
+      handlers.onEvent({ ...(JSON.parse(e.data) as AgentEvent), type });
+    } catch {
+      handlers.onError('Malformed event from server');
+    }
+  };
+  es.addEventListener('step', forward('step') as EventListener);
+  es.addEventListener('final', ((e: MessageEvent) => {
+    forward('final')(e);
+    es.close(); // terminal — close before EventSource auto-reconnects
+  }) as EventListener);
+  es.addEventListener('error', ((e: MessageEvent) => {
+    if (e.data) forward('error')(e);          // server-sent `event: error` (has data)
+    else handlers.onError('Connection error'); // native connection failure (no data)
+    es.close();
+  }) as EventListener);
+  return () => es.close();
+}

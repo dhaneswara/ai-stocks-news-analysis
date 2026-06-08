@@ -193,3 +193,30 @@ export interface ImportSetSummary {
 export interface ImportReport {
   id: string; name: string; nodes_added: number; edges_added: number; dropped: number; warnings: string[];
 }
+export interface AgentStep {
+  index: number;
+  thought: string;
+  action: string | null;
+  action_args: Record<string, unknown>;
+  observation: string | null;
+  is_final: boolean;
+  elapsed_ms: number;
+}
+export interface AgentTrace {
+  ticker: string;
+  provider: string;
+  model: string;
+  started_at: string;
+  elapsed_ms: number;
+  stopped_reason: 'final' | 'max_steps' | 'parse_error' | 'no_action';
+  fell_back: boolean;
+  steps: AgentStep[];
+  final: AnalysisResult | null;
+}
+export interface AgentEvent {
+  type: 'step' | 'final' | 'error';
+  step?: AgentStep | null;
+  result?: AnalysisResult | null;
+  trace?: AgentTrace | null;
+  message?: string;
+}
