@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import sqlite3
+import threading
 
 from app.models.schemas import Settings
 
@@ -11,6 +12,11 @@ MASK = "****"
 class SettingsStore:
     def __init__(self, db_path: str) -> None:
         self.db_path = db_path
+        # get_settings_store() is an @lru_cache singleton, so this one connection is
+        # shared process-wide across FastAPI's threadpool (check_same_thread=False).
+        # sqlite3 connections are not safe under concurrent use, so every access to
+        # _conn is serialised through _lock (see app/config/cache.py for details).
+        self._lock = threading.Lock()
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.execute("PRAGMA busy_timeout = 5000")
         self._conn.execute(
@@ -19,17 +25,20 @@ class SettingsStore:
         self._conn.commit()
 
     def load(self) -> Settings:
-        row = self._conn.execute("SELECT json FROM settings WHERE id = 1").fetchone()
+        with self._lock:
+            row = self._conn.execute("SELECT json FROM settings WHERE id = 1").fetchone()
         if row is None:
             return Settings()
         return Settings.model_validate_json(row[0])
 
     def save(self, settings: Settings) -> None:
-        self._conn.execute(
-            "INSERT OR REPLACE INTO settings (id, json) VALUES (1, ?)",
-            (settings.model_dump_json(),),
-        )
-        self._conn.commit()
+        payload = settings.model_dump_json()
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO settings (id, json) VALUES (1, ?)",
+                (payload,),
+            )
+            self._conn.commit()
 
 
 def mask_settings(settings: Settings) -> Settings:

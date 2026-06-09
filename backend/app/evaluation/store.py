@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
+import threading
 import time
 from dataclasses import dataclass
 from typing import Optional
@@ -34,6 +35,13 @@ class EvalRow:
 class PredictionStore:
     def __init__(self, db_path: str) -> None:
         self.db_path = db_path
+        # get_prediction_store() is an @lru_cache singleton, so this one connection is
+        # shared process-wide across FastAPI's threadpool (check_same_thread=False).
+        # sqlite3 connections are not safe under concurrent use, so every access to
+        # _conn is serialised through _lock (see app/config/cache.py for details).
+        # Multi-statement methods hold the lock across all statements so the
+        # read-modify-write stays atomic.
+        self._lock = threading.Lock()
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.execute("PRAGMA busy_timeout = 5000")
         self._conn.execute(
@@ -54,75 +62,83 @@ class PredictionStore:
                           recommendation: str, confidence: float, sentiment: str,
                           entry_price: float) -> None:
         ticker = ticker.upper().strip()
-        existing = self._conn.execute(
-            "SELECT entry_price FROM predictions WHERE ticker = ? AND call_date = ?",
-            (ticker, call_date),
-        ).fetchone()
-        if existing is not None and existing[0] != entry_price:
-            self._conn.execute(
-                "DELETE FROM prediction_evals WHERE ticker = ? AND call_date = ?",
+        with self._lock:
+            existing = self._conn.execute(
+                "SELECT entry_price FROM predictions WHERE ticker = ? AND call_date = ?",
                 (ticker, call_date),
+            ).fetchone()
+            if existing is not None and existing[0] != entry_price:
+                self._conn.execute(
+                    "DELETE FROM prediction_evals WHERE ticker = ? AND call_date = ?",
+                    (ticker, call_date),
+                )
+            self._conn.execute(
+                "INSERT OR REPLACE INTO predictions "
+                "(ticker, call_date, provider, model, recommendation, confidence, sentiment, "
+                "entry_price, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (ticker, call_date, provider, model, recommendation, confidence, sentiment,
+                 entry_price, time.time()),
             )
-        self._conn.execute(
-            "INSERT OR REPLACE INTO predictions "
-            "(ticker, call_date, provider, model, recommendation, confidence, sentiment, "
-            "entry_price, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (ticker, call_date, provider, model, recommendation, confidence, sentiment,
-             entry_price, time.time()),
-        )
-        self._conn.commit()
+            self._conn.commit()
 
     def get_prediction(self, ticker: str, call_date: str) -> Optional[PredictionRow]:
-        row = self._conn.execute(
-            "SELECT ticker, call_date, provider, model, recommendation, confidence, sentiment, "
-            "entry_price, created_at FROM predictions WHERE ticker = ? AND call_date = ?",
-            (ticker.upper().strip(), call_date),
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT ticker, call_date, provider, model, recommendation, confidence, sentiment, "
+                "entry_price, created_at FROM predictions WHERE ticker = ? AND call_date = ?",
+                (ticker.upper().strip(), call_date),
+            ).fetchone()
         return PredictionRow(*row) if row else None
 
     def all_predictions(self) -> list[PredictionRow]:
-        rows = self._conn.execute(
-            "SELECT ticker, call_date, provider, model, recommendation, confidence, sentiment, "
-            "entry_price, created_at FROM predictions"
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT ticker, call_date, provider, model, recommendation, confidence, sentiment, "
+                "entry_price, created_at FROM predictions"
+            ).fetchall()
         return [PredictionRow(*r) for r in rows]
 
     def has_eval(self, ticker: str, call_date: str, horizon: int) -> bool:
-        row = self._conn.execute(
-            "SELECT 1 FROM prediction_evals WHERE ticker = ? AND call_date = ? AND horizon = ?",
-            (ticker.upper().strip(), call_date, horizon),
-        ).fetchone()
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT 1 FROM prediction_evals WHERE ticker = ? AND call_date = ? AND horizon = ?",
+                (ticker.upper().strip(), call_date, horizon),
+            ).fetchone()
         return row is not None
 
     def record_eval(self, ticker: str, call_date: str, horizon: int, eval_date: str,
                     exit_price: float, return_pct: float, hit: int, score: float) -> None:
-        self._conn.execute(
-            "INSERT OR REPLACE INTO prediction_evals "
-            "(ticker, call_date, horizon, eval_date, exit_price, return_pct, hit, score) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            (ticker.upper().strip(), call_date, horizon, eval_date, exit_price, return_pct,
-             int(hit), score),
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute(
+                "INSERT OR REPLACE INTO prediction_evals "
+                "(ticker, call_date, horizon, eval_date, exit_price, return_pct, hit, score) "
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (ticker.upper().strip(), call_date, horizon, eval_date, exit_price, return_pct,
+                 int(hit), score),
+            )
+            self._conn.commit()
 
     def evals_for(self, ticker: str, call_date: str) -> list[EvalRow]:
-        rows = self._conn.execute(
-            "SELECT ticker, call_date, horizon, eval_date, exit_price, return_pct, hit, score "
-            "FROM prediction_evals WHERE ticker = ? AND call_date = ?",
-            (ticker.upper().strip(), call_date),
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT ticker, call_date, horizon, eval_date, exit_price, return_pct, hit, score "
+                "FROM prediction_evals WHERE ticker = ? AND call_date = ?",
+                (ticker.upper().strip(), call_date),
+            ).fetchall()
         return [EvalRow(*r) for r in rows]
 
     def all_evals(self) -> list[EvalRow]:
-        rows = self._conn.execute(
-            "SELECT ticker, call_date, horizon, eval_date, exit_price, return_pct, hit, score "
-            "FROM prediction_evals"
-        ).fetchall()
+        with self._lock:
+            rows = self._conn.execute(
+                "SELECT ticker, call_date, horizon, eval_date, exit_price, return_pct, hit, score "
+                "FROM prediction_evals"
+            ).fetchall()
         return [EvalRow(*r) for r in rows]
 
     def delete_ticker(self, ticker: str) -> int:
         ticker = ticker.upper().strip()
-        cur = self._conn.execute("DELETE FROM predictions WHERE ticker = ?", (ticker,))
-        self._conn.execute("DELETE FROM prediction_evals WHERE ticker = ?", (ticker,))
-        self._conn.commit()
-        return cur.rowcount
+        with self._lock:
+            cur = self._conn.execute("DELETE FROM predictions WHERE ticker = ?", (ticker,))
+            self._conn.execute("DELETE FROM prediction_evals WHERE ticker = ?", (ticker,))
+            self._conn.commit()
+            return cur.rowcount
