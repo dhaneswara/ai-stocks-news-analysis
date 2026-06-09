@@ -38,19 +38,38 @@ export function GraphCanvas({
     [nodes, links],
   );
 
-  const neighbours = useMemo(() => {
-    const set = new Set<string>();
-    if (selectedId) {
-      for (const l of links) {
-        if (l.source === selectedId) set.add(l.target);
-        if (l.target === selectedId) set.add(l.source);
+  const endpointId = (v: unknown): string => (typeof v === 'object' && v ? (v as { id: string }).id : (v as string));
+  // A link is "incident" to the focused node when that node is one of its endpoints.
+  // After the force sim resolves, l.source/l.target become node objects, so normalise via endpointId.
+  const isIncident = (l: { source: unknown; target: unknown }): boolean =>
+    !!selectedId && (endpointId(l.source) === selectedId || endpointId(l.target) === selectedId);
+
+  // Fan parallel edges (same node pair) apart so overlapping relationships — e.g. a
+  // "partner" and a "competitor" edge between the same two companies — render as
+  // separate arcs instead of stacking on one line. Single edges stay straight.
+  const curvature = useMemo(() => {
+    const key = (l: ViewLink) => `${l.source}|${l.target}|${l.type}`;
+    const groups = new Map<string, ViewLink[]>();
+    for (const l of links) {
+      const pair = l.source <= l.target ? `${l.source}|${l.target}` : `${l.target}|${l.source}`;
+      const arr = groups.get(pair);
+      if (arr) arr.push(l); else groups.set(pair, [l]);
+    }
+    const MAXC = 0.3;
+    const map = new Map<string, number>();
+    for (const arr of groups.values()) {
+      if (arr.length === 1) { map.set(key(arr[0]), 0); continue; }
+      const lastIdx = arr.length - 1;
+      map.set(key(arr[lastIdx]), MAXC);
+      const delta = (2 * MAXC) / lastIdx;
+      for (let i = 0; i < lastIdx; i++) {
+        let c = -MAXC + i * delta;
+        if (arr[lastIdx].source !== arr[i].source) c *= -1;   // flip when the edge runs the other way
+        map.set(key(arr[i]), c);
       }
     }
-    return set;
-  }, [links, selectedId]);
-
-  const isDim = (id: string) => !!selectedId && id !== selectedId && !neighbours.has(id);
-  const endpointId = (v: unknown): string => (typeof v === 'object' && v ? (v as { id: string }).id : (v as string));
+    return map;
+  }, [links]);
   const localXY = (e: MouseEvent) => {
     const r = wrap.current?.getBoundingClientRect();
     return { x: e.clientX - (r?.left ?? 0), y: e.clientY - (r?.top ?? 0) };
@@ -64,16 +83,31 @@ export function GraphCanvas({
         graphData={data}
         nodeRelSize={1}
         nodeVal={(n: any) => nodeRadius(n.score) ** 2}
-        nodeColor={(n: any) => (isDim(n.id) ? '#30363d' : n.external ? '#6e7681' : directionColor(n.direction))}
+        nodeColor={(n: any) => (n.external ? '#6e7681' : directionColor(n.direction))}
         nodeCanvasObjectMode={() => 'after'}
         nodeCanvasObject={(n: any, ctx: CanvasRenderingContext2D, scale: number) => {
-          ctx.fillStyle = isDim(n.id) ? '#6e7681' : '#e6edf3';
-          ctx.font = `${10 / scale}px sans-serif`;
+          const r = nodeRadius(n.score);
+          if (n.id === selectedId) {                       // focus ring — fill (direction colour) stays intact
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, r + 3 / scale, 0, 2 * Math.PI);
+            ctx.lineWidth = 2 / scale;
+            ctx.strokeStyle = '#e8c87e';                   // --gold
+            ctx.shadowColor = 'rgba(232, 200, 126, 0.9)';
+            ctx.shadowBlur = 8 / scale;
+            ctx.stroke();
+            ctx.shadowBlur = 0;                            // reset so the label isn't blurred
+          }
+          ctx.fillStyle = '#e6edf3';
+          ctx.font = `${(n.id === selectedId ? 11 : 10) / scale}px sans-serif`;
           ctx.textAlign = 'center';
-          ctx.fillText(n.label, n.x, n.y - nodeRadius(n.score) - 2 / scale);
+          ctx.fillText(n.label, n.x, n.y - r - 2 / scale);
         }}
-        linkColor={(l: any) => sentimentColor(l.sentiment)}
-        linkWidth={(l: any) => 0.5 + l.weight * l.confidence * 2}
+        linkColor={(l: any) => (!selectedId || isIncident(l) ? sentimentColor(l.sentiment) : 'rgba(110, 118, 129, 0.18)')}
+        linkWidth={(l: any) => {
+          const w = 0.5 + l.weight * l.confidence * 2;
+          return selectedId && isIncident(l) ? w + 1.5 : w;   // emphasise the focused node's edges
+        }}
+        linkCurvature={(l: any) => curvature.get(`${endpointId(l.source)}|${endpointId(l.target)}|${l.type}`) ?? 0}
         linkLineDash={(l: any) => (l.origin === 'imported' ? [4, 2] : l.origin === 'manual' ? [1, 3] : [])}
         linkDirectionalArrowLength={4}
         linkDirectionalArrowRelPos={1}

@@ -17,6 +17,7 @@ export function GraphLegend() {
             <span><i className="dot" style={{ background: '#8b949e' }} />hold</span>
             <span><i className="dot" style={{ background: '#484f58' }} />unknown</span>
             <span><i className="dot" style={{ background: '#6e7681' }} />external</span>
+            <span><i className="dot" style={{ background: 'transparent', border: '2px solid #e8c87e', boxSizing: 'border-box' }} />selected</span>
             <span className="legend-note">size = score</span>
           </div>
           <div className="legend-group">
