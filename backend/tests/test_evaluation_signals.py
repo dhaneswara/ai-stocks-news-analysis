@@ -60,3 +60,23 @@ def test_pair_noop_without_candles(tmp_path, monkeypatch):
     stock.candles = []
     record_deterministic_pair(stock, Settings(), Cache(str(tmp_path / "c.db")), store)
     assert store.all_predictions() == []
+
+
+def test_snapshot_watchlist_records_and_isolates_failures(tmp_path, monkeypatch):
+    from app.evaluation.signals import snapshot_watchlist
+
+    store = PredictionStore(str(tmp_path / "p.db"))
+    cache = Cache(str(tmp_path / "c.db"))
+    settings = Settings()  # default watchlist: ["AAPL", "MSFT"]
+
+    def fake_stock(ticker, period, params, cache_):
+        if ticker == "MSFT":
+            raise ValueError("no data")
+        return _stock(ticker)
+
+    monkeypatch.setattr(signals, "get_stock_data", fake_stock)
+    monkeypatch.setattr(signals, "score_one", lambda t, s, c: _score(t))
+    out = snapshot_watchlist(settings, cache, store)
+    assert out["recorded"] == 1
+    assert out["skipped"] == [{"ticker": "MSFT", "reason": "no data"}]
+    assert store.get_prediction("AAPL", "2026-06-05", "technical") is not None

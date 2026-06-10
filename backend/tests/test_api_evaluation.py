@@ -99,3 +99,36 @@ def test_explain_route_rejects_unknown_source():
     client = TestClient(app)
     resp = client.post("/api/evaluation/AAPL/2026-06-01/explain?source=garbage")
     assert resp.status_code == 422
+
+
+def test_snapshot_route_uses_settings_watchlist(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    from app.api import routes
+    from app.config.cache import Cache
+    from app.config.settings_store import SettingsStore
+    from app.deps import get_cache, get_prediction_store, get_settings_store
+    from app.evaluation.store import PredictionStore
+    from app.main import app
+
+    cache = Cache(str(tmp_path / "cache.db"))
+    settings_store = SettingsStore(str(tmp_path / "settings.db"))
+    pred_store = PredictionStore(str(tmp_path / "pred.db"))
+    app.dependency_overrides[get_cache] = lambda: cache
+    app.dependency_overrides[get_settings_store] = lambda: settings_store
+    app.dependency_overrides[get_prediction_store] = lambda: pred_store
+
+    captured = {}
+
+    def fake_snapshot(settings, cache_, store_):
+        captured["watchlist"] = list(settings.watchlist)
+        return {"recorded": 2, "skipped": []}
+
+    monkeypatch.setattr(routes, "snapshot_watchlist", fake_snapshot)
+    try:
+        client = TestClient(app)
+        resp = client.post("/api/evaluation/snapshot")
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 200
+    assert resp.json() == {"recorded": 2, "skipped": []}
+    assert captured["watchlist"] == ["AAPL", "MSFT"]  # Settings default

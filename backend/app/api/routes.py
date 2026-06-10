@@ -47,7 +47,7 @@ from app.network.store import (
     save_graph,
 )
 from app.evaluation.service import build_board, evaluate_pending, explain_prediction, record_prediction
-from app.evaluation.signals import record_deterministic_pair
+from app.evaluation.signals import record_deterministic_pair, snapshot_watchlist
 from app.evaluation.store import SOURCE_LLM_DEEP, SOURCE_LLM_FAST, PredictionStore
 from app.analysis.agent import AgentEvent, AgentTrace, ReActAgent, ToolContext
 from app.analysis.trace_store import AgentTraceStore
@@ -494,3 +494,17 @@ def delete_tracked(
     prediction_store: PredictionStore = Depends(get_prediction_store),
 ) -> dict:
     return {"deleted": prediction_store.delete_ticker(ticker)}
+
+
+@router.post("/evaluation/snapshot")
+def snapshot_evaluation(
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+    prediction_store: PredictionStore = Depends(get_prediction_store),
+) -> dict:
+    """Snapshot the watchlist's technical/network calls as dated predictions (no body —
+    the watchlist lives in settings)."""
+    settings = store.load()
+    if not settings.evaluation.enabled:
+        return {"recorded": 0, "skipped": [], "disabled": True}
+    return snapshot_watchlist(settings, cache, prediction_store)
