@@ -42,8 +42,8 @@ foundation the future monthly invest/divest advisor needs.
   with pre-network values preserved as `base_score`/`base_net`. The network-blended call
   comes from `blend_network_into_score` (`app/analysis/network.py`), which recomputes
   `direction` from the blended `net` and attaches the `NetworkSignal` to `StockScore.network`.
-- The watchlist is **frontend-only** (`useWatchlist` hook, localStorage); the backend cannot
-  enumerate it.
+- The watchlist is persisted in backend `Settings.watchlist` (schemas.py; the `useWatchlist`
+  hook reads/writes it via `PUT /settings`), so the backend can enumerate it directly.
 
 ## 3. Goals / Non-goals
 
@@ -111,7 +111,8 @@ the network row's from the blended `net` (i.e. `StockScore.direction` post-blend
    (`ticker, call_date, provider, model, trace_json, created_at`, PK `(ticker, call_date)` —
    the Deep Analysis spec's Phase 3, `AgentTraceStore` mirroring `PredictionStore`), then
    record the prediction — `source='llm_deep'` normally, **`'llm_fast'` if
-   `stopped_reason='fallback'`** (D6). Recording failures are logged, never break the stream.
+   `trace.fell_back` is true** (D6; `AgentTrace.fell_back` is the existing fallback flag).
+   Recording failures are logged, never break the stream.
 3. **`technical` + `network` at analysis time** — wherever an LLM prediction is recorded
    (fast or deep), a helper also records the deterministic pair for that ticker via the same
    scoring path `GET /api/score/{ticker}` uses (`score_one` + network blend; stock data is
@@ -120,10 +121,10 @@ the network row's from the blended `net` (i.e. `StockScore.direction` post-blend
    otherwise it would duplicate `technical`. Guarantees every LLM call has a same-day
    deterministic baseline, watchlist or not.
 4. **`technical` + `network` at Rescan All** — new endpoint
-   `POST /api/evaluation/snapshot {tickers: [...]}`. The Discover page fire-and-forgets it
-   with the current watchlist after a successful rescan. Backend records the pair per ticker
-   (same helper as path 3), per-ticker isolation: a failing ticker is skipped and reported,
-   the rest record. Response: `{recorded: n, skipped: [{ticker, reason}, ...]}`.
+   `POST /api/evaluation/snapshot` (no body: the backend reads `settings.watchlist` itself).
+   The Discover page fire-and-forgets it after a successful rescan. Backend records the pair
+   per ticker (same helper as path 3), per-ticker isolation: a failing ticker is skipped and
+   reported, the rest record. Response: `{recorded: n, skipped: [{ticker, reason}, ...]}`.
 
 `evaluate_pending`, the hit/score/grade formulas, horizons config, and the
 `python -m app.evaluation` CLI are untouched apart from carrying `source` through keys —
@@ -131,7 +132,7 @@ every source is judged by the same code.
 
 ## 7. API
 
-- **New** `POST /api/evaluation/snapshot` — body `{tickers: string[]}` → records
+- **New** `POST /api/evaluation/snapshot` — no body; reads `settings.watchlist` → records
   technical/network rows (Section 6.4).
 - **New** `GET /api/signals/{ticker}` → the SignalsStrip payload:
 
@@ -154,7 +155,8 @@ every source is judged by the same code.
 
   **Winner rule:** highest `avg_score` for *this ticker* among sources with
   `n_matured >= 3`; tie → larger `n_matured`; still tied → no crown. **Agreement:** computed
-  over each source's latest call within the last 5 trading days (stale sources don't vote).
+  over each source's latest call within the last 5 trading days, approximated as 7 calendar
+  days (stale sources don't vote).
 - **New** `GET /api/traces/{ticker}` → most recent stored `AgentTrace`s (default limit 5).
 - **Extended** `GET /api/evaluation` — `PredictionRecord` gains `source`;
   `CompanyEvaluation` gains `by_source` rollups; board gains top-level `sources` summary
@@ -174,9 +176,10 @@ every source is judged by the same code.
   winner, muted "—" chips for absent sources, and a strip-level agree/conflict badge.
   Backed by a `useSignals` hook; non-critical like `useScore` (absent on error, never blocks
   the page). Clicking FAST/DEEP scrolls to the analysis/trace panel.
-- **Discover:** after a successful Rescan All, silently `POST /api/evaluation/snapshot` with
-  the `useWatchlist` tickers; small toast "Recorded N watchlist signals for evaluation"
-  (failure = quiet console warn, never blocks the board).
+- **Discover:** after a successful Rescan All, fire `POST /api/evaluation/snapshot` (no
+  body). There is no toast system in the app — a small inline muted note near the rescan
+  button shows "✓ N watchlist signals recorded" on success (failure = quiet console warn,
+  never blocks the board).
 - **Evaluation page:** source scoreboard cards at the top (one per source: calls / matured /
   hit rate / avg score / grade — fast vs deep visible at a glance); source filter chips
   (All / Technical / Network / LLM fast / LLM deep); a source badge on every call row;
@@ -198,11 +201,14 @@ New `build_track_record_block(ticker, store, settings) -> str | None` in
 - Returns `None` (block omitted entirely) unless evaluation is enabled **and** ≥1 matured
   LLM call exists for the ticker.
 
-Injected as one section inside `build_user_prompt` (`app/analysis/analyzer.py`) — the deep
-agent seeds its transcript with the same context block, so **both paths get it from one
-insertion point**. Deterministic-source histories are *not* injected in v1 (the LLM already
-receives live technical/network signals; their track records live on the scoreboard).
-`run_analysis` passes the store down for this; when unavailable, prompt is unchanged.
+Delivery follows the established `gather_stock_context` pattern (market mood, mentions and
+the network signal are already attached to `StockData` for prompt consumption):
+`gather_stock_context` gains an optional `store` param, computes the block, and attaches it
+as a new `StockData.track_record: str | None` field; `build_user_prompt` renders it as one
+section when set. The deep agent seeds its transcript with `build_user_prompt(stock)`, so
+**both paths get it from one insertion point**. Deterministic-source histories are *not*
+injected in v1 (the LLM already receives live technical/network signals; their track records
+live on the scoreboard). When no store is available, the prompt is unchanged.
 
 ## 10. Edge cases & error handling
 
