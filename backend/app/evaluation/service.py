@@ -6,7 +6,14 @@ from datetime import datetime, timezone
 from app.config.cache import Cache
 from app.data.market import fetch_close_series
 from app.evaluation.scoring import grade_for, is_hit, is_overconfident, score_call
-from app.evaluation.store import PredictionStore
+from app.evaluation.store import (
+    LLM_SOURCES,
+    SOURCE_LLM_DEEP,
+    SOURCE_LLM_FAST,
+    SOURCE_NETWORK,
+    SOURCE_TECHNICAL,
+    PredictionStore,
+)
 from app.llm.factory import build_provider
 from app.models.schemas import (
     AnalysisResult,
@@ -26,7 +33,8 @@ EVAL_PERIOD = "2y"
 EXPLAIN_TTL_SECONDS = 30 * 24 * 60 * 60  # 30 days
 
 
-def record_prediction(stock: StockData, result: AnalysisResult, store: PredictionStore) -> None:
+def record_prediction(stock: StockData, result: AnalysisResult, store: PredictionStore,
+                      source: str = SOURCE_LLM_FAST) -> None:
     """Persist one call, keyed by the last trading day in the stock data."""
     if not stock.candles:
         return
@@ -40,6 +48,7 @@ def record_prediction(stock: StockData, result: AnalysisResult, store: Predictio
         confidence=result.confidence,
         sentiment=result.sentiment,
         entry_price=last.close,
+        source=source,
     )
 
 
@@ -56,7 +65,7 @@ def evaluate_pending(store: PredictionStore, settings: Settings, *, persist: boo
     for ticker, preds in by_ticker.items():
         missing = [
             (p, h) for p in preds for h in horizons
-            if not store.has_eval(p.ticker, p.call_date, h)
+            if not store.has_eval(p.ticker, p.call_date, h, p.source)
         ]
         if not missing:
             continue
@@ -87,7 +96,7 @@ def evaluate_pending(store: PredictionStore, settings: Settings, *, persist: boo
                                 settings.evaluation.hold_band_pct, settings.evaluation.score_scale_pct)
                 if persist:
                     store.record_eval(p.ticker, p.call_date, h, exit_date, exit_price,
-                                      return_pct, int(hit), sc)
+                                      return_pct, int(hit), sc, source=p.source)
                 summary["evaluated"] += 1
         except Exception:  # noqa: BLE001
             logger.warning("evaluation: failed while scoring %s", ticker)
@@ -97,7 +106,7 @@ def evaluate_pending(store: PredictionStore, settings: Settings, *, persist: boo
 
 def build_board(store: PredictionStore, settings: Settings) -> EvaluationBoard:
     horizons = settings.evaluation.horizons
-    eval_index = {(e.ticker, e.call_date, e.horizon): e for e in store.all_evals()}
+    eval_index = {(e.ticker, e.call_date, e.source, e.horizon): e for e in store.all_evals()}
 
     by_ticker: dict[str, list] = {}
     for p in store.all_predictions():
@@ -105,7 +114,7 @@ def build_board(store: PredictionStore, settings: Settings) -> EvaluationBoard:
 
     companies: list[CompanyEvaluation] = []
     for ticker, preds in by_ticker.items():
-        preds.sort(key=lambda p: p.call_date, reverse=True)  # newest call first
+        preds.sort(key=lambda p: (p.call_date, p.source), reverse=True)  # newest call first
         records: list[PredictionRecord] = []
         scores: list[float] = []
         hit_confs: list[float] = []
@@ -114,7 +123,7 @@ def build_board(store: PredictionStore, settings: Settings) -> EvaluationBoard:
         for p in preds:
             results: list[HorizonResult] = []
             for h in horizons:
-                e = eval_index.get((p.ticker, p.call_date, h))
+                e = eval_index.get((p.ticker, p.call_date, p.source, h))
                 if e is None:
                     results.append(HorizonResult(horizon=h, status="pending"))
                     continue
@@ -123,11 +132,12 @@ def build_board(store: PredictionStore, settings: Settings) -> EvaluationBoard:
                     return_pct=e.return_pct, hit=bool(e.hit), score=e.score,
                 ))
                 scores.append(e.score)
-                (hit_confs if e.hit else miss_confs).append(p.confidence)
+                if p.source in LLM_SOURCES:  # deterministic |net| proxies must not skew the flag
+                    (hit_confs if e.hit else miss_confs).append(p.confidence)
             records.append(PredictionRecord(
                 ticker=p.ticker, call_date=p.call_date, provider=p.provider, model=p.model,
                 recommendation=p.recommendation, confidence=p.confidence, sentiment=p.sentiment,
-                entry_price=p.entry_price, results=results,
+                entry_price=p.entry_price, source=p.source, results=results,
             ))
 
         n_matured = len(scores)
@@ -151,20 +161,28 @@ def build_board(store: PredictionStore, settings: Settings) -> EvaluationBoard:
     return EvaluationBoard(as_of=datetime.now(timezone.utc).isoformat(), companies=companies)
 
 
+_SOURCE_LABELS = {
+    SOURCE_LLM_FAST: "fast LLM analysis",
+    SOURCE_LLM_DEEP: "deep (agentic) LLM analysis",
+    SOURCE_TECHNICAL: "deterministic technical screen",
+    SOURCE_NETWORK: "network-blended screen",
+}
+
+
 def explain_prediction(ticker: str, call_date: str, settings: Settings, cache: Cache,
-                       store: PredictionStore) -> str:
+                       store: PredictionStore, source: str = SOURCE_LLM_FAST) -> str:
     """One short LLM post-mortem on why a call was off. Cached so it runs once per call."""
     ticker = ticker.upper().strip()
-    pred = store.get_prediction(ticker, call_date)
+    pred = store.get_prediction(ticker, call_date, source)
     if pred is None:
-        raise ValueError(f"No tracked prediction for {ticker} on {call_date}")
+        raise ValueError(f"No tracked {source} prediction for {ticker} on {call_date}")
 
-    key = f"prediction_explain:{ticker}:{call_date}"
+    key = f"prediction_explain:{ticker}:{call_date}:{source}"
     cached = cache.get(key)
     if cached is not None:
         return cached
 
-    evals = sorted(store.evals_for(ticker, call_date), key=lambda e: e.horizon)
+    evals = sorted(store.evals_for(ticker, call_date, source), key=lambda e: e.horizon)
     outcome_lines = [
         f"- {e.horizon} trading days later: {e.return_pct:+.2f}% "
         f"({'correct' if e.hit else 'wrong'})"
@@ -187,6 +205,7 @@ def explain_prediction(ticker: str, call_date: str, settings: Settings, cache: C
     user = (
         f"Ticker: {ticker}\n"
         f"Call date: {call_date}\n"
+        f"Signal source: {_SOURCE_LABELS.get(source, source)}\n"
         f"Recommendation: {pred.recommendation.upper()} (confidence {pred.confidence:.0%})\n"
         f"Entry price: {pred.entry_price:.2f}\n"
         "What actually happened:\n" + "\n".join(outcome_lines) + "\n\n"

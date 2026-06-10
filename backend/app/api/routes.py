@@ -417,13 +417,15 @@ def get_evaluation(
 def explain_evaluation(
     ticker: str,
     call_date: str,
+    source: str = "llm_fast",
     cache: Cache = Depends(get_cache),
     store: SettingsStore = Depends(get_settings_store),
     prediction_store: PredictionStore = Depends(get_prediction_store),
 ) -> dict:
     settings = store.load()
     try:
-        text = explain_prediction(ticker, call_date, settings, cache, prediction_store)
+        text = explain_prediction(ticker, call_date, settings, cache, prediction_store,
+                                  source=source)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except LLMError as exc:

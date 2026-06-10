@@ -243,6 +243,10 @@ class AnalysisResult(BaseModel):
     network: Optional[NetworkSignal] = None
 
 
+# All CALL sources tracked by the evaluation engine (mirrors app/evaluation/store.py).
+Source = Literal["llm_fast", "llm_deep", "technical", "network"]
+
+
 class HorizonResult(BaseModel):
     horizon: int
     status: Literal["pending", "final"] = "pending"
@@ -261,6 +265,7 @@ class PredictionRecord(BaseModel):
     confidence: float = 0.0
     sentiment: Literal["bullish", "neutral", "bearish"] = "neutral"
     entry_price: float
+    source: Source = "llm_fast"
     results: list[HorizonResult] = Field(default_factory=list)
 
 

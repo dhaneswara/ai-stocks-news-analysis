@@ -48,7 +48,7 @@ def test_explain_endpoint(client, monkeypatch):
                             recommendation="sell", confidence=0.9, sentiment="bearish",
                             entry_price=100.0)
     monkeypatch.setattr(routes, "explain_prediction",
-                        lambda ticker, call_date, settings, cache, store: "because reasons")
+                        lambda ticker, call_date, settings, cache, store, source="llm_fast": "because reasons")
     r = tc.post("/api/evaluation/AAPL/2026-06-01/explain")
     assert r.status_code == 200 and r.json()["explanation"] == "because reasons"
 
@@ -72,3 +72,22 @@ def test_delete_tracked(client):
     r = tc.delete("/api/evaluation/AAPL")
     assert r.status_code == 200 and r.json()["deleted"] == 1
     assert store.all_predictions() == []
+
+
+def test_explain_route_passes_source(monkeypatch):
+    from fastapi.testclient import TestClient
+    from app.api import routes
+    from app.main import app
+
+    captured = {}
+
+    def fake_explain(ticker, call_date, settings, cache, store, source="llm_fast"):
+        captured["source"] = source
+        return "ok"
+
+    monkeypatch.setattr(routes, "explain_prediction", fake_explain)
+    client = TestClient(app)
+    resp = client.post("/api/evaluation/AAPL/2026-06-01/explain?source=technical")
+    app.dependency_overrides.clear()
+    assert resp.status_code == 200
+    assert captured["source"] == "technical"

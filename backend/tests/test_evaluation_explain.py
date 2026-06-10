@@ -76,3 +76,41 @@ def test_explain_survives_news_fetch_failure(tmp_path, monkeypatch):
     monkeypatch.setattr(service, "build_provider", lambda s: fake)
     text = service.explain_prediction("AAPL", "2026-06-01", Settings(), cache, store)
     assert text and fake.calls == 1
+
+
+def test_explain_uses_source_specific_row(tmp_path, monkeypatch):
+    import pytest
+    from app.config.cache import Cache
+    from app.evaluation.service import explain_prediction
+    from app.evaluation.store import PredictionStore
+    from app.models.schemas import Settings
+
+    class _Prov:
+        name = "fake"
+        def __init__(self):
+            self.user = ""
+        def complete(self, system, user):
+            self.user = user
+            return "because reasons"
+
+    prov = _Prov()
+    cache = Cache(str(tmp_path / "c.db"))
+    store = PredictionStore(str(tmp_path / "p.db"))
+    store.upsert_prediction(ticker="AAPL", call_date="2026-06-01", provider="rules", model="",
+                            recommendation="buy", confidence=0.4, sentiment="bullish",
+                            entry_price=100.0, source="technical")
+    store.record_eval("AAPL", "2026-06-01", 1, "2026-06-02", 95.0, -5.0, 0, 10.0,
+                      source="technical")
+
+    def _no_stock(*a, **k):
+        raise ValueError("offline")
+
+    monkeypatch.setattr("app.evaluation.service.get_stock_data", _no_stock)
+    monkeypatch.setattr("app.evaluation.service.build_provider", lambda s: prov)
+
+    text = explain_prediction("AAPL", "2026-06-01", Settings(), cache, store,
+                              source="technical")
+    assert text == "because reasons"
+    assert "deterministic technical screen" in prov.user
+    with pytest.raises(ValueError):
+        explain_prediction("AAPL", "2026-06-01", Settings(), cache, store, source="llm_deep")

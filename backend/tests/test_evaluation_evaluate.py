@@ -74,3 +74,31 @@ def test_scoring_failure_is_isolated(tmp_path, monkeypatch):
     # Must not raise even though record_eval fails for this ticker.
     summary = service.evaluate_pending(store, Settings())
     assert store.all_evals() == []
+
+
+def _rising_series():
+    from datetime import date, timedelta
+    d0 = date(2026, 6, 1)
+    return [((d0 + timedelta(days=i)).isoformat(), 100.0 + i) for i in range(30)]
+
+
+def test_multi_source_rows_scored_independently(tmp_path, monkeypatch):
+    from app.evaluation.service import evaluate_pending
+    from app.evaluation.store import PredictionStore
+    from app.models.schemas import Settings
+
+    store = PredictionStore(str(tmp_path / "p.db"))
+    base = dict(ticker="AAPL", call_date="2026-06-01", provider="a", model="m",
+                confidence=0.8, sentiment="bullish", entry_price=100.0)
+    store.upsert_prediction(**base, recommendation="buy", source="llm_fast")
+    store.upsert_prediction(**base, recommendation="sell", source="llm_deep")
+    store.upsert_prediction(**base, recommendation="buy", source="technical")
+    monkeypatch.setattr("app.evaluation.service.fetch_close_series",
+                        lambda t, p: _rising_series())
+    evaluate_pending(store, Settings())
+    fast = store.evals_for("AAPL", "2026-06-01", "llm_fast")
+    deep = store.evals_for("AAPL", "2026-06-01", "llm_deep")
+    tech = store.evals_for("AAPL", "2026-06-01", "technical")
+    assert len(fast) == len(deep) == len(tech) == 3  # horizons 1/5/20
+    assert all(e.hit for e in fast) and all(e.hit for e in tech)   # buy in a rising series
+    assert all(not e.hit for e in deep)                            # sell in a rising series
