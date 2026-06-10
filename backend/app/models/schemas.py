@@ -292,7 +292,7 @@ class SourceSignal(BaseModel):
 class SignalsAgreement(BaseModel):
     counted: int = 0
     agreeing: int = 0
-    on: Optional[Literal["buy", "sell", "hold"]] = None  # meaningful only when conflict is False; on a split vote it's just the first plurality holder
+    on: Optional[Literal["buy", "sell", "hold"]] = None  # the plurality leader; on a split vote (conflict=True) it's only a lean, not consensus
     conflict: bool = False
 
 

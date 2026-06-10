@@ -59,3 +59,16 @@ it('renders without signals data (score only)', () => {
   render(<SignalsStrip score={score()} />);
   expect(screen.getByText('72')).toBeInTheDocument();
 });
+
+it('renders hold calls with a distinct glyph from absent sources', () => {
+  render(<SignalsStrip score={score()} signals={signals({
+    sources: {
+      network: {
+        latest: { call_date: '2026-06-09', recommendation: 'hold', confidence: 0.1 },
+        track: { n_calls: 1, n_matured: 0, hit_rate: null, avg_score: null, grade: null },
+      },
+    },
+  })} />);
+  expect(screen.getByText('■ HOLD')).toBeInTheDocument();
+  expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(3); // TECH/FAST/DEEP absent
+});

@@ -155,5 +155,7 @@ describe('Dashboard no-LLM score', () => {
     const strip = reason.closest('.signals-strip');
     expect(strip).not.toBeNull();
     expect(within(strip as HTMLElement).getByText('72')).toBeInTheDocument();
+    // SIGNALS fixture has a technical source — its chip label should appear in the strip.
+    expect(within(strip as HTMLElement).getByText(/TECH/)).toBeInTheDocument();
   });
 });

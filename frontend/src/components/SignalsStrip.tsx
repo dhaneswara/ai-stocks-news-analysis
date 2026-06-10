@@ -4,7 +4,7 @@ import { ScoreBar } from './ScoreBar';
 const ORDER: [Source, string][] = [
   ['technical', 'TECH'], ['network', 'NET'], ['llm_fast', 'FAST'], ['llm_deep', 'DEEP'],
 ];
-const ARROW: Record<Recommendation, string> = { buy: '▲', sell: '▼', hold: '—' };
+const ARROW: Record<Recommendation, string> = { buy: '▲', sell: '▼', hold: '■' };
 
 /** Every CALL source for the loaded ticker side by side: latest call per source, hit-rate
  * tooltips, a crown on the historically best source, and an agree/conflict badge. Replaces
@@ -43,7 +43,7 @@ export function SignalsStrip({ score, signals }: { score?: StockScore; signals?:
         {a && a.counted >= 2 && (
           <span className={`agree-badge${a.conflict ? ' conflict' : ''}`}>
             {a.conflict
-              ? `${a.agreeing}/${a.counted} lean ${a.on?.toUpperCase() ?? ''}`
+              ? `${a.agreeing}/${a.counted} lean ${a.on ? a.on.toUpperCase() : 'SPLIT'}`
               : `${a.counted}/${a.counted} agree on ${a.on?.toUpperCase() ?? ''}`}
           </span>
         )}
