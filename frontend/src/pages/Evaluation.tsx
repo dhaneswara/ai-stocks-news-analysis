@@ -142,9 +142,9 @@ export default function Evaluation() {
           <>
             <SourceScoreboard sources={board.data.sources ?? {}} />
             <div className="src-filter">
-              <button className={srcFilter == null ? '' : 'secondary'} onClick={() => setSrcFilter(null)}>All</button>
+              <button className={srcFilter == null ? 'active' : 'secondary'} onClick={() => setSrcFilter(null)}>All</button>
               {SOURCE_ORDER.map((k) => (
-                <button key={k} className={srcFilter === k ? '' : 'secondary'} onClick={() => setSrcFilter(k)}>
+                <button key={k} className={srcFilter === k ? 'active' : 'secondary'} onClick={() => setSrcFilter(k)}>
                   {SOURCE_LABEL[k]}
                 </button>
               ))}

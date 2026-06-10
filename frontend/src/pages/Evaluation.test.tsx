@@ -78,4 +78,33 @@ describe('Evaluation page', () => {
     expect(await screen.findByText(/missed an earnings beat/i)).toBeInTheDocument();
     expect(api.explainPrediction).toHaveBeenCalledWith('AAPL', '2026-06-01', 'llm_fast');
   });
+
+  it('renders SourceScoreboard cards and filter empty-state', async () => {
+    const boardWithSources: EvaluationBoard = {
+      ...BOARD,
+      sources: {
+        technical: { n_calls: 4, n_matured: 3, hit_rate: 66.7, avg_score: 61.2, grade: 'Mixed' },
+      },
+    };
+    vi.mocked(api.getEvaluation).mockResolvedValue(boardWithSources);
+
+    renderPage();
+
+    // Scoreboard card assertions
+    // "Technical" appears in the card label and in the filter button; both are fine
+    await screen.findByText(/66\.7% hit rate/);
+    expect(screen.getAllByText('Technical').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/66\.7% hit rate/)).toBeInTheDocument();
+    expect(screen.getByText(/4 calls · 3 scored/)).toBeInTheDocument();
+    // "Mixed" appears in the scoreboard card and in the board row — both are expected
+    expect(screen.getAllByText('Mixed').length).toBeGreaterThanOrEqual(1);
+
+    // Click the "LLM deep" filter button
+    const deepBtn = screen.getByRole('button', { name: 'LLM deep' });
+    fireEvent.click(deepBtn);
+
+    // Expand AAPL company detail — fixture call is llm_fast, so filter=llm_deep → empty
+    fireEvent.click(await screen.findByText('AAPL'));
+    expect(await screen.findByText('No calls from this source yet.')).toBeInTheDocument();
+  });
 });

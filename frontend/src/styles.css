@@ -806,6 +806,7 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
   background: var(--panel);
 }
 .src-filter { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; }
+.src-filter button.active { border-color: var(--gold-line); background: var(--gold-tint); }
 
 /* graph editing: context menu, legend overlay, merge preview, relationship form */
 .graph-ctx-menu {
