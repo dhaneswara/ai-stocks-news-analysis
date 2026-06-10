@@ -211,3 +211,19 @@ def test_build_signals_winner_tie_yields_no_crown(tmp_path):
             _signal_eval(store, src, d, 70.0, 1)
     out = build_signals("AAPL", store, today=date(2026, 6, 10))
     assert out.winner is None
+
+
+def test_build_signals_winner_tiebreak_prefers_more_matured(tmp_path):
+    from datetime import date
+    from app.evaluation.signals import build_signals
+
+    store = PredictionStore(str(tmp_path / "p.db"))
+    # Same avg score (70.0) for both sources; technical has 4 matured units, llm_fast 3.
+    for d in ("2026-06-02", "2026-06-03", "2026-06-04", "2026-06-05"):
+        _signal_pred(store, "technical", d, "buy")
+        _signal_eval(store, "technical", d, 70.0, 1)
+    for d in ("2026-06-03", "2026-06-04", "2026-06-05"):
+        _signal_pred(store, "llm_fast", d, "buy")
+        _signal_eval(store, "llm_fast", d, 70.0, 1)
+    out = build_signals("AAPL", store, today=date(2026, 6, 10))
+    assert out.winner == "technical"   # equal avg -> larger matured count takes the crown
