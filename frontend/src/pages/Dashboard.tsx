@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { PriceChart, type ChartRange } from '../components/PriceChart';
 import { IndicatorBar } from '../components/IndicatorBar';
@@ -8,8 +9,8 @@ import { SignalList } from '../components/SignalList';
 import { TickerBar } from '../components/TickerBar';
 import { TracePanel } from '../components/TracePanel';
 import { useDeepAnalyze } from '../hooks/useDeepAnalyze';
-import { ScoreChip } from '../components/ScoreChip';
-import { useAnalyze, useScore, useStock, useWatchlist } from '../hooks/queries';
+import { SignalsStrip } from '../components/SignalsStrip';
+import { useAnalyze, useScore, useSignals, useStock, useWatchlist } from '../hooks/queries';
 import { useDashboardState } from '../state/dashboardState';
 
 const RANGES: ChartRange[] = ['1M', '3M', '6M', '1Y', '2Y', '5Y'];
@@ -30,6 +31,8 @@ export default function Dashboard() {
 
   const stock = useStock(ticker);
   const score = useScore(ticker);
+  const signals = useSignals(ticker);
+  const qc = useQueryClient();
   const analyze = useAnalyze(ticker, RANGE_TO_PERIOD[range]);
   const deep = useDeepAnalyze(ticker, RANGE_TO_PERIOD[range]);
 
@@ -64,7 +67,12 @@ export default function Dashboard() {
   };
 
   const runDeepAnalyze = () => { setSelected(null); deep.start(); };
-  useEffect(() => { if (deep.result) setAnalysis(deep.result); }, [deep.result, setAnalysis]);
+  useEffect(() => {
+    if (deep.result) {
+      setAnalysis(deep.result);
+      qc.invalidateQueries({ queryKey: ['signals', ticker] });
+    }
+  }, [deep.result, setAnalysis, qc, ticker]);
 
   const d = stock.data;
   const up = d ? d.price.change >= 0 : false;
@@ -112,7 +120,9 @@ export default function Dashboard() {
                   </span>
                 </div>
               </div>
-              {score.data && <ScoreChip score={score.data} />}
+              {(score.data || signals.data) && (
+                <SignalsStrip score={score.data} signals={signals.data} />
+              )}
             </div>
             <div className="summary-stats">
               <IndicatorBar data={d} />

@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import App from '../App';
-import type { AnalysisResult, ScreenBoard, Settings, StockData, StockScore } from '../types';
+import type { AnalysisResult, ScreenBoard, Settings, SignalsSummary, StockData, StockScore } from '../types';
 
 // lightweight-charts can't render in jsdom; the chart isn't what we're testing.
 vi.mock('../components/PriceChart', () => ({ PriceChart: () => null }));
@@ -21,6 +21,7 @@ vi.mock('../api/client', () => ({
     rescan: vi.fn(),
     refreshUniverse: vi.fn(),
     getScore: vi.fn(),
+    getSignals: vi.fn(),
   },
 }));
 
@@ -72,6 +73,18 @@ const SCORE: StockScore = {
   score: 72, direction: 'buy', net: 0.3, reasons: ['RSI 28 (oversold)'], components: {}, as_of: '2026-06-06',
 };
 
+const SIGNALS: SignalsSummary = {
+  ticker: 'AAPL',
+  sources: {
+    technical: {
+      latest: { call_date: '2026-06-06', recommendation: 'buy', confidence: 0.6 },
+      track: { n_calls: 2, n_matured: 1, hit_rate: 100, avg_score: 80, grade: 'Strong' },
+    },
+  },
+  agreement: { counted: 1, agreeing: 1, on: 'buy', conflict: false },
+  winner: 'technical',
+};
+
 beforeEach(() => {
   vi.mocked(api.getSettings).mockResolvedValue(SETTINGS);
   vi.mocked(api.getStock).mockResolvedValue(STOCK);
@@ -79,6 +92,7 @@ beforeEach(() => {
   vi.mocked(api.getSectors).mockResolvedValue([]);
   vi.mocked(api.getScreen).mockResolvedValue(BOARD);
   vi.mocked(api.getScore).mockResolvedValue(SCORE);
+  vi.mocked(api.getSignals).mockResolvedValue(SIGNALS);
 });
 
 function renderApp() {
@@ -138,8 +152,8 @@ describe('Dashboard no-LLM score', () => {
   it('shows the opportunity score chip on ticker load', async () => {
     renderApp();
     const reason = await screen.findByText(/RSI 28 \(oversold\)/);
-    const chip = reason.closest('.score-chip');
-    expect(chip).not.toBeNull();
-    expect(within(chip as HTMLElement).getByText('72')).toBeInTheDocument();
+    const strip = reason.closest('.signals-strip');
+    expect(strip).not.toBeNull();
+    expect(within(strip as HTMLElement).getByText('72')).toBeInTheDocument();
   });
 });
