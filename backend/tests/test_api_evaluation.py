@@ -3,7 +3,8 @@ from fastapi.testclient import TestClient
 
 import app.api.routes as routes
 from app.config.cache import Cache
-from app.deps import get_cache, get_prediction_store
+from app.config.settings_store import SettingsStore
+from app.deps import get_cache, get_prediction_store, get_settings_store
 from app.evaluation.store import PredictionStore
 from app.main import app
 
@@ -74,11 +75,7 @@ def test_delete_tracked(client):
     assert store.all_predictions() == []
 
 
-def test_explain_route_passes_source(monkeypatch):
-    from fastapi.testclient import TestClient
-    from app.api import routes
-    from app.main import app
-
+def test_explain_route_passes_source(tmp_path, monkeypatch):
     captured = {}
 
     def fake_explain(ticker, call_date, settings, cache, store, source="llm_fast"):
@@ -86,8 +83,19 @@ def test_explain_route_passes_source(monkeypatch):
         return "ok"
 
     monkeypatch.setattr(routes, "explain_prediction", fake_explain)
-    client = TestClient(app)
-    resp = client.post("/api/evaluation/AAPL/2026-06-01/explain?source=technical")
-    app.dependency_overrides.clear()
+    app.dependency_overrides[get_cache] = lambda: Cache(str(tmp_path / "c.db"))
+    app.dependency_overrides[get_settings_store] = lambda: SettingsStore(str(tmp_path / "s.db"))
+    app.dependency_overrides[get_prediction_store] = lambda: PredictionStore(str(tmp_path / "p.db"))
+    try:
+        client = TestClient(app)
+        resp = client.post("/api/evaluation/AAPL/2026-06-01/explain?source=technical")
+    finally:
+        app.dependency_overrides.clear()
     assert resp.status_code == 200
     assert captured["source"] == "technical"
+
+
+def test_explain_route_rejects_unknown_source():
+    client = TestClient(app)
+    resp = client.post("/api/evaluation/AAPL/2026-06-01/explain?source=garbage")
+    assert resp.status_code == 422

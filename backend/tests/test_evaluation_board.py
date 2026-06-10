@@ -76,3 +76,4 @@ def test_board_threads_source_through_records(tmp_path):
     assert by[("2026-06-01", "llm_fast")].results[0].status == "final"
     assert by[("2026-06-01", "technical")].results[0].status == "pending"
     assert comp.rollup.n_calls == 2
+    assert comp.rollup.hit_rate == 100.0  # 1 matured llm_fast hit; technical still pending

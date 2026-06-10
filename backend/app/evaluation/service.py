@@ -114,11 +114,12 @@ def build_board(store: PredictionStore, settings: Settings) -> EvaluationBoard:
 
     companies: list[CompanyEvaluation] = []
     for ticker, preds in by_ticker.items():
-        preds.sort(key=lambda p: (p.call_date, p.source), reverse=True)  # newest call first
+        preds.sort(key=lambda p: (p.call_date, p.source), reverse=True)  # newest first; same-date ties led by the alphabetically-last source
         records: list[PredictionRecord] = []
         scores: list[float] = []
         hit_confs: list[float] = []
         miss_confs: list[float] = []
+        n_hits = 0
 
         for p in preds:
             results: list[HorizonResult] = []
@@ -132,6 +133,8 @@ def build_board(store: PredictionStore, settings: Settings) -> EvaluationBoard:
                     return_pct=e.return_pct, hit=bool(e.hit), score=e.score,
                 ))
                 scores.append(e.score)
+                if e.hit:
+                    n_hits += 1
                 if p.source in LLM_SOURCES:  # deterministic |net| proxies must not skew the flag
                     (hit_confs if e.hit else miss_confs).append(p.confidence)
             records.append(PredictionRecord(
@@ -141,7 +144,6 @@ def build_board(store: PredictionStore, settings: Settings) -> EvaluationBoard:
             ))
 
         n_matured = len(scores)
-        n_hits = len(hit_confs)
         if n_matured:
             hit_rate: float | None = round(n_hits / n_matured * 100.0, 1)
             avg_score: float | None = round(sum(scores) / n_matured, 1)

@@ -23,6 +23,7 @@ from app.models.schemas import (
     SavedGraphVersion,
     ScreenBoard,
     Settings,
+    Source,
     StockData,
     StockScore,
 )
@@ -417,7 +418,7 @@ def get_evaluation(
 def explain_evaluation(
     ticker: str,
     call_date: str,
-    source: str = "llm_fast",
+    source: Source = "llm_fast",
     cache: Cache = Depends(get_cache),
     store: SettingsStore = Depends(get_settings_store),
     prediction_store: PredictionStore = Depends(get_prediction_store),
