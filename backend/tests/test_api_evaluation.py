@@ -132,3 +132,27 @@ def test_snapshot_route_uses_settings_watchlist(tmp_path, monkeypatch):
     assert resp.status_code == 200
     assert resp.json() == {"recorded": 2, "skipped": []}
     assert captured["watchlist"] == ["AAPL", "MSFT"]  # Settings default
+
+
+def test_snapshot_route_short_circuits_when_disabled(tmp_path, monkeypatch):
+    from fastapi.testclient import TestClient
+    from app.config.cache import Cache
+    from app.config.settings_store import SettingsStore
+    from app.deps import get_cache, get_prediction_store, get_settings_store
+    from app.evaluation.store import PredictionStore
+    from app.main import app
+
+    settings_store = SettingsStore(str(tmp_path / "settings.db"))
+    s = settings_store.load()
+    s.evaluation.enabled = False
+    settings_store.save(s)
+    app.dependency_overrides[get_cache] = lambda: Cache(str(tmp_path / "cache.db"))
+    app.dependency_overrides[get_settings_store] = lambda: settings_store
+    app.dependency_overrides[get_prediction_store] = lambda: PredictionStore(str(tmp_path / "pred.db"))
+    try:
+        client = TestClient(app)
+        resp = client.post("/api/evaluation/snapshot")
+    finally:
+        app.dependency_overrides.clear()
+    assert resp.status_code == 200
+    assert resp.json() == {"recorded": 0, "skipped": [], "disabled": True}

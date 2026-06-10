@@ -80,3 +80,19 @@ def test_snapshot_watchlist_records_and_isolates_failures(tmp_path, monkeypatch)
     assert out["recorded"] == 1
     assert out["skipped"] == [{"ticker": "MSFT", "reason": "no data"}]
     assert store.get_prediction("AAPL", "2026-06-05", "technical") is not None
+
+
+def test_snapshot_watchlist_counts_no_candle_tickers_as_skipped(tmp_path, monkeypatch):
+    from app.evaluation.signals import snapshot_watchlist
+
+    store = PredictionStore(str(tmp_path / "p.db"))
+    settings = Settings()
+    settings.watchlist = ["AAPL"]
+    empty = _stock("AAPL")
+    empty.candles = []
+    monkeypatch.setattr(signals, "get_stock_data", lambda t, p, ip, c: empty)
+    monkeypatch.setattr(signals, "score_one", lambda t, s, c: _score("AAPL"))
+    out = snapshot_watchlist(settings, Cache(str(tmp_path / "c.db")), store)
+    assert out["recorded"] == 0
+    assert out["skipped"] == [{"ticker": "AAPL", "reason": "no candles"}]
+    assert store.all_predictions() == []

@@ -50,12 +50,17 @@ def record_deterministic_pair(stock: StockData, settings: Settings, cache: Cache
 def snapshot_watchlist(settings: Settings, cache: Cache, store: PredictionStore) -> dict:
     """Record today's technical/network calls for every watchlist ticker (the Discover page
     fires this after Rescan All). Per-ticker isolation: one bad ticker is skipped and
-    reported, the rest record."""
+    reported, the rest record. Stock data is read via the same
+    cache the rescan just populated (cold calls fall back to a live fetch; score_one's
+    internal fetch hits the same cache entry)."""
     recorded, skipped = 0, []
     for raw in settings.watchlist:
         ticker = raw.upper().strip()
         try:
             stock = get_stock_data(ticker, SCAN_PERIOD, settings.indicator_params, cache)
+            if not stock.candles:
+                skipped.append({"ticker": ticker, "reason": "no candles"})
+                continue
             record_deterministic_pair(stock, settings, cache, store)
             recorded += 1
         except Exception as exc:  # noqa: BLE001 — isolate per-ticker failures
