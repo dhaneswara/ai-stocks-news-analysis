@@ -270,6 +270,39 @@ class PredictionRecord(BaseModel):
     results: list[HorizonResult] = Field(default_factory=list)
 
 
+class SourceTrack(BaseModel):
+    n_calls: int = 0
+    n_matured: int = 0                 # one unit per matured horizon, like CompanyRollup
+    hit_rate: Optional[float] = None
+    avg_score: Optional[float] = None
+    grade: Optional[Literal["Strong", "Mixed", "Weak"]] = None
+
+
+class LatestCall(BaseModel):
+    call_date: str
+    recommendation: Literal["buy", "sell", "hold"]
+    confidence: float = 0.0
+
+
+class SourceSignal(BaseModel):
+    latest: LatestCall
+    track: SourceTrack = Field(default_factory=SourceTrack)
+
+
+class SignalsAgreement(BaseModel):
+    counted: int = 0
+    agreeing: int = 0
+    on: Optional[Literal["buy", "sell", "hold"]] = None
+    conflict: bool = False
+
+
+class SignalsSummary(BaseModel):
+    ticker: str
+    sources: dict[str, Optional[SourceSignal]] = Field(default_factory=dict)
+    agreement: SignalsAgreement = Field(default_factory=SignalsAgreement)
+    winner: Optional[Source] = None
+
+
 class CompanyRollup(BaseModel):
     ticker: str
     n_calls: int = 0

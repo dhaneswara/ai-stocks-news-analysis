@@ -148,3 +148,66 @@ def test_track_record_block_gates(tmp_path):
     store2.record_eval("NVDA", "2026-06-01", 5, "2026-06-08", 105.0, 5.0, 1, 100.0,
                        source="technical")
     assert build_track_record_block("NVDA", store2, Settings()) is None
+
+
+def _signal_pred(store, source, call_date, rec, *, ticker="AAPL", conf=0.5):
+    store.upsert_prediction(ticker=ticker, call_date=call_date, provider="x", model="",
+                            recommendation=rec, confidence=conf, sentiment="neutral",
+                            entry_price=100.0, source=source)
+
+
+def _signal_eval(store, source, call_date, score, hit, *, ticker="AAPL", horizon=5):
+    store.record_eval(ticker, call_date, horizon, "2026-06-09", 100.0, 1.0, hit, score,
+                      source=source)
+
+
+def test_build_signals_empty(tmp_path):
+    from datetime import date
+    from app.evaluation.signals import build_signals
+
+    store = PredictionStore(str(tmp_path / "p.db"))
+    out = build_signals("AAPL", store, today=date(2026, 6, 10))
+    assert out.ticker == "AAPL" and out.winner is None
+    assert out.agreement.counted == 0
+    assert all(v is None for v in out.sources.values())
+
+
+def test_build_signals_latest_tracks_winner_and_agreement(tmp_path):
+    from datetime import date
+    from app.evaluation.signals import build_signals
+
+    store = PredictionStore(str(tmp_path / "p.db"))
+    # technical: 3 matured, strong — qualifies and wins
+    for d in ("2026-06-03", "2026-06-04", "2026-06-05"):
+        _signal_pred(store, "technical", d, "buy")
+        _signal_eval(store, "technical", d, 80.0, 1)
+    # llm_fast: 2 matured only — does not qualify for the crown
+    for d in ("2026-06-04", "2026-06-05"):
+        _signal_pred(store, "llm_fast", d, "sell")
+        _signal_eval(store, "llm_fast", d, 90.0, 1)
+    # network: stale (outside the 7-day window) — recorded but must not vote
+    _signal_pred(store, "network", "2026-05-20", "hold")
+
+    out = build_signals("AAPL", store, today=date(2026, 6, 10))
+    assert out.winner == "technical"
+    tech = out.sources["technical"]
+    assert tech.latest.call_date == "2026-06-05" and tech.latest.recommendation == "buy"
+    assert tech.track.n_calls == 3 and tech.track.n_matured == 3
+    assert tech.track.hit_rate == 100.0 and tech.track.grade == "Strong"
+    assert out.sources["llm_deep"] is None
+    assert out.agreement.counted == 2          # technical + llm_fast; network too old
+    assert out.agreement.conflict is True
+    assert out.agreement.agreeing == 1
+
+
+def test_build_signals_winner_tie_yields_no_crown(tmp_path):
+    from datetime import date
+    from app.evaluation.signals import build_signals
+
+    store = PredictionStore(str(tmp_path / "p.db"))
+    for src in ("technical", "llm_fast"):
+        for d in ("2026-06-03", "2026-06-04", "2026-06-05"):
+            _signal_pred(store, src, d, "buy")
+            _signal_eval(store, src, d, 70.0, 1)
+    out = build_signals("AAPL", store, today=date(2026, 6, 10))
+    assert out.winner is None

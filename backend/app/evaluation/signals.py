@@ -6,20 +6,31 @@ identical rules."""
 from __future__ import annotations
 
 import logging
+from collections import Counter
+from datetime import date, timedelta
 from typing import Optional
 
 from app.analysis.scoring import direction_for
 from app.config.cache import Cache
-from app.evaluation.scoring import is_overconfident
+from app.evaluation.scoring import grade_for, is_overconfident
 from app.evaluation.store import (
     LLM_SOURCES,
     SOURCE_LLM_DEEP,
     SOURCE_LLM_FAST,
     SOURCE_NETWORK,
     SOURCE_TECHNICAL,
+    SOURCES,
     PredictionStore,
 )
-from app.models.schemas import Settings, StockData
+from app.models.schemas import (
+    LatestCall,
+    Settings,
+    SignalsAgreement,
+    SignalsSummary,
+    SourceSignal,
+    SourceTrack,
+    StockData,
+)
 from app.screener.service import SCAN_PERIOD, score_one
 from app.services.stock_service import get_stock_data
 
@@ -123,3 +134,60 @@ def build_track_record_block(ticker: str, store: PredictionStore,
                 f"hits ({sum(hit_confs) / len(hit_confs):.2f}) — you skew overconfident.")
     return ("\n".join(lines) + summary +
             "\nCalibrate this call's confidence accordingly.")
+
+
+_MIN_MATURED_FOR_WINNER = 3
+_AGREEMENT_WINDOW_DAYS = 7   # ~5 trading days, calendar-approximated
+
+
+def build_signals(ticker: str, store: PredictionStore, *,
+                  today: Optional[date] = None) -> SignalsSummary:
+    """Latest call + track record per source for one ticker, plus the agreement summary and
+    the historically best source (>=3 matured evals; full ties get no crown). Reads only
+    already-scored evals — maturing happens on the Evaluation page / CLI runs."""
+    ticker = ticker.upper().strip()
+    preds = [p for p in store.all_predictions() if p.ticker == ticker]
+    eval_rows = [e for e in store.all_evals() if e.ticker == ticker]
+
+    sources: dict[str, Optional[SourceSignal]] = {}
+    for src in SOURCES:
+        sp = sorted((p for p in preds if p.source == src), key=lambda p: p.call_date)
+        if not sp:
+            sources[src] = None
+            continue
+        es = [e for e in eval_rows if e.source == src]
+        hit_rate = avg = grade = None
+        if es:
+            avg = round(sum(e.score for e in es) / len(es), 1)
+            hit_rate = round(100.0 * sum(1 for e in es if e.hit) / len(es), 1)
+            grade = grade_for(avg)
+        latest = sp[-1]
+        sources[src] = SourceSignal(
+            latest=LatestCall(call_date=latest.call_date,
+                              recommendation=latest.recommendation,
+                              confidence=latest.confidence),
+            track=SourceTrack(n_calls=len(sp), n_matured=len(es), hit_rate=hit_rate,
+                              avg_score=avg, grade=grade),
+        )
+
+    qualified = sorted(
+        ((src, s.track) for src, s in sources.items()
+         if s is not None and s.track.n_matured >= _MIN_MATURED_FOR_WINNER),
+        key=lambda kv: (kv[1].avg_score, kv[1].n_matured), reverse=True,
+    )
+    winner = None
+    if qualified and (len(qualified) == 1 or
+                      (qualified[0][1].avg_score, qualified[0][1].n_matured)
+                      != (qualified[1][1].avg_score, qualified[1][1].n_matured)):
+        winner = qualified[0][0]
+
+    cutoff = ((today or date.today()) - timedelta(days=_AGREEMENT_WINDOW_DAYS)).isoformat()
+    votes = [s.latest.recommendation for s in sources.values()
+             if s is not None and s.latest.call_date >= cutoff]
+    agreement = SignalsAgreement()
+    if votes:
+        counts = Counter(votes)
+        on, agreeing = counts.most_common(1)[0]
+        agreement = SignalsAgreement(counted=len(votes), agreeing=agreeing, on=on,
+                                     conflict=len(counts) > 1)
+    return SignalsSummary(ticker=ticker, sources=sources, agreement=agreement, winner=winner)

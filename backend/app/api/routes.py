@@ -24,6 +24,7 @@ from app.models.schemas import (
     SavedGraphVersion,
     ScreenBoard,
     Settings,
+    SignalsSummary,
     Source,
     StockData,
     StockScore,
@@ -47,7 +48,7 @@ from app.network.store import (
     save_graph,
 )
 from app.evaluation.service import build_board, evaluate_pending, explain_prediction, record_prediction
-from app.evaluation.signals import record_deterministic_pair, snapshot_watchlist
+from app.evaluation.signals import build_signals, record_deterministic_pair, snapshot_watchlist
 from app.evaluation.store import SOURCE_LLM_DEEP, SOURCE_LLM_FAST, PredictionStore
 from app.analysis.agent import AgentEvent, AgentTrace, ReActAgent, ToolContext
 from app.analysis.trace_store import AgentTraceStore
@@ -98,6 +99,16 @@ def get_score(
         return score_one(ticker.upper().strip(), store.load(), cache)
     except ValueError as exc:   # no data for ticker -> 404, same convention as GET /stock/{ticker}
         raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/signals/{ticker}", response_model=SignalsSummary)
+def get_signals(
+    ticker: str,
+    prediction_store: PredictionStore = Depends(get_prediction_store),
+) -> SignalsSummary:
+    """All recorded CALL sources for one ticker + per-source track records, agreement and
+    the historically best source — the Dashboard SignalsStrip payload."""
+    return build_signals(ticker, prediction_store)
 
 
 @router.post("/analyze/{ticker}", response_model=AnalysisResult)
@@ -171,7 +182,7 @@ def analyze_deep_stream(
     try:
         provider = build_provider(settings)
         stock = gather_stock_context(ticker, period, settings, cache, provider,
-                                         store=prediction_store)
+                                     store=prediction_store)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except LLMError as exc:
