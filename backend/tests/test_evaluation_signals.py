@@ -218,7 +218,8 @@ def test_build_signals_winner_tiebreak_prefers_more_matured(tmp_path):
     from app.evaluation.signals import build_signals
 
     store = PredictionStore(str(tmp_path / "p.db"))
-    # Same avg score (70.0) for both sources; technical has 4 matured units, llm_fast 3.
+    # Same avg score (70.0) but DIFFERENT matured counts -> larger count wins the crown.
+    # (A full tie on BOTH avg and matured count yields no crown — see the test above.)
     for d in ("2026-06-02", "2026-06-03", "2026-06-04", "2026-06-05"):
         _signal_pred(store, "technical", d, "buy")
         _signal_eval(store, "technical", d, 70.0, 1)

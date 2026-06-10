@@ -199,6 +199,8 @@ def analyze_deep_stream(
                                         trace_store)
                 yield _sse(event)
         except LLMError as exc:  # provider/LLM failure (e.g. missing key) -> usable in-stream error
+            # TODO: a mid-run LLMError loses the partial trace (only `final` persists);
+            # acceptable v1 limitation — revisit if failed deep runs need post-mortems.
             yield _sse(AgentEvent(type="error", message=str(exc)))
 
     return StreamingResponse(

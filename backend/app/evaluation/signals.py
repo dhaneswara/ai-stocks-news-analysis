@@ -170,10 +170,11 @@ def build_signals(ticker: str, store: PredictionStore, *,
                               avg_score=avg, grade=grade),
         )
 
+    # n_matured >= 3 implies avg_score is set; the `or 0.0` is belt-and-braces for the Optional type.
     qualified = sorted(
         ((src, s.track) for src, s in sources.items()
          if s is not None and s.track.n_matured >= _MIN_MATURED_FOR_WINNER),
-        key=lambda kv: (kv[1].avg_score, kv[1].n_matured), reverse=True,
+        key=lambda kv: (kv[1].avg_score or 0.0, kv[1].n_matured), reverse=True,
     )
     winner = None
     if qualified and (len(qualified) == 1 or
