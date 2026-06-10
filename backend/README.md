@@ -1,7 +1,8 @@
 # Backend — MarketCortex
 
-FastAPI service: US-stock data + indicators + news + multi-provider LLM analysis,
-opportunity screening, a company knowledge graph, and recommendation-accuracy evaluation.
+FastAPI service: US-stock data + indicators + news + multi-provider LLM analysis (single-shot
+**and** agentic Deep Analysis), opportunity screening, a company knowledge graph, and a
+**multi-source recommendation-accuracy scoreboard**.
 
 ## Setup
 
@@ -30,8 +31,11 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 
 - `GET  /api/health`
 - `GET  /api/stock/{ticker}?period=2y`
-- `POST /api/analyze/{ticker}?period=2y` — runs the LLM analysis (and records the call for evaluation)
+- `POST /api/analyze/{ticker}?period=2y` — runs the fast LLM analysis (and records the call **plus a technical/network baseline** for evaluation)
+- `GET  /api/analyze/{ticker}/deep/stream?period=2y` — agentic **Deep Analysis** streamed as Server-Sent Events (records as `llm_deep`; persists the agent trace)
+- `GET  /api/traces/{ticker}?limit=5` — recent persisted deep-analysis reasoning traces (newest first)
 - `GET  /api/score/{ticker}` — no-LLM opportunity score for one ticker (Discover parity, network-blended)
+- `GET  /api/signals/{ticker}` — every recorded CALL source for one ticker + per-source track records, agreement and the historically best source (powers the Dashboard Signals strip)
 - `GET  /api/settings` · `PUT /api/settings`
 - `GET  /api/providers` · `POST /api/providers/{id}/test`
 - `GET  /api/truth/mood` — current Truth Social mood + post count
@@ -47,9 +51,10 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 - `GET  /api/graph/imports` · `DELETE /api/graph/imports?set_id=` — list / remove import sets
 - `GET  /api/graph/imports/{id}` — one import set's graph (for the merge-into-graph preview).
 - `GET  /api/graph?scope=imported` — read the imported overlay (and `?scope=focus` returns the snapshot **merged** with it)
-- `GET  /api/evaluation` — recommendation-accuracy board (runs lazy scoring first)
-- `POST /api/evaluation/{ticker}/{call_date}/explain` — on-demand LLM post-mortem on a missed call
-- `DELETE /api/evaluation/{ticker}` — stop tracking a company (clears its recorded calls)
+- `GET  /api/evaluation` — recommendation-accuracy board with per-source rollups (runs lazy scoring first)
+- `POST /api/evaluation/snapshot` — record today's technical/network calls for the whole watchlist (fired by Discover after a rescan; no body)
+- `POST /api/evaluation/{ticker}/{call_date}/explain?source=llm_fast` — on-demand LLM post-mortem on a missed call (source-aware)
+- `DELETE /api/evaluation/{ticker}` — stop tracking a company (clears its recorded calls, all sources)
 - `POST /api/alerts/test` — send a test alert through the configured channel
 
 ## Trump / Truth Social signal
@@ -186,26 +191,63 @@ The graph is stored in the existing SQLite `Cache` (key `graph_snapshot:focus`; 
 > **boosts attention** (raises the score) but never votes on direction — the call stays
 > driven by technicals alone.
 
-## Recommendation evaluation
+## Deep Analysis (agentic ReAct)
 
-Every `POST /api/analyze/{ticker}` is recorded (recommendation, confidence, and the price +
-trading date at that moment) so the app can later check how accurate the call was. The
-**Evaluation** tab then scores each recorded call against what the price actually did at
-**1, 5, and 20 trading days** and rolls the results up per company.
+`GET /api/analyze/{ticker}/deep/stream?period=2y` runs the analysis as a bounded **ReAct
+agent**: the LLM reasons step-by-step and calls tools on demand (targeted news search, deeper
+fundamentals, a price window with indicators, the app's own score/network signals), streamed
+to the client as Server-Sent Events (`step` events, then a terminal `final` or `error`). The
+final answer uses the same schema as the fast path; on any agent failure it **falls back to
+the single-shot analyzer**, so the endpoint always terminates with a usable result. Each
+completed run persists its full reasoning trace to the `agent_traces` table
+(`GET /api/traces/{ticker}`) and records its prediction for evaluation — as `llm_deep`, or
+honestly as `llm_fast` when the run fell back, so the deep-vs-fast accuracy comparison is
+never polluted. The fast `POST /api/analyze` path is unchanged and remains the default.
+
+## Recommendation evaluation — the signal-source scoreboard
+
+Every CALL the app produces is recorded under a **source** tag and scored by the same rules,
+so the Evaluation tab can answer *"which signal should I trust?"* with data. The sources:
+
+| Source | What it is | Recorded when |
+|--------|-----------|---------------|
+| `llm_fast` | the single-shot **Analyze with LLM** call | `POST /api/analyze/{ticker}` |
+| `llm_deep` | the agentic **Deep Analysis** result | the deep stream's terminal event (a fallback run records as `llm_fast`) |
+| `technical` | the deterministic screener's pre-network vote | alongside every LLM analysis, and for the whole watchlist via `POST /api/evaluation/snapshot` (fired by Discover rescans) |
+| `network` | the network-blended call | same moments as `technical`, but only when a network signal actually influenced the score |
+
+Each recorded call (recommendation, confidence, entry price + trading date) is scored against
+what the price actually did at **1, 5, and 20 trading days** and rolled up per company *and*
+per source.
 
 - **Hit:** `buy` is right if the price rose, `sell` if it fell, `hold` if it stayed within a
   band (default ±2%).
 - **Score (0–100):** magnitude-aware — 50 is neutral, higher for bigger correct moves, lower
   for bigger wrong ones (scaled by `score_scale_pct`, default 5%).
-- **Per company:** hit-rate, average score, a **Strong / Mixed / Weak** grade, and an
-  **overconfident** flag (set when missed calls were, on average, at least as confident as
-  the correct ones). Confidence is a separate calibration stat — it is *not* folded into the score.
-- **Explain a miss:** `POST /api/evaluation/{ticker}/{call_date}/explain` runs one cached LLM
-  post-mortem on why the call was likely wrong (missed catalyst, regime shift, …).
+- **Per company:** hit-rate, average score, a **Strong / Mixed / Weak** grade, a
+  **by-source breakdown**, and an **overconfident** flag (set when missed calls were, on
+  average, at least as confident as the correct ones — computed from **LLM calls only**;
+  deterministic rows store `|net|` as a conviction proxy, not a probability). Confidence is a
+  separate calibration stat — it is *not* folded into the score.
+- **Per source (board level):** overall scoreboard cards — calls / scored / hit-rate /
+  average score / grade per source — which is also the **fast-vs-deep LLM comparison**.
+- **Signals summary:** `GET /api/signals/{ticker}` returns each source's latest call + its
+  per-ticker track record, an agreement summary (over sources fresh within ~5 trading days),
+  and the **winner** — the source with the best average score for that ticker once it has
+  **≥3 scored outcomes** (full ties crown nobody). This powers the Dashboard Signals strip.
+- **Track-record prompt:** both LLM paths receive the model's own scored history on the
+  ticker (last 5 matured calls + hit-rate + an overconfidence line) so it can calibrate
+  itself; the prompt is byte-identical for tickers with no scored history.
+- **Explain a miss:** `POST /api/evaluation/{ticker}/{call_date}/explain?source=…` runs one
+  cached LLM post-mortem on why the call was likely wrong (missed catalyst, regime shift, …) —
+  works on any source's row.
 
 Config lives in `Settings.evaluation` (`enabled`, `horizons` = `[1, 5, 20]`, `hold_band_pct`,
 `score_scale_pct`); no secrets, so nothing is masked. Recorded calls and their verdicts are
-stored in two SQLite tables (`predictions`, `prediction_evals`) in the app DB under `DATA_DIR`.
+stored in two SQLite tables (`predictions`, `prediction_evals`) in the app DB under `DATA_DIR`;
+both carry the `source` inside their primary keys (older databases are **migrated
+automatically on first start** — existing history is preserved, tagged `llm_fast`). Deep
+reasoning traces live in a third table, `agent_traces`.
 
 ### Scoring job
 
@@ -232,8 +274,9 @@ Create a Basic Task -> Daily (e.g. **5:45 PM**, after the screener/network tasks
 
 > *Decision support only — not financial advice.* A "hit" is a simple directional check over
 > end-of-day prices — not risk-adjusted, dividend-adjusted, or benchmark-relative. It scores
-> only the calls you actually ran (no synthetic backfill), and a single-day horizon is noisy
-> by nature.
+> only the calls you actually ran (no synthetic backfill), a single-day horizon is noisy by
+> nature, and per-source winners need **weeks of matured outcomes** before they mean anything
+> (the UI shows "collecting data" until a source has ≥3 scored results).
 
 ## Scheduled alerts
 
@@ -258,4 +301,3 @@ Create a Basic Task -> Daily (e.g. 5:30 PM, after US close) -> Start a program:
 - Start in: `D:\workspace\ai-stocks-news-analysis\backend`
 
 (macOS/Linux: add a cron entry running the same command from `backend/`.)
-```

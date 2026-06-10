@@ -6,8 +6,9 @@ and asks an **LLM (Anthropic / OpenAI / Gemini / local Ollama)** to produce a st
 analysis — a plain-language summary, a read on the news, and **buy/sell signals drawn
 directly on an interactive chart** with the reasoning shown on the page. It can also send
 **scheduled buy/sell alerts** to Telegram, rank opportunities across the S&P 500, map
-inter-company relationships as a **knowledge graph**, and **grade how accurate its own past
-LLM calls turn out to be**.
+inter-company relationships as a **knowledge graph**, run an **agentic Deep Analysis** that
+pulls evidence on demand, and **grade how accurate its own past calls turn out to be — for
+every signal source it produces** (fast LLM, deep LLM, technical screen, network-blended).
 
 > ⚠️ **Decision support, not financial advice.** The LLM can be confidently wrong, and the
 > on-chart/alert signals are mechanical heuristics + retrospective reasoning — **not** a
@@ -21,14 +22,24 @@ LLM calls turn out to be**.
   **timeframe selector (1M / 3M / 6M / 1Y / 2Y / 5Y)**, SMA50/200 overlays, and LLM-drawn
   **buy ▲ / sell ▼ markers**. Click a marker — or a row in the dedicated **Signals** list — to
   read that signal's reasoning. Manage your **watchlist inline**: star (★) the loaded ticker
-  to add it, or remove a chip with ×. The header also shows an instant **no-LLM opportunity
-  score** — the same 0–100 score / buy-sell-hold call / reason chips (network-blended) as the
-  Discover board — as soon as a ticker loads, before you run any LLM analysis.
+  to add it, or remove a chip with ×. The header shows a **Signals strip** as soon as a
+  ticker loads: the instant **no-LLM opportunity score** (same 0–100 score + reason chips as
+  the Discover board) plus the latest call from **every signal source side by side** —
+  technical, network-blended, fast LLM, and deep LLM — with an agree/conflict badge and a 👑
+  on the source that has historically been most accurate for that ticker (crowned once a
+  source has at least 3 scored outcomes).
 - **LLM analysis** — runs over the chart's **selected timeframe** and weighs the latest news
   *together with* the technicals/fundamentals. Returns a plain-language summary, news
   interpretation, sentiment, a current buy/sell/hold recommendation with confidence, the
   **key factors driving it** ("why now"), dated buy/sell signals (timed **buy-low / sell-high**,
-  with a deterministic guard that drops incoherent ones), and risks.
+  with a deterministic guard that drops incoherent ones), and risks. A separate **Deep
+  Analysis** button runs the same question as an **agentic ReAct loop**: the LLM pulls extra
+  evidence on demand (targeted news search, deeper fundamentals, price windows, the app's own
+  signals) with its Thought → Action → Observation trace **streamed live** to the page; the
+  result renders exactly like the fast path, it falls back to the single-shot analyzer if the
+  agent derails, and each run's trace is persisted for later review. Both paths feed the
+  Evaluation scoreboard, and both prompts include the model's **own scored track record** on
+  that ticker (recent hits/misses + an overconfidence note) so it can calibrate itself.
 - **Per-stock news** — recent headlines via Google News RSS.
 - **Multi-provider, switchable in the UI** — Anthropic, OpenAI, Gemini, or local Ollama;
   API keys are stored locally and masked in the UI.
@@ -75,16 +86,22 @@ LLM calls turn out to be**.
   are resolved to your tickers where possible, others kept as labelled external nodes; merge
   imported sets into a saved company graph (with conflict resolution + Discover linking), edit
   nodes/relationships by right-click, and an on-canvas legend.
-- **Recommendation evaluation** — every **Analyze with LLM** call is recorded, then scored
-  against what the price actually did at **1, 5, and 20 trading days**. A dedicated
-  **Evaluation** tab tracks many companies, each with a hit-rate, a 0–100 accuracy score, a
-  **Strong / Mixed / Weak** grade, and an **overconfidence** flag (are the confident calls
-  actually the right ones?). On any missed call, an on-demand **"Explain miss"** button asks
-  the LLM *why* it was wrong. Scoring runs automatically when you open the page, and can also
-  run unattended via `python -m app.evaluation`.
+- **Signal-source scoreboard (evaluation)** — every CALL the app produces is recorded and
+  scored against what the price actually did at **1, 5, and 20 trading days** — not just LLM
+  calls: **fast LLM**, **deep (agentic) LLM**, the deterministic **technical** screen, and the
+  **network-blended** call are all tracked under identical rules, so *"which signal should I
+  trust?"* becomes a measured answer instead of a feeling. The **Evaluation** tab shows
+  per-source scoreboard cards (calls / scored / hit-rate / grade), per-company boards with a
+  by-source breakdown and a source filter, an **overconfidence** flag for the LLM calls, and a
+  source-aware **"Explain miss"** LLM post-mortem. Your watchlist's technical/network calls are
+  snapshotted automatically every time you **Rescan** Discover; a deep run that silently fell
+  back to the fast path is honestly recorded as fast so the deep-vs-fast comparison never lies.
+  Scoring runs automatically when you open the page, and can also run unattended via
+  `python -m app.evaluation`.
   *Caveats:* a "hit" is a simple directional check (buy⇢up, sell⇢down, hold⇢flat within a
   band) over end-of-day prices — not risk-adjusted or benchmark-relative — and only scores the
-  calls you actually ran.
+  calls you actually ran; the per-ticker 👑 needs at least 3 scored outcomes before any source
+  is crowned, so expect "collecting data" for the first weeks.
 - **Free/minimal data** — `yfinance` for prices/fundamentals, Google News RSS for news.
 
 ## Architecture
@@ -157,18 +174,22 @@ npm run dev                        # http://localhost:5173
 2. **Provider:** pick Anthropic / OpenAI / Gemini and paste an API key (or pick **Ollama**
    and run `ollama serve` + `ollama pull llama3.1` — no key needed). Click **Test connection**.
 3. On the **Dashboard**, enter a ticker (or use the watchlist), then click **Analyze with LLM**
-   to draw buy/sell markers and show the reasoning + news.
+   for a fast call — or **Deep Analysis** to watch the agent pull data step-by-step — to draw
+   buy/sell markers and show the reasoning + news. The **Signals strip** in the header is the
+   one place to compare all four calls (technical / network / fast / deep) before you act.
 4. **Discover (optional):** open the **Discover** tab and click **Rescan all** to build
    today's opportunity board across the full S&P 500. Click any row to open the
-   LLM deep-dive for that ticker. For an automatic daily refresh, schedule
-   `python -m app.screener` post-close (see [backend/README.md](backend/README.md)).
+   LLM deep-dive for that ticker. Each rescan also snapshots your watchlist's
+   technical/network calls into the Evaluation scoreboard. For an automatic daily refresh,
+   schedule `python -m app.screener` post-close (see [backend/README.md](backend/README.md)).
 5. **Alerts (optional):** in **Settings → Alerts**, enable alerts, paste a Telegram bot token
    (from [@BotFather](https://t.me/BotFather)) + your chat id, set RSI thresholds, and click
    **Send test alert**. Then schedule `python -m app.alerts` daily (see
    [backend/README.md](backend/README.md) for Windows Task Scheduler / cron steps).
-6. **Evaluation (optional):** after you've analyzed a few tickers over several days, open the
-   **Evaluation** tab to see how accurate those calls were (1/5/20-day hit-rate, score, grade)
-   and click **Explain miss** on a bad one. For unattended scoring, schedule
+6. **Evaluation (optional):** after a few days of analyses and rescans, open the
+   **Evaluation** tab to see how accurate the calls were — per source (technical / network /
+   LLM fast / LLM deep) and per company (1/5/20-day hit-rate, score, grade) — and click
+   **Explain miss** on a bad one. For unattended scoring, schedule
    `python -m app.evaluation` (see [backend/README.md](backend/README.md)).
 
 ## Testing
@@ -198,8 +219,9 @@ Curated, high-value additions (roughly in priority order):
 2. **Deeper backtesting** — the **Evaluation** page now tracks LLM-recommendation accuracy
    forward (1/5/20-day hit-rate + score). Extend it with **risk-adjusted / benchmark-relative**
    metrics and a true historical replay of the *indicator-rule* signals.
-3. **Per-provider accuracy** — the Evaluation page already records which provider/model made
-   each call; break the accuracy rollups out by provider to see which LLM is most reliable.
+3. **Per-provider accuracy** — the Evaluation page already breaks accuracy out **by signal
+   source** (technical / network / fast LLM / deep LLM) and records which provider/model made
+   each call; also break the rollups out by provider to see which LLM is most reliable.
 4. **Watchlist overview page** — a multi-ticker table (price, RSI, recommendation, last
    signal) so you can scan the whole list at a glance, not one ticker at a time.
 5. **Richer indicators** — MACD and Bollinger Bands (compute + chart overlays + new alert
