@@ -31,7 +31,7 @@ def record_deterministic_pair(stock: StockData, settings: Settings, cache: Cache
         return
     score = score_one(stock.ticker, settings, cache)
     last = stock.candles[-1]
-    tech = direction_for(score.base_net)
+    tech = direction_for(score.base_net)  # pre-network vote; score.direction is the blended call
     store.upsert_prediction(
         ticker=stock.ticker, call_date=last.time, provider="rules", model="",
         recommendation=tech, confidence=min(1.0, abs(score.base_net)),
