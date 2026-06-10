@@ -1,7 +1,16 @@
 import { useState } from 'react';
 import { EvaluationBoard } from '../components/EvaluationBoard';
+import { ScoreBar } from '../components/ScoreBar';
 import { useDeleteTracked, useEvaluation, useExplainPrediction } from '../hooks/queries';
-import type { CompanyEvaluation, HorizonResult, PredictionRecord } from '../types';
+import type {
+  CompanyEvaluation, HorizonResult, PredictionRecord, Source, SourceTrack,
+} from '../types';
+
+const SOURCE_ORDER: Source[] = ['technical', 'network', 'llm_fast', 'llm_deep'];
+const SOURCE_LABEL: Record<Source, string> = {
+  technical: 'Technical', network: 'Network', llm_fast: 'LLM fast', llm_deep: 'LLM deep',
+};
+const GRADE_CLASS: Record<string, string> = { Strong: 'buy', Mixed: 'hold', Weak: 'sell' };
 
 function OutcomeChip({ r }: { r: HorizonResult }) {
   if (r.status !== 'final') return <span className="outcome pending">{r.horizon}d · pending</span>;
@@ -18,19 +27,47 @@ function hasMiss(call: PredictionRecord): boolean {
   return call.results.some((r) => r.status === 'final' && r.hit === false);
 }
 
-function CompanyDetail({ company }: { company: CompanyEvaluation }) {
+function SourceScoreboard({ sources }: { sources: Partial<Record<Source, SourceTrack>> }) {
+  const entries = SOURCE_ORDER.filter((k) => sources[k]);
+  if (!entries.length) return null;
+  return (
+    <div className="source-cards">
+      {entries.map((k) => {
+        const t = sources[k]!;
+        return (
+          <div className="source-card" key={k}>
+            <span className="section-label">{SOURCE_LABEL[k]}</span>
+            <span className="muted">{t.n_calls} calls · {t.n_matured} scored</span>
+            <span className="mono">{t.hit_rate == null ? '— hit rate' : `${t.hit_rate.toFixed(1)}% hit rate`}</span>
+            {t.avg_score != null ? (
+              <div className="score-cell"><ScoreBar score={t.avg_score} /><span>{t.avg_score.toFixed(0)}</span></div>
+            ) : (
+              <span className="muted">no scored calls yet</span>
+            )}
+            {t.grade && <span className={`badge ${GRADE_CLASS[t.grade]}`}>{t.grade}</span>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CompanyDetail({ company, srcFilter }: { company: CompanyEvaluation; srcFilter: Source | null }) {
   const explain = useExplainPrediction();
   const remove = useDeleteTracked();
   const [openExplain, setOpenExplain] = useState<string | null>(null);
   const [text, setText] = useState<Record<string, string>>({});
 
   const runExplain = (call: PredictionRecord) => {
-    setOpenExplain(call.call_date);
+    const key = `${call.call_date}:${call.source}`;
+    setOpenExplain(key);
     explain.mutate(
       { ticker: company.rollup.ticker, callDate: call.call_date, source: call.source },
-      { onSuccess: (d) => setText((t) => ({ ...t, [call.call_date]: d.explanation })) },
+      { onSuccess: (d) => setText((t) => ({ ...t, [key]: d.explanation })) },
     );
   };
+
+  const calls = company.calls.filter((c) => !srcFilter || c.source === srcFilter);
 
   return (
     <section className="panel">
@@ -40,28 +77,43 @@ function CompanyDetail({ company }: { company: CompanyEvaluation }) {
           {remove.isPending ? 'Removing…' : 'Stop tracking'}
         </button>
       </div>
+      <div className="src-filter">
+        {SOURCE_ORDER.filter((k) => company.by_source[k]).map((k) => {
+          const t = company.by_source[k]!;
+          return (
+            <span key={k} className="reason-chip">
+              {SOURCE_LABEL[k]}: {t.hit_rate == null ? '—' : `${t.hit_rate.toFixed(0)}%`} over {t.n_matured}
+            </span>
+          );
+        })}
+      </div>
       {remove.isError && <p className="error">Couldn't remove: {(remove.error as Error).message}</p>}
+      {!calls.length && <p className="muted">No calls from this source yet.</p>}
       <div className="calls">
-        {company.calls.map((call) => (
-          <div className="call-row" key={call.call_date}>
-            <span className="mono">{call.call_date}</span>
-            <span className={`badge ${call.recommendation}`}>{call.recommendation.toUpperCase()}</span>
-            <span className="muted">conf {(call.confidence * 100).toFixed(0)}%</span>
-            <div className="outcomes">
-              {call.results.map((r) => <OutcomeChip key={r.horizon} r={r} />)}
+        {calls.map((call) => {
+          const key = `${call.call_date}:${call.source}`;
+          return (
+            <div className="call-row" key={key}>
+              <span className="mono">{call.call_date}</span>
+              <span className="reason-chip">{SOURCE_LABEL[call.source]}</span>
+              <span className={`badge ${call.recommendation}`}>{call.recommendation.toUpperCase()}</span>
+              <span className="muted">conf {(call.confidence * 100).toFixed(0)}%</span>
+              <div className="outcomes">
+                {call.results.map((r) => <OutcomeChip key={r.horizon} r={r} />)}
+              </div>
+              {hasMiss(call) && (
+                <button className="secondary" onClick={() => runExplain(call)}
+                        disabled={explain.isPending && openExplain === key}>
+                  {explain.isPending && openExplain === key ? 'Analyzing…' : 'Explain miss'}
+                </button>
+              )}
+              {openExplain === key && explain.isError && (
+                <p className="error">Couldn't explain: {(explain.error as Error).message}</p>
+              )}
+              {text[key] && <p className="explain-box">{text[key]}</p>}
             </div>
-            {hasMiss(call) && (
-              <button className="secondary" onClick={() => runExplain(call)}
-                      disabled={explain.isPending && openExplain === call.call_date}>
-                {explain.isPending && openExplain === call.call_date ? 'Analyzing…' : 'Explain miss'}
-              </button>
-            )}
-            {openExplain === call.call_date && explain.isError && (
-              <p className="error">Couldn't explain: {(explain.error as Error).message}</p>
-            )}
-            {text[call.call_date] && <p className="explain-box">{text[call.call_date]}</p>}
-          </div>
-        ))}
+          );
+        })}
       </div>
     </section>
   );
@@ -70,6 +122,7 @@ function CompanyDetail({ company }: { company: CompanyEvaluation }) {
 export default function Evaluation() {
   const board = useEvaluation();
   const [selected, setSelected] = useState<string | null>(null);
+  const [srcFilter, setSrcFilter] = useState<Source | null>(null);
 
   const companies = board.data?.companies ?? [];
   const current = companies.find((c) => c.rollup.ticker === selected) ?? null;
@@ -78,16 +131,29 @@ export default function Evaluation() {
     <>
       <section className="panel">
         <div className="panel-head">
-          <span className="section-label">LLM call accuracy — click a company to see its calls</span>
+          <span className="section-label">Call accuracy by source — click a company to see its calls</span>
           {board.data?.as_of && (
             <span className="muted board-asof">As of {new Date(board.data.as_of).toLocaleString()}</span>
           )}
         </div>
         {board.isLoading && <p className="muted">Loading evaluation…</p>}
         {board.isError && <p className="error">Could not load evaluation: {(board.error as Error).message}</p>}
-        {board.data && <EvaluationBoard companies={companies} selected={selected} onSelect={setSelected} />}
+        {board.data && (
+          <>
+            <SourceScoreboard sources={board.data.sources ?? {}} />
+            <div className="src-filter">
+              <button className={srcFilter == null ? '' : 'secondary'} onClick={() => setSrcFilter(null)}>All</button>
+              {SOURCE_ORDER.map((k) => (
+                <button key={k} className={srcFilter === k ? '' : 'secondary'} onClick={() => setSrcFilter(k)}>
+                  {SOURCE_LABEL[k]}
+                </button>
+              ))}
+            </div>
+            <EvaluationBoard companies={companies} selected={selected} onSelect={setSelected} />
+          </>
+        )}
       </section>
-      {current && <CompanyDetail company={current} />}
+      {current && <CompanyDetail company={current} srcFilter={srcFilter} />}
     </>
   );
 }

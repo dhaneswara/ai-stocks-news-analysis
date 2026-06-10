@@ -15,7 +15,10 @@ export function useAnalyze(ticker: string, period = '5y') {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api.analyze(ticker, period),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['signals', ticker] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['signals', ticker] });
+      qc.invalidateQueries({ queryKey: ['evaluation'] });
+    },
   });
 }
 
