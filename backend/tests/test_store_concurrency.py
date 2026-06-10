@@ -63,3 +63,31 @@ def test_prediction_store_is_thread_safe(tmp_path):
 
     errors = _hammer(8, work)
     assert not errors, f"prediction-store race surfaced: {errors[:3]}"
+
+
+def test_prediction_store_sources_isolated_under_threads(tmp_path):
+    import threading
+    from app.evaluation.store import PredictionStore
+
+    store = PredictionStore(str(tmp_path / "p.db"))
+
+    def hammer(source: str):
+        for _ in range(50):
+            store.upsert_prediction(ticker="AAPL", call_date="2026-06-09", provider="a",
+                                    model="m", recommendation="buy", confidence=0.5,
+                                    sentiment="bullish", entry_price=100.0, source=source)
+            store.record_eval("AAPL", "2026-06-09", 1, "2026-06-10", 110.0, 10.0, 1, 80.0,
+                              source=source)
+            store.has_eval("AAPL", "2026-06-09", 1, source)
+
+    threads = [threading.Thread(target=hammer, args=(s,)) for s in ("llm_fast", "technical")]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    rows = store.all_predictions()
+    assert {r.source for r in rows} == {"llm_fast", "technical"}
+    assert len(rows) == 2  # one row per source — no cross-source clobbering
+    assert store.has_eval("AAPL", "2026-06-09", 1, "llm_fast")
+    assert store.has_eval("AAPL", "2026-06-09", 1, "technical")

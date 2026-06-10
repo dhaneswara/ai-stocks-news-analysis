@@ -82,6 +82,8 @@ class PredictionStore:
         self._lock = threading.Lock()
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.execute("PRAGMA busy_timeout = 5000")
+        # Construction runs before the instance is shared, so these _conn accesses
+        # need no lock; all public methods below take _lock.
         self._migrate_add_source()
         self._conn.execute(_CREATE_PREDICTIONS)
         self._conn.execute(_CREATE_EVALS)
