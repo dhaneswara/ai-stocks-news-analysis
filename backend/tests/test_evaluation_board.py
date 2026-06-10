@@ -104,3 +104,24 @@ def test_board_by_source_and_overall_scoreboard(tmp_path):
     assert comp.rollup.overconfident is False           # technical conf excluded
     assert board.sources["llm_fast"].n_calls == 1
     assert board.sources["technical"].avg_score == 5.0
+
+
+def test_board_sources_merge_across_companies(tmp_path):
+    from app.evaluation.service import build_board
+    from app.evaluation.store import PredictionStore
+    from app.models.schemas import Settings
+
+    store = PredictionStore(str(tmp_path / "p.db"))
+    for ticker, score in (("AAPL", 90.0), ("MSFT", 50.0)):
+        store.upsert_prediction(ticker=ticker, call_date="2026-06-01", provider="a", model="m",
+                                recommendation="buy", confidence=0.5, sentiment="bullish",
+                                entry_price=100.0, source="llm_fast")
+        store.record_eval(ticker, "2026-06-01", 1, "2026-06-02", 104.5, 4.5, 1, score,
+                          source="llm_fast")
+
+    board = build_board(store, Settings())
+    overall = board.sources["llm_fast"]
+    assert overall.n_calls == 2
+    assert overall.n_matured == 2
+    assert overall.avg_score == 70.0      # (90 + 50) / 2 across companies
+    assert overall.hit_rate == 100.0

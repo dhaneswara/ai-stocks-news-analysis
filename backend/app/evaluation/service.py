@@ -178,6 +178,7 @@ def build_board(store: PredictionStore, settings: Settings) -> EvaluationBoard:
             overconfident=is_overconfident(hit_confs, miss_confs),
             latest_recommendation=preds[0].recommendation, latest_call_date=preds[0].call_date,
         )
+        # invariant: any src in s_counts also has s_scores/s_hits entries when matured rows exist
         by_source = {src: _track_for(s_counts[src], s_scores.get(src, []),
                                      s_hits.get(src, 0)) for src in s_counts}
         for src in s_counts:
