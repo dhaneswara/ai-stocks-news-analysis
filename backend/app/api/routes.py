@@ -137,7 +137,8 @@ def _persist_deep_final(event: AgentEvent, stock: StockData, settings: Settings,
             logger.warning("trace persistence failed for %s", stock.ticker)
     if event.result is None or not settings.evaluation.enabled:
         return
-    source = SOURCE_LLM_FAST if (trace is not None and trace.fell_back) else SOURCE_LLM_DEEP
+    # No trace = can't prove it was a real agent run -> conservatively label llm_fast.
+    source = SOURCE_LLM_FAST if (trace is None or trace.fell_back) else SOURCE_LLM_DEEP
     try:
         record_prediction(stock, event.result, prediction_store, source=source)
     except Exception:  # noqa: BLE001
@@ -202,7 +203,13 @@ def get_traces(
     trace_store: AgentTraceStore = Depends(get_trace_store),
 ) -> list[AgentTrace]:
     """Most recent persisted deep-analysis traces for a ticker (newest first)."""
-    return [AgentTrace.model_validate_json(j) for j in trace_store.recent(ticker, limit)]
+    results: list[AgentTrace] = []
+    for j in trace_store.recent(ticker, limit):
+        try:
+            results.append(AgentTrace.model_validate_json(j))
+        except Exception:  # noqa: BLE001 — one corrupt row must not take the endpoint down
+            logger.warning("corrupt trace row for %s, skipping", ticker)
+    return results
 
 
 @router.get("/settings", response_model=Settings)

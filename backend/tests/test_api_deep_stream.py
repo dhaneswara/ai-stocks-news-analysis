@@ -135,3 +135,24 @@ def test_get_traces_returns_recent(tmp_path):
     assert resp.status_code == 200
     body = resp.json()
     assert len(body) == 1 and body[0]["ticker"] == "AAPL"
+
+
+def test_deep_disabled_evaluation_still_persists_trace(tmp_path, monkeypatch):
+    client, pred_store, trace_store = _client(tmp_path)
+    # Flip evaluation off in the overridden settings store.
+    from app.deps import get_settings_store as _gss
+    settings_store = app.dependency_overrides[_gss]()
+    s = settings_store.load()
+    s.evaluation.enabled = False
+    settings_store.save(s)
+
+    monkeypatch.setattr(routes, "gather_stock_context",
+                        lambda t, p, s, c, prov: _stock_with_candles())
+    monkeypatch.setattr(
+        routes, "build_provider",
+        lambda settings: FakeProvider([f'Thought: done\nFinal Answer: {json.dumps(VALID_PAYLOAD)}']),
+    )
+    resp = client.get("/api/analyze/AAPL/deep/stream?period=1y")
+    assert resp.status_code == 200
+    assert pred_store.all_predictions() == []          # recording gated off
+    assert len(trace_store.recent("AAPL")) == 1        # trace is observability — always kept
