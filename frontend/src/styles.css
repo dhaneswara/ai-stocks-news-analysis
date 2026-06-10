@@ -762,6 +762,12 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 .graph-page { display: flex; gap: 16px; align-items: stretch; min-height: 520px; height: calc(100vh - 170px); }
 .graph-main { flex: 1 1 auto; position: relative; padding: 0; overflow: hidden; }
 .graph-canvas { position: absolute; inset: 0; }
+.graph-relayout {
+  position: absolute; right: 10px; bottom: 10px; z-index: 10;
+  background: rgba(13, 17, 23, 0.85); border: 1px solid var(--gold-line); border-radius: 6px;
+  padding: 6px 10px; font-size: 11px; color: var(--gold); cursor: pointer;
+}
+.graph-relayout:hover { background: var(--gold-tint); border-color: var(--gold); }
 .graph-empty { display: flex; align-items: center; justify-content: center; height: 100%; padding: 24px; text-align: center; }
 .graph-sidebar { flex: 0 0 320px; display: flex; flex-direction: column; gap: 10px; overflow: auto; }
 .graph-types { display: flex; flex-wrap: wrap; gap: 6px; }

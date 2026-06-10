@@ -21,6 +21,8 @@ export function GraphCanvas({
   nodes, links, selectedId, onSelect, onAddRelationship, onDeleteNode, onDeleteEdge,
 }: GraphCanvasProps) {
   const wrap = useRef<HTMLDivElement>(null);
+  const fgRef = useRef<any>(null);
+  const fitNext = useRef(true);   // zoom-to-fit once after the next time the layout settles
   const [dims, setDims] = useState({ width: 600, height: 480 });
   const [menu, setMenu] = useState<Menu | null>(null);
 
@@ -37,6 +39,33 @@ export function GraphCanvas({
     () => ({ nodes: nodes.map((n) => ({ ...n })), links: links.map((l) => ({ ...l })) }),
     [nodes, links],
   );
+
+  // Spread nodes out so edges overlap less: stronger repulsion + longer links than
+  // the d3 defaults. Re-applied whenever the graph changes, then fit to view once.
+  useEffect(() => {
+    const fg = fgRef.current;
+    if (!fg) return;
+    fg.d3Force('charge')?.strength(-160).distanceMax(400);
+    fg.d3Force('link')?.distance(55);
+    fitNext.current = true;
+    fg.d3ReheatSimulation();
+  }, [data]);
+
+  // Re-run the layout on demand. Force layouts settle stochastically, so we re-seed
+  // node positions (a plain reheat barely moves) to get a genuinely different, and
+  // hopefully less tangled, arrangement — then fit to view when it settles.
+  const relayout = () => {
+    const fg = fgRef.current;
+    if (!fg) return;
+    for (const n of data.nodes as any[]) {
+      n.x = (Math.random() - 0.5) * 100;
+      n.y = (Math.random() - 0.5) * 100;
+      n.vx = 0;
+      n.vy = 0;
+    }
+    fitNext.current = true;
+    fg.d3ReheatSimulation();
+  };
 
   const endpointId = (v: unknown): string => (typeof v === 'object' && v ? (v as { id: string }).id : (v as string));
   // A link is "incident" to the focused node when that node is one of its endpoints.
@@ -78,6 +107,7 @@ export function GraphCanvas({
   return (
     <div ref={wrap} className="graph-canvas" onContextMenu={(e) => e.preventDefault()}>
       <ForceGraph2D
+        ref={fgRef}
         width={dims.width}
         height={dims.height}
         graphData={data}
@@ -112,6 +142,9 @@ export function GraphCanvas({
         linkDirectionalArrowLength={4}
         linkDirectionalArrowRelPos={1}
         linkLabel={(l: any) => `${l.type} · ${l.sentiment}${l.evidence ? ` · ${l.evidence}` : ''}`}
+        onEngineStop={() => {
+          if (fitNext.current) { fitNext.current = false; fgRef.current?.zoomToFit(400, 40); }
+        }}
         onNodeClick={(n: any) => onSelect(n.id)}
         onNodeRightClick={(n: any, e: MouseEvent) => {
           e.preventDefault();
@@ -130,6 +163,14 @@ export function GraphCanvas({
         }}
       />
       <GraphLegend />
+      <button
+        type="button"
+        className="graph-relayout"
+        onClick={relayout}
+        title="Re-run the layout to reduce overlapping edges"
+      >
+        ⟳ Re-layout
+      </button>
       {menu && <GraphContextMenu items={menu.items} x={menu.x} y={menu.y} onClose={() => setMenu(null)} />}
     </div>
   );
