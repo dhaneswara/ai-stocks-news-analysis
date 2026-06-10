@@ -170,7 +170,8 @@ def analyze_deep_stream(
         raise HTTPException(status_code=502, detail=f"No configuration for provider '{provider_id}'")
     try:
         provider = build_provider(settings)
-        stock = gather_stock_context(ticker, period, settings, cache, provider)
+        stock = gather_stock_context(ticker, period, settings, cache, provider,
+                                         store=prediction_store)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except LLMError as exc:

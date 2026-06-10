@@ -96,3 +96,55 @@ def test_snapshot_watchlist_counts_no_candle_tickers_as_skipped(tmp_path, monkey
     assert out["recorded"] == 0
     assert out["skipped"] == [{"ticker": "AAPL", "reason": "no candles"}]
     assert store.all_predictions() == []
+
+
+def _seed_llm_history(store):
+    base = dict(ticker="NVDA", provider="a", model="m", sentiment="bullish", entry_price=100.0)
+    store.upsert_prediction(**base, call_date="2026-05-12", recommendation="buy",
+                            confidence=0.8, source="llm_fast")
+    store.record_eval("NVDA", "2026-05-12", 5, "2026-05-19", 101.2, 1.2, 1, 62.0,
+                      source="llm_fast")
+    store.upsert_prediction(**base, call_date="2026-05-20", recommendation="buy",
+                            confidence=0.9, source="llm_deep")
+    store.record_eval("NVDA", "2026-05-20", 5, "2026-05-27", 96.9, -3.1, 0, 19.0,
+                      source="llm_deep")
+
+
+def test_track_record_block_formats_history(tmp_path):
+    from app.evaluation.signals import build_track_record_block
+
+    store = PredictionStore(str(tmp_path / "p.db"))
+    _seed_llm_history(store)
+    block = build_track_record_block("nvda", store, Settings())
+    assert "2026-05-20 [deep] BUY (conf 90%)" in block
+    assert "2026-05-12 [fast] BUY (conf 80%)" in block
+    assert "+1.2% @5d ✓" in block and "-3.1% @5d ✗" in block
+    assert "you hit 50% at 5 trading days" in block
+    assert "skew overconfident" in block          # miss conf 0.9 >= hit conf 0.8
+    assert block.endswith("Calibrate this call's confidence accordingly.")
+
+
+def test_track_record_block_gates(tmp_path):
+    from app.evaluation.signals import build_track_record_block
+
+    store = PredictionStore(str(tmp_path / "p.db"))
+    assert build_track_record_block("NVDA", store, Settings()) is None  # no history
+
+    store.upsert_prediction(ticker="NVDA", call_date="2026-06-01", provider="a", model="m",
+                            recommendation="buy", confidence=0.8, sentiment="bullish",
+                            entry_price=100.0, source="llm_fast")
+    assert build_track_record_block("NVDA", store, Settings()) is None  # nothing matured
+
+    disabled = Settings()
+    disabled.evaluation.enabled = False
+    _seed_llm_history(store)
+    assert build_track_record_block("NVDA", store, disabled) is None   # feature off
+
+    # deterministic rows alone never produce a block
+    store2 = PredictionStore(str(tmp_path / "p2.db"))
+    store2.upsert_prediction(ticker="NVDA", call_date="2026-06-01", provider="rules", model="",
+                             recommendation="buy", confidence=0.4, sentiment="bullish",
+                             entry_price=100.0, source="technical")
+    store2.record_eval("NVDA", "2026-06-01", 5, "2026-06-08", 105.0, 5.0, 1, 100.0,
+                       source="technical")
+    assert build_track_record_block("NVDA", store2, Settings()) is None

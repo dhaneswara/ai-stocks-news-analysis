@@ -215,6 +215,7 @@ class StockData(BaseModel):
     market_mood: Optional[MarketMood] = None
     trump_mentions: list[Mention] = Field(default_factory=list)
     network: Optional[NetworkSignal] = None
+    track_record: Optional[str] = None   # LLM's own scored history on this ticker (prompt block)
 
 
 class Signal(BaseModel):

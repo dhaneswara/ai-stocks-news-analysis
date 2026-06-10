@@ -90,6 +90,14 @@ def build_user_prompt(stock: StockData) -> str:
         f"- [{n.published_at}] {n.title} ({n.source})" for n in stock.news[:10]
     ) or "- (no recent headlines found)"
 
+    track_block = ""
+    if stock.track_record:
+        track_block = (
+            "YOUR TRACK RECORD ON THIS TICKER (your own past tracked calls, scored against "
+            "actual prices):\n" + stock.track_record +
+            "\nWeigh this as calibration evidence about your own judgement on this name.\n\n"
+        )
+
     return f"""Analyze {stock.company_name} ({stock.ticker}) for a swing trader.
 
 PRICE HISTORY: {len(stock.candles)} daily candles, {date_range}.
@@ -128,7 +136,7 @@ Weigh COMPANY NETWORK as a stock-specific factor like news, but treat it as nois
 low-certainty: it must not override strong technical or fundamental evidence, and you must NOT
 create dated buy/sell signals from it (it informs the current recommendation only).
 
-{_JSON_SCHEMA_HINT}"""
+{track_block}{_JSON_SCHEMA_HINT}"""
 
 
 def extract_json(raw: str) -> dict:

@@ -9,7 +9,7 @@ from app.analysis.network import compute_network_signal, incident_edges
 from app.config.cache import Cache
 from app.data import truth_social
 from app.evaluation.service import record_prediction
-from app.evaluation.signals import record_deterministic_pair
+from app.evaluation.signals import build_track_record_block, record_deterministic_pair
 from app.evaluation.store import PredictionStore
 from app.llm.base import LLMError
 from app.llm.factory import build_provider, resolve_config
@@ -23,7 +23,8 @@ ANALYSIS_TTL_SECONDS = 24 * 60 * 60  # 1 day
 logger = logging.getLogger("analysis")
 
 
-def gather_stock_context(ticker, period, settings, cache, provider) -> StockData:
+def gather_stock_context(ticker, period, settings, cache, provider,
+                         store: PredictionStore | None = None) -> StockData:
     """Build the StockData the analyzers consume: price/indicators/news + the company-network
     signal + the truth-social mood. Shared by the fast (run_analysis) and deep (agent) paths."""
     ticker = ticker.upper().strip()
@@ -47,6 +48,11 @@ def gather_stock_context(ticker, period, settings, cache, provider) -> StockData
         stock.market_mood = political.summarize_market_mood(
             posts, provider, cfg.model, settings.active_provider, cache
         )
+    if store is not None:
+        try:
+            stock.track_record = build_track_record_block(ticker, store, settings)
+        except Exception:  # noqa: BLE001 — prompt enrichment must never break analysis
+            logger.warning("track-record block failed for %s", ticker)
     return stock
 
 
@@ -75,7 +81,8 @@ def run_analysis(
         return AnalysisResult.model_validate_json(cached)
 
     provider = build_provider(settings)
-    stock = gather_stock_context(ticker, period, settings, cache, provider)
+    stock = gather_stock_context(ticker, period, settings, cache, provider,
+                                 store=prediction_store)
 
     result = analyze(stock, provider, model=cfg.model, provider_name=provider_id)
     cache.set(cache_key, result.model_dump_json(), ANALYSIS_TTL_SECONDS)

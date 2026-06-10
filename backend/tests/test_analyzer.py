@@ -256,3 +256,13 @@ def test_format_network_and_result_carries_it():
                          signed=-0.4, reason="supplier TSM (bearish)")], reasons=["supplier TSM (bearish)"])
     assert "TSM" in _format_network(stock.network)
     assert "NETWORK" in build_user_prompt(stock).upper()
+
+
+def test_build_user_prompt_renders_track_record_only_when_set():
+    stock = _stock()
+    base = build_user_prompt(stock)
+    assert "YOUR TRACK RECORD" not in base
+    stock.track_record = "- 2026-06-01 [fast] BUY (conf 80%): +1.2% @5d ✓"
+    enriched = build_user_prompt(stock)
+    assert "YOUR TRACK RECORD" in enriched
+    assert "+1.2% @5d ✓" in enriched

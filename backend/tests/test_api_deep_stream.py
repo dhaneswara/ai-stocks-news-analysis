@@ -47,7 +47,7 @@ def teardown_function():
 
 def test_deep_stream_emits_steps_and_final(tmp_path, monkeypatch):
     client, _, _ = _client(tmp_path)
-    monkeypatch.setattr(routes, "gather_stock_context", lambda t, p, s, c, prov: _stock())
+    monkeypatch.setattr(routes, "gather_stock_context", lambda t, p, s, c, prov, store=None: _stock())
     monkeypatch.setattr(
         routes, "build_provider",
         lambda settings: FakeProvider([f'Thought: done\nFinal Answer: {json.dumps(VALID_PAYLOAD)}']),
@@ -81,7 +81,7 @@ def test_deep_stream_emits_error_event_when_provider_fails(tmp_path, monkeypatch
             raise LLMError("provider down")
 
     client, _, _ = _client(tmp_path)
-    monkeypatch.setattr(routes, "gather_stock_context", lambda t, p, s, c, prov: _stock())
+    monkeypatch.setattr(routes, "gather_stock_context", lambda t, p, s, c, prov, store=None: _stock())
     monkeypatch.setattr(routes, "build_provider", lambda settings: _Raising())
     resp = client.get("/api/analyze/AAPL/deep/stream")
     assert resp.status_code == 200
@@ -92,7 +92,7 @@ def test_deep_stream_emits_error_event_when_provider_fails(tmp_path, monkeypatch
 def test_deep_final_records_llm_deep_pair_and_trace(tmp_path, monkeypatch):
     client, pred_store, trace_store = _client(tmp_path)
     monkeypatch.setattr(routes, "gather_stock_context",
-                        lambda t, p, s, c, prov: _stock_with_candles())
+                        lambda t, p, s, c, prov, store=None: _stock_with_candles())
     monkeypatch.setattr(
         routes, "build_provider",
         lambda settings: FakeProvider([f'Thought: done\nFinal Answer: {json.dumps(VALID_PAYLOAD)}']),
@@ -111,7 +111,7 @@ def test_deep_final_records_llm_deep_pair_and_trace(tmp_path, monkeypatch):
 def test_deep_fallback_records_as_llm_fast(tmp_path, monkeypatch):
     client, pred_store, trace_store = _client(tmp_path)
     monkeypatch.setattr(routes, "gather_stock_context",
-                        lambda t, p, s, c, prov: _stock_with_candles())
+                        lambda t, p, s, c, prov, store=None: _stock_with_candles())
     # Two protocol-breaking turns exhaust the nudge -> agent fails -> single-shot fallback
     # consumes the third output as plain JSON.
     monkeypatch.setattr(
@@ -147,7 +147,7 @@ def test_deep_disabled_evaluation_still_persists_trace(tmp_path, monkeypatch):
     settings_store.save(s)
 
     monkeypatch.setattr(routes, "gather_stock_context",
-                        lambda t, p, s, c, prov: _stock_with_candles())
+                        lambda t, p, s, c, prov, store=None: _stock_with_candles())
     monkeypatch.setattr(
         routes, "build_provider",
         lambda settings: FakeProvider([f'Thought: done\nFinal Answer: {json.dumps(VALID_PAYLOAD)}']),
