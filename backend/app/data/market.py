@@ -7,9 +7,21 @@ from app.models.schemas import Candle, Fundamentals, PriceSummary
 
 # --- Network boundary (monkeypatched in tests) ---------------------------------
 
+_OHLCV = ["Open", "High", "Low", "Close", "Volume"]
+
+
+def drop_incomplete(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop rows with a NaN in any OHLCV column — typically the current day's
+    not-yet-closed bar, which yfinance returns with a NaN Close. Left in, the NaN
+    survives model construction (NaN is a valid float) but pydantic serialises it to
+    JSON null when StockData is cached, which then fails to re-validate on read."""
+    cols = [c for c in _OHLCV if c in df.columns]
+    return df.dropna(subset=cols) if cols else df
+
 
 def fetch_history(ticker: str, period: str = "2y") -> pd.DataFrame:
-    return yf.Ticker(ticker).history(period=period, interval="1d", auto_adjust=False)
+    df = yf.Ticker(ticker).history(period=period, interval="1d", auto_adjust=False)
+    return drop_incomplete(df)
 
 
 def fetch_close_series(ticker: str, period: str = "2y") -> list[tuple[str, float]]:

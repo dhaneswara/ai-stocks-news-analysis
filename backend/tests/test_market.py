@@ -57,3 +57,50 @@ def test_fetch_close_series_returns_ordered_pairs(monkeypatch):
 
     series = market.fetch_close_series("AAPL", "1y")
     assert series == [("2026-06-01", 100.0), ("2026-06-02", 101.0), ("2026-06-03", 102.0)]
+
+
+def test_drop_incomplete_removes_nan_ohlcv_rows():
+    from app.data.market import drop_incomplete
+
+    idx = pd.date_range("2026-05-01", periods=3, freq="D")
+    df = pd.DataFrame(
+        {
+            "Open": [10.0, 11.0, 12.0],
+            "High": [10.5, 11.5, 12.5],
+            "Low": [9.5, 10.5, 11.5],
+            "Close": [10.2, 11.0, float("nan")],   # current day's bar not closed yet
+            "Volume": [100.0, 200.0, 300.0],
+        },
+        index=idx,
+    )
+    clean = drop_incomplete(df)
+    assert len(clean) == 2
+    assert clean["Close"].iloc[-1] == 11.0
+
+
+def test_nan_trailing_bar_does_not_poison_cache_roundtrip():
+    """A NaN bar must not reach StockData: NaN serialises to JSON null and then fails
+    to re-validate from cache (the 'Could not load MSFT' bug)."""
+    from app.data.market import build_candles, build_price, drop_incomplete
+    from app.models.schemas import Fundamentals, Indicators, StockData
+
+    idx = pd.date_range("2026-05-01", periods=3, freq="D")
+    df = drop_incomplete(
+        pd.DataFrame(
+            {
+                "Open": [10.0, 11.0, 12.0],
+                "High": [10.5, 11.5, 12.5],
+                "Low": [9.5, 10.5, 11.5],
+                "Close": [10.2, 11.0, float("nan")],
+                "Volume": [100.0, 200.0, 300.0],
+            },
+            index=idx,
+        )
+    )
+    sd = StockData(
+        ticker="MSFT", company_name="Microsoft", as_of="t",
+        price=build_price(df), candles=build_candles(df),
+        fundamentals=Fundamentals(), indicators=Indicators(), news=[],
+    )
+    StockData.model_validate_json(sd.model_dump_json())   # must not raise
+    assert sd.price.current == 11.0

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
+from pydantic import ValidationError
+
 from app.analysis.indicators import compute_indicators
 from app.config.cache import Cache
 from app.data.market import (
@@ -28,7 +30,12 @@ def get_stock_data(
     cache_key = f"stock:{ticker}:{period}"
     cached = cache.get(cache_key)
     if cached is not None:
-        return StockData.model_validate_json(cached)
+        try:
+            return StockData.model_validate_json(cached)
+        except ValidationError:
+            # Corrupt/poisoned entry (e.g. a NaN price serialized to JSON null) —
+            # discard and re-fetch fresh rather than failing the request.
+            pass
 
     df = fetch_history(ticker, period)
     if df is None or df.empty:
