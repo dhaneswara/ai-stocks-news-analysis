@@ -173,3 +173,10 @@ def test_score_stock_populates_net_sign_matches_direction():
     assert bull.direction == "buy" and bull.net > 0
     bear = score_stock(_stock("BBB", rsi_last=85.0), [], ScreenerConfig())
     assert bear.net < 0
+
+
+def test_direction_for_thresholds():
+    from app.analysis.scoring import direction_for
+    assert direction_for(0.2) == "buy"
+    assert direction_for(-0.2) == "sell"
+    assert direction_for(0.05) == "hold"

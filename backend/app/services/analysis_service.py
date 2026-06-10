@@ -9,6 +9,7 @@ from app.analysis.network import compute_network_signal, incident_edges
 from app.config.cache import Cache
 from app.data import truth_social
 from app.evaluation.service import record_prediction
+from app.evaluation.signals import record_deterministic_pair
 from app.evaluation.store import PredictionStore
 from app.llm.base import LLMError
 from app.llm.factory import build_provider, resolve_config
@@ -83,4 +84,8 @@ def run_analysis(
             record_prediction(stock, result, prediction_store)
         except Exception:  # noqa: BLE001 — recording must never break analysis
             logger.warning("prediction recording failed for %s", ticker)
+        try:
+            record_deterministic_pair(stock, settings, cache, prediction_store)
+        except Exception:  # noqa: BLE001 — recording must never break analysis
+            logger.warning("deterministic pair recording failed for %s", ticker)
     return result

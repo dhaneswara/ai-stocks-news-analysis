@@ -64,6 +64,7 @@ def test_run_analysis_records_when_store_passed(tmp_path, monkeypatch):
                                "confidence": 0.8, "signals": [], "risks": []})
 
     monkeypatch.setattr(analysis_service, "build_provider", lambda s: FakeProvider())
+    monkeypatch.setattr(analysis_service, "record_deterministic_pair", lambda *a, **k: None)
     cache = Cache(str(tmp_path / "c.db"))
     store = PredictionStore(str(tmp_path / "p.db"))
 
@@ -86,8 +87,38 @@ def test_run_analysis_skips_recording_when_disabled(tmp_path, monkeypatch):
                                "confidence": 0.8, "signals": [], "risks": []})
 
     monkeypatch.setattr(analysis_service, "build_provider", lambda s: FakeProvider())
+    monkeypatch.setattr(analysis_service, "record_deterministic_pair", lambda *a, **k: None)
     cache = Cache(str(tmp_path / "c.db"))
     store = PredictionStore(str(tmp_path / "p.db"))
 
     analysis_service.run_analysis("AAPL", "2y", settings, cache, store)
     assert store.all_predictions() == []
+
+
+def test_run_analysis_also_records_deterministic_pair(tmp_path, monkeypatch):
+    import json as _json
+    from app.evaluation import signals
+    from app.models.schemas import StockScore
+
+    settings = Settings()
+    settings.providers["anthropic"].api_key = "k"
+    monkeypatch.setattr(analysis_service, "get_stock_data", lambda *a, **k: _stock_with_candles())
+
+    class FakeProvider:
+        name = "fake"
+        def complete(self, system, user):
+            return _json.dumps({"overall_summary": "ok", "news_analysis": "ok",
+                                "sentiment": "bullish", "current_recommendation": "buy",
+                                "confidence": 0.8, "signals": [], "risks": []})
+
+    monkeypatch.setattr(analysis_service, "build_provider", lambda s: FakeProvider())
+    monkeypatch.setattr(
+        signals, "score_one",
+        lambda t, s, c: StockScore(ticker="AAPL", name="Apple", sector="", price=204.0,
+                                   change_pct=0.5, score=70.0, direction="buy", net=0.3,
+                                   base_net=0.3, base_score=70.0, as_of="t"))
+    cache = Cache(str(tmp_path / "c.db"))
+    store = PredictionStore(str(tmp_path / "p.db"))
+    analysis_service.run_analysis("AAPL", "2y", settings, cache, store)
+    assert store.get_prediction("AAPL", "2026-06-05", "llm_fast") is not None
+    assert store.get_prediction("AAPL", "2026-06-05", "technical") is not None

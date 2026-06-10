@@ -6,7 +6,7 @@ task) folds the result into the board via a closed-form re-blend.
 """
 from __future__ import annotations
 
-from app.analysis.scoring import _DIRECTION_THRESHOLD
+from app.analysis.scoring import direction_for
 from app.models.schemas import (
     GraphEdge, KnowledgeGraph, NetworkConfig, NetworkInfluence, NetworkSignal,
     ScreenBoard, Settings, StockScore,
@@ -98,11 +98,7 @@ def blend_network_into_score(s: StockScore, sig: NetworkSignal, settings: Settin
     w_net = settings.network.weight
     final_score = (s.base_score * w_base + 100.0 * sig.intensity * w_net) / (w_base + w_net)
     final_net = _clamp((s.base_net * w_dir + sig.signed * w_net) / (w_dir + w_net), -1.0, 1.0)
-    direction = (
-        "buy" if final_net > _DIRECTION_THRESHOLD
-        else "sell" if final_net < -_DIRECTION_THRESHOLD
-        else "hold"
-    )
+    direction = direction_for(final_net)
     components = dict(s.components)
     components["network"] = round(sig.intensity, 2)
     return s.model_copy(update={

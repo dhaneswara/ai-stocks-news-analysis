@@ -134,6 +134,11 @@ _DIRECTIONAL = ("extremes", "trend", "momentum")  # families that vote on direct
 _DIRECTION_THRESHOLD = 0.1
 
 
+def direction_for(net: float) -> str:
+    """Map a signed directional vote to the CALL, using the shared threshold."""
+    return "buy" if net > _DIRECTION_THRESHOLD else "sell" if net < -_DIRECTION_THRESHOLD else "hold"
+
+
 def _combine(sigs: list[_Sig]) -> _Sig:
     """Sum a family's sub-signals; cap intensity and the signed vote to their ranges."""
     firing = [s for s in sigs if s.intensity > 0]
@@ -159,7 +164,7 @@ def score_stock(stock: StockData, mentions: list[Mention], cfg: ScreenerConfig) 
 
     dir_w = sum(w.get(f, 0.0) for f in _DIRECTIONAL) or 1.0
     net = sum(w.get(f, 0.0) * families[f].signed for f in _DIRECTIONAL) / dir_w
-    direction = "buy" if net > _DIRECTION_THRESHOLD else "sell" if net < -_DIRECTION_THRESHOLD else "hold"
+    direction = direction_for(net)
 
     ranked = sorted(families.items(), key=lambda kv: w.get(kv[0], 0.0) * kv[1].intensity, reverse=True)
     reasons = [sig.reason for _, sig in ranked if sig.reason]
