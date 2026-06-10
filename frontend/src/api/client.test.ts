@@ -157,6 +157,41 @@ describe('api client', () => {
   });
 });
 
+describe('signals / snapshot / explainPrediction with source', () => {
+  it('getSignals hits /signals/{ticker}', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ ticker: 'AAPL', sources: {}, agreement: { counted: 0, agreeing: 0, on: null, conflict: false }, winner: null }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.getSignals('AAPL');
+    expect(fetchMock.mock.calls[0][0] as string).toContain('/signals/AAPL');
+  });
+
+  it('snapshotEvaluation POSTs /evaluation/snapshot', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ recorded: 2, skipped: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.snapshotEvaluation();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url as string).toContain('/evaluation/snapshot');
+    expect((init as RequestInit).method).toBe('POST');
+  });
+
+  it('explainPrediction carries the source', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ explanation: 'x' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.explainPrediction('AAPL', '2026-06-01', 'technical');
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain('/evaluation/AAPL/2026-06-01/explain?source=technical');
+  });
+});
+
 class FakeEventSource {
   static last: FakeEventSource | null = null;
   url: string;

@@ -17,6 +17,7 @@ import { api } from '../api/client';
 
 const BOARD: EvaluationBoard = {
   as_of: '2026-06-07T00:00:00Z',
+  sources: {},
   companies: [
     {
       rollup: {
@@ -24,10 +25,12 @@ const BOARD: EvaluationBoard = {
         grade: 'Mixed', overconfident: true, latest_recommendation: 'sell',
         latest_call_date: '2026-06-01',
       },
+      by_source: {},
       calls: [
         {
           ticker: 'AAPL', call_date: '2026-06-01', provider: 'anthropic', model: 'm',
           recommendation: 'sell', confidence: 0.9, sentiment: 'bearish', entry_price: 100,
+          source: 'llm_fast',
           results: [
             { horizon: 1, status: 'final', eval_date: '2026-06-02', return_pct: 5.0, hit: false, score: 0 },
             { horizon: 5, status: 'final', eval_date: '2026-06-08', return_pct: -3.0, hit: true, score: 80 },
@@ -73,6 +76,6 @@ describe('Evaluation page', () => {
     const explainBtn = await screen.findByRole('button', { name: /explain miss/i });
     fireEvent.click(explainBtn);
     expect(await screen.findByText(/missed an earnings beat/i)).toBeInTheDocument();
-    expect(api.explainPrediction).toHaveBeenCalledWith('AAPL', '2026-06-01');
+    expect(api.explainPrediction).toHaveBeenCalledWith('AAPL', '2026-06-01', 'llm_fast');
   });
 });

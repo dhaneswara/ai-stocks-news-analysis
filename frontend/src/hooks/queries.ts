@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { SavedGraphVersion, Settings } from '../types';
+import type { SavedGraphVersion, Settings, Source } from '../types';
 
 export function useStock(ticker: string, period = '5y') {
   return useQuery({
@@ -12,7 +12,11 @@ export function useStock(ticker: string, period = '5y') {
 }
 
 export function useAnalyze(ticker: string, period = '5y') {
-  return useMutation({ mutationFn: () => api.analyze(ticker, period) });
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.analyze(ticker, period),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['signals', ticker] }),
+  });
 }
 
 export function useSettings() {
@@ -158,8 +162,26 @@ export function useEvaluation() {
 
 export function useExplainPrediction() {
   return useMutation({
-    mutationFn: ({ ticker, callDate }: { ticker: string; callDate: string }) =>
-      api.explainPrediction(ticker, callDate),
+    mutationFn: ({ ticker, callDate, source }: { ticker: string; callDate: string; source: Source }) =>
+      api.explainPrediction(ticker, callDate, source),
+  });
+}
+
+export function useSignals(ticker: string) {
+  return useQuery({
+    queryKey: ['signals', ticker],
+    queryFn: () => api.getSignals(ticker),
+    enabled: ticker.length > 0,
+    retry: false,
+  });
+}
+
+export function useSnapshotEvaluation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.snapshotEvaluation(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['evaluation'] }),
+    onError: (e) => console.warn('signal snapshot failed:', e),
   });
 }
 

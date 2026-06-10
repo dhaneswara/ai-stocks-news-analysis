@@ -24,11 +24,11 @@ function CompanyDetail({ company }: { company: CompanyEvaluation }) {
   const [openExplain, setOpenExplain] = useState<string | null>(null);
   const [text, setText] = useState<Record<string, string>>({});
 
-  const runExplain = (callDate: string) => {
-    setOpenExplain(callDate);
+  const runExplain = (call: PredictionRecord) => {
+    setOpenExplain(call.call_date);
     explain.mutate(
-      { ticker: company.rollup.ticker, callDate },
-      { onSuccess: (d) => setText((t) => ({ ...t, [callDate]: d.explanation })) },
+      { ticker: company.rollup.ticker, callDate: call.call_date, source: call.source },
+      { onSuccess: (d) => setText((t) => ({ ...t, [call.call_date]: d.explanation })) },
     );
   };
 
@@ -51,7 +51,7 @@ function CompanyDetail({ company }: { company: CompanyEvaluation }) {
               {call.results.map((r) => <OutcomeChip key={r.horizon} r={r} />)}
             </div>
             {hasMiss(call) && (
-              <button className="secondary" onClick={() => runExplain(call.call_date)}
+              <button className="secondary" onClick={() => runExplain(call)}
                       disabled={explain.isPending && openExplain === call.call_date}>
                 {explain.isPending && openExplain === call.call_date ? 'Analyzing…' : 'Explain miss'}
               </button>

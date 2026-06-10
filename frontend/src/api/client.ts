@@ -11,6 +11,9 @@ import type {
   SavedGraphVersion,
   ScreenBoard,
   Settings,
+  SignalsSummary,
+  SnapshotResult,
+  Source,
   StockData,
   StockScore,
   TestResult,
@@ -67,6 +70,8 @@ export const api = {
     }),
   getSectors: () => http<string[]>('/screen/sectors'),
   getScore: (ticker: string) => http<StockScore>(`/score/${encodeURIComponent(ticker)}`),
+  getSignals: (ticker: string) => http<SignalsSummary>(`/signals/${encodeURIComponent(ticker)}`),
+  snapshotEvaluation: () => http<SnapshotResult>('/evaluation/snapshot', { method: 'POST' }),
   getCompanyGraph: (ticker: string) =>
     http<KnowledgeGraph>(`/graph/company/${encodeURIComponent(ticker)}`),
   listSavedGraphs: () => http<SavedGraphSummary[]>('/graph/saved'),
@@ -93,9 +98,9 @@ export const api = {
       method: 'POST',
     }),
   getEvaluation: () => http<EvaluationBoard>('/evaluation'),
-  explainPrediction: (ticker: string, callDate: string) =>
+  explainPrediction: (ticker: string, callDate: string, source: Source) =>
     http<{ explanation: string }>(
-      `/evaluation/${encodeURIComponent(ticker)}/${encodeURIComponent(callDate)}/explain`,
+      `/evaluation/${encodeURIComponent(ticker)}/${encodeURIComponent(callDate)}/explain?source=${encodeURIComponent(source)}`,
       { method: 'POST' },
     ),
   deleteTracked: (ticker: string) =>

@@ -109,6 +109,47 @@ export interface AnalysisResult {
   network?: NetworkSignal | null;
 }
 export type Grade = 'Strong' | 'Mixed' | 'Weak';
+
+export type Source = 'llm_fast' | 'llm_deep' | 'technical' | 'network';
+
+export interface SourceTrack {
+  n_calls: number;
+  n_matured: number;
+  hit_rate: number | null;
+  avg_score: number | null;
+  grade: Grade | null;
+}
+
+export interface LatestCall {
+  call_date: string;
+  recommendation: Recommendation;
+  confidence: number;
+}
+
+export interface SourceSignal {
+  latest: LatestCall;
+  track: SourceTrack;
+}
+
+export interface SignalsAgreement {
+  counted: number;
+  agreeing: number;
+  on: Recommendation | null;
+  conflict: boolean;
+}
+
+export interface SignalsSummary {
+  ticker: string;
+  sources: Partial<Record<Source, SourceSignal | null>>;
+  agreement: SignalsAgreement;
+  winner: Source | null;
+}
+
+export interface SnapshotResult {
+  recorded: number;
+  skipped: { ticker: string; reason: string }[];
+}
+
 export interface HorizonResult {
   horizon: number;
   status: 'pending' | 'final';
@@ -126,6 +167,7 @@ export interface PredictionRecord {
   confidence: number;
   sentiment: Sentiment;
   entry_price: number;
+  source: Source;
   results: HorizonResult[];
 }
 export interface CompanyRollup {
@@ -142,10 +184,12 @@ export interface CompanyRollup {
 export interface CompanyEvaluation {
   rollup: CompanyRollup;
   calls: PredictionRecord[];
+  by_source: Partial<Record<Source, SourceTrack>>;
 }
 export interface EvaluationBoard {
   as_of: string;
   companies: CompanyEvaluation[];
+  sources: Partial<Record<Source, SourceTrack>>;
 }
 export interface EvaluationConfig {
   enabled: boolean;

@@ -10,6 +10,7 @@ const COMPANIES: CompanyEvaluation[] = [
       grade: 'Strong', overconfident: false, latest_recommendation: 'buy',
       latest_call_date: '2026-06-05',
     },
+    by_source: {},
     calls: [],
   },
   {
@@ -18,6 +19,7 @@ const COMPANIES: CompanyEvaluation[] = [
       grade: null, overconfident: false, latest_recommendation: 'sell',
       latest_call_date: '2026-06-06',
     },
+    by_source: {},
     calls: [],
   },
 ];
