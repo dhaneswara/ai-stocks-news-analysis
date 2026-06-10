@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from datetime import datetime, timezone
 
@@ -9,7 +10,7 @@ from fastapi.responses import StreamingResponse
 from app.alerts.notifier import build_notifier
 from app.config.cache import Cache
 from app.config.settings_store import SettingsStore, mask_settings, merge_settings
-from app.deps import get_cache, get_prediction_store, get_settings_store
+from app.deps import get_cache, get_prediction_store, get_settings_store, get_trace_store
 from app.llm.base import LLMError
 from app.llm.factory import build_provider
 from app.models.schemas import (
@@ -45,9 +46,11 @@ from app.network.store import (
     save_company_graph,
     save_graph,
 )
-from app.evaluation.service import build_board, evaluate_pending, explain_prediction
-from app.evaluation.store import PredictionStore
-from app.analysis.agent import AgentEvent, ReActAgent, ToolContext
+from app.evaluation.service import build_board, evaluate_pending, explain_prediction, record_prediction
+from app.evaluation.signals import record_deterministic_pair
+from app.evaluation.store import SOURCE_LLM_DEEP, SOURCE_LLM_FAST, PredictionStore
+from app.analysis.agent import AgentEvent, AgentTrace, ReActAgent, ToolContext
+from app.analysis.trace_store import AgentTraceStore
 from app.services.analysis_service import gather_stock_context, run_analysis
 from app.services.stock_service import get_stock_data
 from app.analysis.relationships import TickerResolver
@@ -58,6 +61,8 @@ from app.screener.service import run_scan, score_one
 from app.screener.store import load_snapshot, merge_sector, save_snapshot
 
 router = APIRouter(prefix="/api")
+
+logger = logging.getLogger("api")
 
 _PROVIDER_LABELS = {
     "anthropic": "Anthropic (Claude)",
@@ -116,12 +121,41 @@ def _sse(event: AgentEvent) -> str:
     return f"event: {event.type}\ndata: {event.model_dump_json()}\n\n"
 
 
+def _persist_deep_final(event: AgentEvent, stock: StockData, settings: Settings, cache: Cache,
+                        prediction_store: PredictionStore, trace_store: AgentTraceStore) -> None:
+    """Persist the trace + predictions when a deep run completes. Each persistence concern is
+    isolated — a failure must never break the SSE stream. A run that degraded to the
+    single-shot fallback is recorded as llm_fast (that path produced the answer), keeping the
+    fast-vs-deep comparison honest."""
+    trace = event.trace
+    call_date = stock.candles[-1].time if stock.candles else ""
+    if trace is not None and call_date:
+        try:
+            trace_store.upsert(ticker=trace.ticker, call_date=call_date, provider=trace.provider,
+                               model=trace.model, trace_json=trace.model_dump_json())
+        except Exception:  # noqa: BLE001
+            logger.warning("trace persistence failed for %s", stock.ticker)
+    if event.result is None or not settings.evaluation.enabled:
+        return
+    source = SOURCE_LLM_FAST if (trace is not None and trace.fell_back) else SOURCE_LLM_DEEP
+    try:
+        record_prediction(stock, event.result, prediction_store, source=source)
+    except Exception:  # noqa: BLE001
+        logger.warning("deep prediction recording failed for %s", stock.ticker)
+    try:
+        record_deterministic_pair(stock, settings, cache, prediction_store)
+    except Exception:  # noqa: BLE001
+        logger.warning("deterministic pair recording failed for %s", stock.ticker)
+
+
 @router.get("/analyze/{ticker}/deep/stream")
 def analyze_deep_stream(
     ticker: str,
     period: str = "2y",
     cache: Cache = Depends(get_cache),
     store: SettingsStore = Depends(get_settings_store),
+    prediction_store: PredictionStore = Depends(get_prediction_store),
+    trace_store: AgentTraceStore = Depends(get_trace_store),
 ) -> StreamingResponse:
     """Agentic (ReAct) deep analysis, streamed step-by-step as Server-Sent Events. Failures that
     prevent starting (no price data -> 404, no provider config -> 502) are normal HTTP errors;
@@ -147,6 +181,9 @@ def analyze_deep_stream(
     def event_stream():
         try:
             for event in agent.stream(provider, cfg.model, provider_id, ctx):
+                if event.type == "final":
+                    _persist_deep_final(event, stock, settings, cache, prediction_store,
+                                        trace_store)
                 yield _sse(event)
         except LLMError as exc:  # provider/LLM failure (e.g. missing key) -> usable in-stream error
             yield _sse(AgentEvent(type="error", message=str(exc)))
@@ -156,6 +193,16 @@ def analyze_deep_stream(
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+@router.get("/traces/{ticker}", response_model=list[AgentTrace])
+def get_traces(
+    ticker: str,
+    limit: int = 5,
+    trace_store: AgentTraceStore = Depends(get_trace_store),
+) -> list[AgentTrace]:
+    """Most recent persisted deep-analysis traces for a ticker (newest first)."""
+    return [AgentTrace.model_validate_json(j) for j in trace_store.recent(ticker, limit)]
 
 
 @router.get("/settings", response_model=Settings)

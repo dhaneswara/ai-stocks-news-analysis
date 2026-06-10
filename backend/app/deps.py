@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from functools import lru_cache
 
+from app.analysis.trace_store import AgentTraceStore
 from app.config.cache import Cache
 from app.config.settings_store import SettingsStore
 from app.evaluation.store import PredictionStore
@@ -27,3 +28,9 @@ def get_settings_store() -> SettingsStore:
 def get_prediction_store() -> PredictionStore:
     os.makedirs(DATA_DIR, exist_ok=True)
     return PredictionStore(DB_PATH)
+
+
+@lru_cache
+def get_trace_store() -> AgentTraceStore:
+    os.makedirs(DATA_DIR, exist_ok=True)
+    return AgentTraceStore(DB_PATH)
