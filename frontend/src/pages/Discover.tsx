@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { DiscoverBoard } from '../components/DiscoverBoard';
-import { useRefreshUniverse, useRescan, useScreen, useSectors, useWatchlist } from '../hooks/queries';
+import { useRefreshUniverse, useRescan, useScreen, useSectors, useSnapshotEvaluation, useWatchlist } from '../hooks/queries';
 
 export default function Discover() {
   const [sector, setSector] = useState('');
@@ -10,6 +10,7 @@ export default function Discover() {
   const board = useScreen(sector || undefined, direction || undefined, show);
   const rescan = useRescan();
   const refreshList = useRefreshUniverse();
+  const snapshot = useSnapshotEvaluation();
   const watch = useWatchlist();
 
   const data = board.data;
@@ -52,7 +53,7 @@ export default function Discover() {
           <button className="secondary" onClick={() => refreshList.mutate()} disabled={refreshList.isPending}>
             {refreshList.isPending ? 'Updating…' : 'Update S&P 500 list'}
           </button>
-          <button onClick={() => rescan.mutate(sector || undefined)} disabled={rescan.isPending}>
+          <button onClick={() => rescan.mutate(sector || undefined, { onSuccess: () => snapshot.mutate() })} disabled={rescan.isPending}>
             {rescan.isPending ? 'Scanning…' : sector ? `Rescan ${sector}` : 'Rescan all'}
           </button>
         </div>
@@ -61,6 +62,12 @@ export default function Discover() {
       {board.isLoading && <p className="muted">Loading board…</p>}
       {board.isError && <p className="error">Could not load the board: {(board.error as Error).message}</p>}
       {rescan.isError && <p className="error">Rescan failed: {(rescan.error as Error).message}</p>}
+      {snapshot.data && (
+        <p className="muted">
+          ✓ Recorded {snapshot.data.recorded} watchlist signal{snapshot.data.recorded === 1 ? '' : 's'} for
+          evaluation{snapshot.data.skipped.length ? ` (${snapshot.data.skipped.length} skipped)` : ''}.
+        </p>
+      )}
       {refreshList.isSuccess && (
         <p className="muted">S&amp;P 500 list updated — {refreshList.data.count} names. Hit Rescan to rebuild the board.</p>
       )}
