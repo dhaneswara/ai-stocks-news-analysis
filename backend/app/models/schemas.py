@@ -318,11 +318,13 @@ class CompanyRollup(BaseModel):
 class CompanyEvaluation(BaseModel):
     rollup: CompanyRollup
     calls: list[PredictionRecord] = Field(default_factory=list)
+    by_source: dict[str, SourceTrack] = Field(default_factory=dict)
 
 
 class EvaluationBoard(BaseModel):
     as_of: str = ""
     companies: list[CompanyEvaluation] = Field(default_factory=list)
+    sources: dict[str, SourceTrack] = Field(default_factory=dict)
 
 
 class ProviderConfig(BaseModel):

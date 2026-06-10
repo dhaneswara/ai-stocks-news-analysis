@@ -77,3 +77,30 @@ def test_board_threads_source_through_records(tmp_path):
     assert by[("2026-06-01", "technical")].results[0].status == "pending"
     assert comp.rollup.n_calls == 2
     assert comp.rollup.hit_rate == 100.0  # 1 matured llm_fast hit; technical still pending
+
+
+def test_board_by_source_and_overall_scoreboard(tmp_path):
+    from app.evaluation.service import build_board
+    from app.evaluation.store import PredictionStore
+    from app.models.schemas import Settings
+
+    store = PredictionStore(str(tmp_path / "p.db"))
+    base = dict(ticker="AAPL", call_date="2026-06-01", provider="a", model="m",
+                sentiment="bullish", entry_price=100.0)
+    store.upsert_prediction(**base, recommendation="buy", confidence=0.5, source="llm_fast")
+    store.record_eval("AAPL", "2026-06-01", 1, "2026-06-02", 104.5, 4.5, 1, 90.0,
+                      source="llm_fast")
+    # deterministic miss with absurd confidence — must NOT flip the overconfidence flag
+    store.upsert_prediction(**base, recommendation="sell", confidence=1.0, source="technical")
+    store.record_eval("AAPL", "2026-06-01", 1, "2026-06-02", 104.5, 4.5, 0, 5.0,
+                      source="technical")
+
+    board = build_board(store, Settings())
+    comp = board.companies[0]
+    assert comp.by_source["llm_fast"].n_matured == 1
+    assert comp.by_source["llm_fast"].hit_rate == 100.0
+    assert comp.by_source["technical"].hit_rate == 0.0
+    assert comp.by_source["technical"].grade == "Weak"
+    assert comp.rollup.overconfident is False           # technical conf excluded
+    assert board.sources["llm_fast"].n_calls == 1
+    assert board.sources["technical"].avg_score == 5.0

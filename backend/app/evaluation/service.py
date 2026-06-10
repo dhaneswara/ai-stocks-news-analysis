@@ -23,6 +23,7 @@ from app.models.schemas import (
     HorizonResult,
     PredictionRecord,
     Settings,
+    SourceTrack,
     StockData,
 )
 from app.services.stock_service import get_stock_data
@@ -104,9 +105,22 @@ def evaluate_pending(store: PredictionStore, settings: Settings, *, persist: boo
     return summary
 
 
+def _track_for(n_calls: int, scores: list[float], hits: int) -> SourceTrack:
+    if not scores:
+        return SourceTrack(n_calls=n_calls)
+    avg = round(sum(scores) / len(scores), 1)
+    return SourceTrack(n_calls=n_calls, n_matured=len(scores),
+                       hit_rate=round(100.0 * hits / len(scores), 1),
+                       avg_score=avg, grade=grade_for(avg))
+
+
 def build_board(store: PredictionStore, settings: Settings) -> EvaluationBoard:
     horizons = settings.evaluation.horizons
     eval_index = {(e.ticker, e.call_date, e.source, e.horizon): e for e in store.all_evals()}
+
+    g_counts: dict[str, int] = {}
+    g_scores: dict[str, list[float]] = {}
+    g_hits: dict[str, int] = {}
 
     by_ticker: dict[str, list] = {}
     for p in store.all_predictions():
@@ -120,8 +134,12 @@ def build_board(store: PredictionStore, settings: Settings) -> EvaluationBoard:
         hit_confs: list[float] = []
         miss_confs: list[float] = []
         n_hits = 0
+        s_counts: dict[str, int] = {}
+        s_scores: dict[str, list[float]] = {}
+        s_hits: dict[str, int] = {}
 
         for p in preds:
+            s_counts[p.source] = s_counts.get(p.source, 0) + 1
             results: list[HorizonResult] = []
             for h in horizons:
                 e = eval_index.get((p.ticker, p.call_date, p.source, h))
@@ -135,6 +153,9 @@ def build_board(store: PredictionStore, settings: Settings) -> EvaluationBoard:
                 scores.append(e.score)
                 if e.hit:
                     n_hits += 1
+                s_scores.setdefault(p.source, []).append(e.score)
+                if e.hit:
+                    s_hits[p.source] = s_hits.get(p.source, 0) + 1
                 if p.source in LLM_SOURCES:  # deterministic |net| proxies must not skew the flag
                     (hit_confs if e.hit else miss_confs).append(p.confidence)
             records.append(PredictionRecord(
@@ -157,10 +178,19 @@ def build_board(store: PredictionStore, settings: Settings) -> EvaluationBoard:
             overconfident=is_overconfident(hit_confs, miss_confs),
             latest_recommendation=preds[0].recommendation, latest_call_date=preds[0].call_date,
         )
-        companies.append(CompanyEvaluation(rollup=rollup, calls=records))
+        by_source = {src: _track_for(s_counts[src], s_scores.get(src, []),
+                                     s_hits.get(src, 0)) for src in s_counts}
+        for src in s_counts:
+            g_counts[src] = g_counts.get(src, 0) + s_counts[src]
+            g_scores.setdefault(src, []).extend(s_scores.get(src, []))
+            g_hits[src] = g_hits.get(src, 0) + s_hits.get(src, 0)
+        companies.append(CompanyEvaluation(rollup=rollup, calls=records, by_source=by_source))
 
     companies.sort(key=lambda c: c.rollup.latest_call_date or "", reverse=True)
-    return EvaluationBoard(as_of=datetime.now(timezone.utc).isoformat(), companies=companies)
+    board_sources = {src: _track_for(g_counts[src], g_scores.get(src, []),
+                                     g_hits.get(src, 0)) for src in g_counts}
+    return EvaluationBoard(as_of=datetime.now(timezone.utc).isoformat(),
+                           companies=companies, sources=board_sources)
 
 
 _SOURCE_LABELS = {
