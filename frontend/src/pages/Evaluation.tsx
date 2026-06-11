@@ -140,7 +140,6 @@ export default function Evaluation() {
   const [srcFilter, setSrcFilter] = useState<Source | null>(null);
 
   const companies = board.data?.companies ?? [];
-  const current = companies.find((c) => c.rollup.ticker === selected) ?? null;
 
   const startOver = () => {
     if (window.confirm('Delete ALL recorded calls and scores for every tracked ticker? This cannot be undone.')) {
@@ -178,11 +177,17 @@ export default function Evaluation() {
         {board.data && (
           <>
             <SourceScoreboard sources={board.data.sources ?? {}} />
-            <EvaluationBoard companies={companies} selected={selected} onSelect={setSelected} />
+            <EvaluationBoard
+              companies={companies}
+              selected={selected}
+              onSelect={(t) => setSelected((s) => (s === t ? null : t))}
+              renderDetail={(c) => (
+                <CompanyDetail company={c} srcFilter={srcFilter} onFilter={setSrcFilter} />
+              )}
+            />
           </>
         )}
       </section>
-      {current && <CompanyDetail company={current} srcFilter={srcFilter} onFilter={setSrcFilter} />}
     </>
   );
 }

@@ -805,6 +805,10 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
   border: 1px solid var(--panel-brd); border-radius: 8px; padding: 10px 12px;
   background: var(--panel);
 }
+/* Inline accordion: the company detail expands directly under the clicked board row. */
+.board-detail-row > td { padding: 6px 6px 16px; }
+.board-detail-row .panel { margin: 0; }
+
 .src-filter { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; }
 /* Selected filter chip must read BRIGHTER than its neighbours: gold text on a gold tint
    over the secondary base (the old rule dimmed the default gold button instead). */

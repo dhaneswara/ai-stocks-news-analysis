@@ -50,4 +50,17 @@ describe('EvaluationBoard', () => {
     render(<EvaluationBoard companies={[]} selected={null} onSelect={() => {}} />);
     expect(screen.getByText(/no tracked calls yet/i)).toBeInTheDocument();
   });
+
+  it('renders the inline detail row only under the selected company', () => {
+    render(
+      <EvaluationBoard
+        companies={COMPANIES}
+        selected="AAPL"
+        onSelect={() => {}}
+        renderDetail={(c) => <div>detail for {c.rollup.ticker}</div>}
+      />,
+    );
+    expect(screen.getByText('detail for AAPL')).toBeInTheDocument();
+    expect(screen.queryByText('detail for TSLA')).not.toBeInTheDocument();
+  });
 });

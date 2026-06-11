@@ -69,7 +69,7 @@ beforeEach(() => {
 });
 
 describe('Evaluation page', () => {
-  it('shows the board and expands a company to reveal calls', async () => {
+  it('expands a company inline and collapses it on a second click', async () => {
     renderPage();
     const row = await screen.findByText('AAPL');
     fireEvent.click(row);
@@ -77,6 +77,10 @@ describe('Evaluation page', () => {
     expect(await screen.findByText(/1d/)).toBeInTheDocument();
     expect(screen.getByText(/5d/)).toBeInTheDocument();
     expect(screen.getByText(/20d/)).toBeInTheDocument();
+    // Clicking the same ticker again collapses the accordion row.
+    fireEvent.click(row);
+    expect(screen.queryByText('AAPL — calls')).not.toBeInTheDocument();
+    expect(screen.queryByText(/1d/)).not.toBeInTheDocument();
   });
 
   it('runs an LLM post-mortem on a missed call', async () => {
