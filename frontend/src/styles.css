@@ -805,8 +805,10 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
   border: 1px solid var(--panel-brd); border-radius: 8px; padding: 10px 12px;
   background: var(--panel);
 }
-.src-filter { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; }
-.src-filter button.active { border-color: var(--gold-line); background: var(--gold-tint); }
+.src-filter { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 0 0 10px; }
+/* Selected filter chip must read BRIGHTER than its neighbours: gold text on a gold tint
+   over the secondary base (the old rule dimmed the default gold button instead). */
+.src-filter button.active { color: var(--gold); border-color: var(--gold-line); background: var(--gold-tint); }
 
 /* graph editing: context menu, legend overlay, merge preview, relationship form */
 .graph-ctx-menu {

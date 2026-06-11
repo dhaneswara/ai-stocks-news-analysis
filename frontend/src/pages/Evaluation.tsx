@@ -94,9 +94,10 @@ function CompanyDetail({ company, srcFilter, onFilter }: {
       </div>
       {remove.isError && <p className="error">Couldn't remove: {(remove.error as Error).message}</p>}
       <div className="src-filter">
-        <button className={srcFilter == null ? 'active' : 'secondary'} onClick={() => onFilter(null)}>All</button>
+        <span className="muted">Filter calls:</span>
+        <button className={srcFilter == null ? 'secondary active' : 'secondary'} onClick={() => onFilter(null)}>All</button>
         {SOURCE_ORDER.map((k) => (
-          <button key={k} className={srcFilter === k ? 'active' : 'secondary'} onClick={() => onFilter(k)}>
+          <button key={k} className={srcFilter === k ? 'secondary active' : 'secondary'} onClick={() => onFilter(k)}>
             {SOURCE_LABEL[k]}
           </button>
         ))}

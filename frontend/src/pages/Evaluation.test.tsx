@@ -110,7 +110,12 @@ describe('Evaluation page', () => {
 
     // Expand AAPL, then filter — fixture call is llm_fast, so filter=llm_deep → empty
     fireEvent.click(await screen.findByText('AAPL'));
-    fireEvent.click(await screen.findByRole('button', { name: 'LLM deep' }));
+    expect(screen.getByText(/filter calls:/i)).toBeInTheDocument();
+    const deepBtn = await screen.findByRole('button', { name: 'LLM deep' });
+    fireEvent.click(deepBtn);
+    // Selected chip keeps the secondary base and gains the bright .active accent.
+    expect(deepBtn.className).toContain('secondary');
+    expect(deepBtn.className).toContain('active');
     expect(await screen.findByText('No calls from this source yet.')).toBeInTheDocument();
   });
 
