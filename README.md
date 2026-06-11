@@ -94,8 +94,12 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   per-source scoreboard cards (calls / scored / hit-rate / grade), per-company boards with a
   by-source breakdown and a source filter, an **overconfidence** flag for the LLM calls, and a
   source-aware **"Explain miss"** LLM post-mortem. Your watchlist's technical/network calls are
-  snapshotted automatically every time you **Rescan** Discover; a deep run that silently fell
-  back to the fast path is honestly recorded as fast so the deep-vs-fast comparison never lies.
+  snapshotted automatically every time you **Rescan** Discover; an **action bar on the
+  Evaluation page** can also run every process watchlist-wide on demand — snapshot the
+  technical/network calls, batch the **fast** or **deep** LLM analysis across the whole
+  watchlist (live per-ticker progress, a Stop button, and already-recorded tickers skipped so
+  reruns only fill gaps), or trigger a full Discover rescan; a deep run that silently fell back
+  to the fast path is honestly recorded as fast so the deep-vs-fast comparison never lies.
   Scoring runs automatically when you open the page, and can also run unattended via
   `python -m app.evaluation`.
   *Caveats:* a "hit" is a simple directional check (buy⇢up, sell⇢down, hold⇢flat within a
@@ -189,7 +193,9 @@ npm run dev                        # http://localhost:5173
 6. **Evaluation (optional):** after a few days of analyses and rescans, open the
    **Evaluation** tab to see how accurate the calls were — per source (technical / network /
    LLM fast / LLM deep) and per company (1/5/20-day hit-rate, score, grade) — and click
-   **Explain miss** on a bad one. For unattended scoring, schedule
+   **Explain miss** on a bad one. The action bar at the top runs any process for the whole
+   watchlist — snapshot technical/network calls, fast/deep LLM batches, or a full Discover
+   rescan — without visiting the other pages. For unattended scoring, schedule
    `python -m app.evaluation` (see [backend/README.md](backend/README.md)).
 
 ## Testing

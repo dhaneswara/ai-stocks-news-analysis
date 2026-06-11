@@ -33,6 +33,7 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 - `GET  /api/stock/{ticker}?period=2y`
 - `POST /api/analyze/{ticker}?period=2y` — runs the fast LLM analysis (and records the call **plus a technical/network baseline** for evaluation)
 - `GET  /api/analyze/{ticker}/deep/stream?period=2y` — agentic **Deep Analysis** streamed as Server-Sent Events (records as `llm_deep`; persists the agent trace)
+- `GET  /api/analyze/watchlist/stream?mode=fast|deep&period=2y` — run the fast/deep analysis for **every watchlist ticker** as one SSE batch (per-ticker progress events; a ticker whose matching-source call already exists for its latest trading day is skipped)
 - `GET  /api/traces/{ticker}?limit=5` — recent persisted deep-analysis reasoning traces (newest first)
 - `GET  /api/score/{ticker}` — no-LLM opportunity score for one ticker (Discover parity, network-blended)
 - `GET  /api/signals/{ticker}` — every recorded CALL source for one ticker + per-source track records, agreement and the historically best source (powers the Dashboard Signals strip)
@@ -211,8 +212,8 @@ so the Evaluation tab can answer *"which signal should I trust?"* with data. The
 
 | Source | What it is | Recorded when |
 |--------|-----------|---------------|
-| `llm_fast` | the single-shot **Analyze with LLM** call | `POST /api/analyze/{ticker}` |
-| `llm_deep` | the agentic **Deep Analysis** result | the deep stream's terminal event (a fallback run records as `llm_fast`) |
+| `llm_fast` | the single-shot **Analyze with LLM** call | `POST /api/analyze/{ticker}`, and watchlist-wide via `GET /api/analyze/watchlist/stream` |
+| `llm_deep` | the agentic **Deep Analysis** result | the deep stream's terminal event (a fallback run records as `llm_fast`), and watchlist-wide via `GET /api/analyze/watchlist/stream` |
 | `technical` | the deterministic screener's pre-network vote | alongside every LLM analysis, and for the whole watchlist via `POST /api/evaluation/snapshot` (fired by Discover rescans) |
 | `network` | the network-blended call | same moments as `technical`, but only when a network signal actually influenced the score |
 

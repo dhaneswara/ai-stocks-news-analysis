@@ -114,7 +114,7 @@ describe('Evaluation page', () => {
     expect(await screen.findByText('No calls from this source yet.')).toBeInTheDocument();
   });
 
-  it('renders the watchlist command bar above the board', async () => {
+  it('renders the watchlist command bar', async () => {
     renderPage();
     expect(await screen.findByRole('button', { name: /fast llm analysis/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /deep llm analysis/i })).toBeInTheDocument();
