@@ -93,7 +93,9 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   trust?"* becomes a measured answer instead of a feeling. The **Evaluation** tab shows
   per-source scoreboard cards (calls / scored / hit-rate / grade), per-company boards with a
   by-source breakdown and a source filter, an **overconfidence** flag for the LLM calls, and a
-  source-aware **"Explain miss"** LLM post-mortem. Your watchlist's technical/network calls are
+  source-aware **"Explain miss"** LLM post-mortem, plus a confirm-guarded **Clear all results**
+  reset that wipes every recorded call and score — start the experiment over once you're done
+  testing. Your watchlist's technical/network calls are
   snapshotted automatically every time you **Rescan** Discover; an **action bar on the
   Evaluation page** can also run every process watchlist-wide on demand — snapshot the
   technical/network calls, batch the **fast** or **deep** LLM analysis across the whole
