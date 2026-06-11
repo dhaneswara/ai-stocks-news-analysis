@@ -32,11 +32,11 @@ function StartProbe() {
   );
 }
 
-function renderIndicator() {
+function renderIndicator(initialPath = '/') {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <MemoryRouter>
+      <MemoryRouter initialEntries={[initialPath]}>
         <WatchlistRunProvider>
           <RunIndicator />
           <StartProbe />
@@ -74,6 +74,16 @@ describe('RunIndicator', () => {
 
     act(() => handlers.current!.onEvent({ type: 'done', analyzed: 2, skipped: 0, failed: 0 }));
     expect(screen.queryByText(/fast batch/i)).not.toBeInTheDocument();
+  });
+
+  it('is a plain pill (no link) when already on the target page', () => {
+    renderIndicator('/evaluation');
+    fireEvent.click(screen.getByText('go'));
+    act(() => handlers.current!.onEvent({ type: 'start', total: 2, tickers: ['AAPL', 'MSFT'] }));
+
+    const chip = screen.getByText(/fast batch 0\/2/i);
+    expect(chip.closest('a')).toBeNull(); // no pointer affordance for a no-op navigation
+    expect(chip.closest('.run-indicator')).toHaveAttribute('title', expect.not.stringContaining('Click'));
   });
 
   it('shows the rescan chip and the app-level chain still fires the snapshot', async () => {
