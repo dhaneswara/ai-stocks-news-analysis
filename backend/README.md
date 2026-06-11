@@ -222,6 +222,13 @@ so the Evaluation tab can answer *"which signal should I trust?"* with data. The
 | `technical` | the deterministic screener's pre-network vote | alongside every LLM analysis, and for the whole watchlist via `POST /api/evaluation/snapshot` (fired by Discover rescans) |
 | `network` | the network-blended call | same moments as `technical`, but only when a network signal actually influenced the score |
 
+The watchlist snapshot reads `settings.watchlist` server-side and runs the same no-LLM scorer
+as the Discover board over a 1-year window of (cached) yfinance data; calls are keyed to the
+**last candle's** trading date, so a weekend run records under Friday and re-running on the
+same day just overwrites the same rows. The `network` call blends the latest focus-graph and
+Discover-board snapshots, so it is freshest right after a rescan — which is why Discover
+chains the snapshot automatically.
+
 Each recorded call (recommendation, confidence, entry price + trading date) is scored against
 what the price actually did at **1, 5, and 20 trading days** and rolled up per company *and*
 per source.

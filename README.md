@@ -2,7 +2,7 @@
 
 A personal web app for **swing/long-term US-stock decision support**. It pulls price
 data, fundamentals, and recent news for a stock, computes simple technical indicators,
-and asks an **LLM (Anthropic / OpenAI / Gemini / local Ollama)** to produce a structured
+and asks an **LLM (Anthropic / OpenAI / Gemini / DeepSeek / local Ollama)** to produce a structured
 analysis — a plain-language summary, a read on the news, and **buy/sell signals drawn
 directly on an interactive chart** with the reasoning shown on the page. It can also send
 **scheduled buy/sell alerts** to Telegram, rank opportunities across the S&P 500, map
@@ -41,8 +41,8 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   Evaluation scoreboard, and both prompts include the model's **own scored track record** on
   that ticker (recent hits/misses + an overconfidence note) so it can calibrate itself.
 - **Per-stock news** — recent headlines via Google News RSS.
-- **Multi-provider, switchable in the UI** — Anthropic, OpenAI, Gemini, or local Ollama;
-  API keys are stored locally and masked in the UI.
+- **Multi-provider, switchable in the UI** — Anthropic, OpenAI, Gemini, DeepSeek, or local
+  Ollama; API keys are stored locally and masked in the UI.
 - **Scheduled alerts** — a CLI evaluates indicator rules (RSI 30/70 crossings, golden/death
   cross) on your watchlist and sends deduplicated Telegram alerts (with best-effort LLM
   reasoning), scheduled via the OS.
@@ -100,6 +100,8 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   watchlist (live per-ticker progress, a Stop button, and already-recorded tickers skipped so
   reruns only fill gaps), or trigger a full Discover rescan; a deep run that silently fell back
   to the fast path is honestly recorded as fast so the deep-vs-fast comparison never lies.
+  The snapshot's network call blends the latest knowledge-graph and Discover-board snapshots,
+  so it records the freshest state right after a rescan (which is why Discover chains it).
   Scoring runs automatically when you open the page, and can also run unattended via
   `python -m app.evaluation`.
   *Caveats:* a "hit" is a simple directional check (buy⇢up, sell⇢down, hold⇢flat within a
@@ -134,7 +136,7 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   fall back to source builds that need a C/Rust toolchain. If that happens, create the
   venv with an older arm64/x64 build instead (e.g. `py -3.12 -m venv .venv`).
 - **Node.js 20.x** (the frontend toolchain is pinned to Vite 5 for Node 20 compatibility)
-- Optional: a provider API key (Anthropic/OpenAI/Gemini) **or** [Ollama](https://ollama.com)
+- Optional: a provider API key (Anthropic/OpenAI/Gemini/DeepSeek) **or** [Ollama](https://ollama.com)
   running locally for free, key-less analysis.
 
 ## Quick start (Windows)
@@ -178,7 +180,7 @@ npm run dev                        # http://localhost:5173
 ## Configure & use
 
 1. Open http://localhost:5173 and go to **Settings**.
-2. **Provider:** pick Anthropic / OpenAI / Gemini and paste an API key (or pick **Ollama**
+2. **Provider:** pick Anthropic / OpenAI / Gemini / DeepSeek and paste an API key (or pick **Ollama**
    and run `ollama serve` + `ollama pull llama3.1` — no key needed). Click **Test connection**.
 3. On the **Dashboard**, enter a ticker (or use the watchlist), then click **Analyze with LLM**
    for a fast call — or **Deep Analysis** to watch the agent pull data step-by-step — to draw
