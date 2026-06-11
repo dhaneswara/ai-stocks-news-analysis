@@ -36,7 +36,9 @@ export function EvaluationCommandBar() {
   return (
     <div className="panel commandbar">
       <div className="board-controls">
-        <span className="section-label">Run on your watchlist ({watch.list.length} tickers)</span>
+        <span className="section-label">
+          Run on your watchlist ({watch.list.length} ticker{watch.list.length === 1 ? '' : 's'})
+        </span>
         <span className="spacer" />
         <button className="secondary" disabled={disabled} onClick={() => snapshot.mutate()}>
           {snapshot.isPending ? 'Snapshotting…' : 'Snapshot technical/network'}
