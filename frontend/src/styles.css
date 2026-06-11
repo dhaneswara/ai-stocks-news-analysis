@@ -808,7 +808,10 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
   border: 1px solid var(--panel-brd); border-radius: 8px; padding: 10px 12px;
   background: var(--panel);
 }
-/* Live batch-run chip in the masthead — visible on every page while a run is active. */
+/* Live batch-run chip in the masthead — visible on every page while a run is active.
+   Docked top-right against the nav (status-area convention): margin-left:auto eats the
+   space-between slack so the nav links never shift when the chip appears. */
+.masthead .run-indicator { margin-left: auto; align-self: center; }
 .run-indicator {
   display: inline-flex; align-items: center; gap: 6px;
   font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
