@@ -1,4 +1,4 @@
-import { useRescan, useSettings, useSnapshotEvaluation, useWatchlist } from '../hooks/queries';
+import { useSettings, useWatchlist } from '../hooks/queries';
 import { useWatchlistRunContext } from '../state/watchlistRunState';
 import { MarketHint } from './MarketHint';
 import type { TickerRunStatus } from '../types';
@@ -15,9 +15,8 @@ const CHIP_ICON: Record<TickerRunStatus, string> = {
 export function EvaluationCommandBar() {
   const settings = useSettings();
   const watch = useWatchlist();
-  const snapshot = useSnapshotEvaluation();
-  const rescan = useRescan();
-  const run = useWatchlistRunContext(); // app-level stream — survives page navigation
+  // All four processes live at app level — they survive page navigation.
+  const { run, snapshot, rescan, rescanAndSnapshot } = useWatchlistRunContext();
 
   const running = run.phase === 'running';
   const busy = snapshot.isPending || rescan.isPending || running;
@@ -48,7 +47,7 @@ export function EvaluationCommandBar() {
         <button
           disabled={disabled}
           title="Rebuilds the S&P 500 board (fresh neighbour data for the network call), then snapshots the watchlist — no separate Snapshot click needed."
-          onClick={() => rescan.mutate(undefined, { onSuccess: () => snapshot.mutate() })}
+          onClick={() => rescanAndSnapshot()}
         >
           {rescan.isPending ? 'Scanning…' : 'Full Discover rescan'}
         </button>

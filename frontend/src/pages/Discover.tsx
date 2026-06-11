@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { DiscoverBoard } from '../components/DiscoverBoard';
 import { MarketHint } from '../components/MarketHint';
-import { useRefreshUniverse, useRescan, useScreen, useSectors, useSnapshotEvaluation, useWatchlist } from '../hooks/queries';
+import { useRefreshUniverse, useScreen, useSectors, useWatchlist } from '../hooks/queries';
+import { useWatchlistRunContext } from '../state/watchlistRunState';
 
 export default function Discover() {
   const [sector, setSector] = useState('');
@@ -9,9 +10,9 @@ export default function Discover() {
   const [show, setShow] = useState(25);
   const sectors = useSectors();
   const board = useScreen(sector || undefined, direction || undefined, show);
-  const rescan = useRescan();
+  // Shared app-level rescan/snapshot — the chained snapshot survives page navigation.
+  const { snapshot, rescan, rescanAndSnapshot } = useWatchlistRunContext();
   const refreshList = useRefreshUniverse();
-  const snapshot = useSnapshotEvaluation();
   const watch = useWatchlist();
 
   const data = board.data;
@@ -54,7 +55,7 @@ export default function Discover() {
           <button className="secondary" onClick={() => refreshList.mutate()} disabled={refreshList.isPending}>
             {refreshList.isPending ? 'Updating…' : 'Update S&P 500 list'}
           </button>
-          <button onClick={() => rescan.mutate(sector || undefined, { onSuccess: () => snapshot.mutate() })} disabled={rescan.isPending}>
+          <button onClick={() => rescanAndSnapshot(sector || undefined)} disabled={rescan.isPending}>
             {rescan.isPending ? 'Scanning…' : sector ? `Rescan ${sector}` : 'Rescan all'}
           </button>
         </div>
