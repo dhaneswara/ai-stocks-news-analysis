@@ -65,6 +65,22 @@ def test_explain_missing_is_404(client, monkeypatch):
     assert r.status_code == 404
 
 
+def test_clear_all_evaluation(client):
+    tc, _, store = client
+    store.upsert_prediction(ticker="AAPL", call_date="2026-06-01", provider="a", model="m",
+                            recommendation="buy", confidence=0.8, sentiment="bullish",
+                            entry_price=100.0)
+    store.upsert_prediction(ticker="MSFT", call_date="2026-06-01", provider="rules", model="",
+                            recommendation="sell", confidence=0.3, sentiment="bearish",
+                            entry_price=400.0, source="technical")
+    store.record_eval("AAPL", "2026-06-01", 1, "2026-06-02", 105.0, 5.0, 1, 100.0)
+
+    r = tc.delete("/api/evaluation")
+    assert r.status_code == 200
+    assert r.json() == {"predictions": 2, "evals": 1}
+    assert store.all_predictions() == [] and store.all_evals() == []
+
+
 def test_delete_tracked(client):
     tc, _, store = client
     store.upsert_prediction(ticker="AAPL", call_date="2026-06-01", provider="a", model="m",

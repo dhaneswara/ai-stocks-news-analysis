@@ -598,6 +598,14 @@ def explain_evaluation(
     return {"explanation": text}
 
 
+@router.delete("/evaluation")
+def clear_evaluation(
+    prediction_store: PredictionStore = Depends(get_prediction_store),
+) -> dict:
+    """Start over: delete every recorded call and score across all tickers."""
+    return prediction_store.clear_all()
+
+
 @router.delete("/evaluation/{ticker}")
 def delete_tracked(
     ticker: str,

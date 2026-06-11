@@ -59,6 +59,7 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 - `GET  /api/graph?scope=imported` — read the imported overlay (and `?scope=focus` returns the snapshot **merged** with it)
 - `GET  /api/evaluation` — recommendation-accuracy board with per-source rollups (runs lazy scoring first)
 - `POST /api/evaluation/snapshot` — record today's technical/network calls for the whole watchlist (fired by Discover after a rescan; no body)
+- `DELETE /api/evaluation` — start over: delete every recorded call and score across all tickers (per-ticker variant: `DELETE /api/evaluation/{ticker}`)
 - `POST /api/evaluation/{ticker}/{call_date}/explain?source=llm_fast` — on-demand LLM post-mortem on a missed call (source-aware)
 - `DELETE /api/evaluation/{ticker}` — stop tracking a company (clears its recorded calls, all sources)
 - `POST /api/alerts/test` — send a test alert through the configured channel

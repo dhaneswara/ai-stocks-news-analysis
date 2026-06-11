@@ -55,3 +55,19 @@ def test_delete_ticker_removes_rows(tmp_path):
     deleted = s.delete_ticker("aapl")
     assert deleted == 1
     assert s.all_predictions() == [] and s.all_evals() == []
+
+
+def test_clear_all_wipes_both_tables(tmp_path):
+    s = _store(tmp_path)
+    s.upsert_prediction(ticker="AAPL", call_date="2026-06-05", provider="a", model="m",
+                        recommendation="buy", confidence=0.8, sentiment="bullish", entry_price=200.0)
+    s.upsert_prediction(ticker="MSFT", call_date="2026-06-05", provider="rules", model="",
+                        recommendation="sell", confidence=0.3, sentiment="bearish",
+                        entry_price=400.0, source="technical")
+    s.record_eval("AAPL", "2026-06-05", 1, "2026-06-06", 210.0, 5.0, 1, 100.0)
+
+    counts = s.clear_all()
+    assert counts == {"predictions": 2, "evals": 1}
+    assert s.all_predictions() == [] and s.all_evals() == []
+    # Clearing an already-empty store is a no-op, not an error.
+    assert s.clear_all() == {"predictions": 0, "evals": 0}

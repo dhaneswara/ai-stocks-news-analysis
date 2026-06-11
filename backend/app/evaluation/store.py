@@ -196,3 +196,11 @@ class PredictionStore:
             self._conn.execute("DELETE FROM prediction_evals WHERE ticker = ?", (ticker,))
             self._conn.commit()
             return cur.rowcount
+
+    def clear_all(self) -> dict[str, int]:
+        """Start over: wipe every recorded call and verdict across all tickers."""
+        with self._lock:
+            preds = self._conn.execute("DELETE FROM predictions").rowcount
+            evals = self._conn.execute("DELETE FROM prediction_evals").rowcount
+            self._conn.commit()
+        return {"predictions": preds, "evals": evals}
