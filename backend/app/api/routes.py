@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -12,7 +13,7 @@ from app.config.cache import Cache
 from app.config.settings_store import SettingsStore, mask_settings, merge_settings
 from app.deps import get_cache, get_prediction_store, get_settings_store, get_trace_store
 from app.llm.base import LLMError
-from app.llm.factory import build_provider
+from app.llm.factory import build_provider, resolve_config
 from app.models.schemas import (
     DEFAULT_MODELS,
     AnalysisResult,
@@ -28,6 +29,7 @@ from app.models.schemas import (
     Source,
     StockData,
     StockScore,
+    WatchlistRunEvent,
 )
 from app.analysis import political
 from app.analysis.network import apply_network
@@ -128,7 +130,7 @@ def analyze_ticker(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
-def _sse(event: AgentEvent) -> str:
+def _sse(event: AgentEvent | WatchlistRunEvent) -> str:
     return f"event: {event.type}\ndata: {event.model_dump_json()}\n\n"
 
 
@@ -224,6 +226,85 @@ def get_traces(
         except Exception:  # noqa: BLE001 — one corrupt row must not take the endpoint down
             logger.warning("corrupt trace row for %s, skipping", ticker)
     return results
+
+
+_SSE_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+
+
+@router.get("/analyze/watchlist/stream")
+def analyze_watchlist_stream(
+    mode: Literal["fast"] = "fast",
+    period: str = "2y",
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+    prediction_store: PredictionStore = Depends(get_prediction_store),
+    trace_store: AgentTraceStore = Depends(get_trace_store),
+) -> StreamingResponse:
+    """Run the LLM analysis for every watchlist ticker as one SSE batch (`start`, one
+    `ticker` frame per state change, terminal `done`/`error`). A ticker whose
+    matching-source call already exists for its latest trading day is skipped, so
+    re-running resumes after a partial failure instead of re-spending tokens. Sequential
+    on purpose (provider rate limits). Pre-flight failures (evaluation off, provider
+    misconfigured) are a single run-level `error` event — EventSource cannot read an HTTP
+    error body. A client disconnect cancels the loop at the next yield: the in-flight
+    ticker still completes and records."""
+    settings = store.load()
+    source = SOURCE_LLM_FAST
+
+    def one_error(message: str) -> StreamingResponse:
+        return StreamingResponse(
+            iter([_sse(WatchlistRunEvent(type="error", message=message))]),
+            media_type="text/event-stream", headers=_SSE_HEADERS)
+
+    if not settings.evaluation.enabled:
+        return one_error("Evaluation recording is disabled in Settings — enable it to use "
+                         "watchlist runs.")
+    provider_id = settings.active_provider
+    cfg = settings.providers.get(provider_id)
+    if cfg is None:
+        return one_error(f"No configuration for provider '{provider_id}'")
+    effective = resolve_config(provider_id, cfg)
+    if provider_id != "ollama" and not effective.api_key:
+        return one_error(f"Missing API key for provider '{provider_id}'. Set it in Settings.")
+    try:
+        build_provider(settings)  # pre-flight only here; Task 2's deep branch keeps the instance
+    except LLMError as exc:
+        return one_error(str(exc))
+
+    tickers = [t.upper().strip() for t in settings.watchlist]
+
+    def event_stream():
+        yield _sse(WatchlistRunEvent(type="start", total=len(tickers), tickers=tickers))
+        analyzed = skipped = failed = 0
+        for i, ticker in enumerate(tickers):
+            yield _sse(WatchlistRunEvent(type="ticker", ticker=ticker, index=i,
+                                         total=len(tickers), status="running"))
+            try:
+                stock = get_stock_data(ticker, period, settings.indicator_params, cache)
+                if not stock.candles:
+                    raise ValueError("no price data")
+                if prediction_store.get_prediction(ticker, stock.candles[-1].time, source):
+                    skipped += 1
+                    yield _sse(WatchlistRunEvent(type="ticker", ticker=ticker, index=i,
+                                                 total=len(tickers), status="skipped"))
+                    continue
+                result = run_analysis(ticker, period, settings, cache, prediction_store)
+                analyzed += 1
+                yield _sse(WatchlistRunEvent(
+                    type="ticker", ticker=ticker, index=i, total=len(tickers),
+                    status="done", recommendation=result.current_recommendation,
+                    confidence=result.confidence))
+            except Exception as exc:  # noqa: BLE001 — per-ticker isolation
+                logger.warning("watchlist %s run failed for %s", mode, ticker)
+                failed += 1
+                yield _sse(WatchlistRunEvent(type="ticker", ticker=ticker, index=i,
+                                             total=len(tickers), status="failed",
+                                             error=str(exc)))
+        yield _sse(WatchlistRunEvent(type="done", analyzed=analyzed, skipped=skipped,
+                                     failed=failed))
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream",
+                             headers=_SSE_HEADERS)
 
 
 @router.get("/settings", response_model=Settings)

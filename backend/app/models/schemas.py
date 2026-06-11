@@ -248,6 +248,27 @@ class AnalysisResult(BaseModel):
 Source = Literal["llm_fast", "llm_deep", "technical", "network"]
 
 
+class WatchlistRunEvent(BaseModel):
+    """One SSE frame of a watchlist-wide LLM batch run.
+
+    `start` carries total/tickers; `ticker` carries per-ticker progress; `done` carries the
+    summary counts; `error` is a run-level failure (pre-flight) with `message`."""
+    type: Literal["start", "ticker", "done", "error"]
+    ticker: str = ""
+    index: int = 0
+    total: int = 0
+    status: Optional[Literal["running", "done", "skipped", "failed"]] = None
+    recommendation: str = ""
+    confidence: float = 0.0
+    fell_back: bool = False
+    error: str = ""
+    analyzed: int = 0
+    skipped: int = 0
+    failed: int = 0
+    message: str = ""
+    tickers: list[str] = Field(default_factory=list)
+
+
 class HorizonResult(BaseModel):
     horizon: int
     status: Literal["pending", "final"] = "pending"
