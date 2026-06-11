@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useSearchParams } from 'react-router-dom';
 import { PriceChart, type ChartRange } from '../components/PriceChart';
 import { IndicatorBar } from '../components/IndicatorBar';
+import { MarketHint } from '../components/MarketHint';
 import { NewsList } from '../components/NewsList';
 import { ReasoningPanel } from '../components/ReasoningPanel';
 import { SignalList } from '../components/SignalList';
@@ -93,6 +94,8 @@ export default function Dashboard() {
           onDeepAnalyze={runDeepAnalyze}
           deepAnalyzing={deep.running}
         />
+        {/* Caution only while the US session is live — an analysis now records partial-day prices. */}
+        <MarketHint quiet />
       </div>
 
       {!ticker && <p className="muted">Enter a ticker or pick one from your watchlist to begin.</p>}

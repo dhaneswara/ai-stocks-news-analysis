@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { DiscoverBoard } from '../components/DiscoverBoard';
+import { MarketHint } from '../components/MarketHint';
 import { useRefreshUniverse, useRescan, useScreen, useSectors, useSnapshotEvaluation, useWatchlist } from '../hooks/queries';
 
 export default function Discover() {
@@ -57,6 +58,7 @@ export default function Discover() {
             {rescan.isPending ? 'Scanning…' : sector ? `Rescan ${sector}` : 'Rescan all'}
           </button>
         </div>
+        <MarketHint />
       </div>
 
       {board.isLoading && <p className="muted">Loading board…</p>}

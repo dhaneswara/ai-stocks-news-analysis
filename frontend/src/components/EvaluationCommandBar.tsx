@@ -1,28 +1,11 @@
 import { useRescan, useSettings, useSnapshotEvaluation, useWatchlist } from '../hooks/queries';
 import { useWatchlistRun } from '../hooks/useWatchlistRun';
-import { usMarketStatus } from '../lib/marketClock';
+import { MarketHint } from './MarketHint';
 import type { TickerRunStatus } from '../types';
 
 const CHIP_ICON: Record<TickerRunStatus, string> = {
   running: '⏳', done: '✓', skipped: '−', failed: '✗',
 };
-
-/** When-to-run guidance: these processes record calls against daily candles, so the
- *  honest moment is after the US close — shown in the user's own timezone. */
-function MarketHint() {
-  const m = usMarketStatus();
-  const explain =
-    'Calls are recorded against the day’s candle, and the LLM batches record once per '
-    + 'trading day — run after the US close (4:00 PM New York, regular sessions; '
-    + 'holidays not modeled) so prices are final.';
-  return (
-    <p className="muted" title={explain}>
-      {m.open
-        ? `⏳ US market is open — today's prices are still partial. Best run after the close: ${m.nextCloseLabel} (${m.tz}).`
-        : `✓ US market is closed — daily prices are final, a good time to run. Next close: ${m.nextCloseLabel} (${m.tz}).`}
-    </p>
-  );
-}
 
 /** One button per watchlist-wide process, ordered as a left-to-right pipeline: full
  *  Discover rescan (refreshes the board the network call blends against, then chains the
