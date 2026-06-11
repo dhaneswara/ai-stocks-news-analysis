@@ -42,8 +42,8 @@ export function EvaluationCommandBar() {
           Run on your watchlist ({watch.list.length} ticker{watch.list.length === 1 ? '' : 's'})
         </span>
         <span className="spacer" />
-        {/* The bar's one gold primary, mirroring Discover's gold "Rescan all" — the other
-            three stay secondary like the Dashboard's Deep Analysis/Load buttons. */}
+        {/* All four wear the default gold (user's choice) — the watchlist-wide processes
+            are this page's headline actions, not auxiliaries. */}
         <button
           disabled={disabled}
           title="Rebuilds the S&P 500 board (fresh neighbour data for the network call), then snapshots the watchlist — no separate Snapshot click needed."
@@ -52,21 +52,21 @@ export function EvaluationCommandBar() {
           {rescan.isPending ? 'Scanning…' : 'Full Discover rescan'}
         </button>
         <button
-          className="secondary" disabled={disabled}
+          disabled={disabled}
           title="Records today's technical/network calls from the latest board data — rescan first if the board is stale."
           onClick={() => snapshot.mutate()}
         >
           {snapshot.isPending ? 'Snapshotting…' : 'Snapshot technical/network'}
         </button>
         <button
-          className="secondary" disabled={disabled}
+          disabled={disabled}
           title="Runs the single-shot LLM analysis for each watchlist ticker (one provider call apiece, costs tokens) — tickers already recorded for the latest trading day are skipped, so re-running only fills gaps."
           onClick={() => run.start('fast')}
         >
           {running && run.mode === 'fast' ? 'Analyzing…' : 'Fast LLM analysis'}
         </button>
         <button
-          className="secondary" disabled={disabled}
+          disabled={disabled}
           title="Runs the agentic deep analysis for each watchlist ticker (several LLM calls + data tools apiece — slow, costs more tokens). Already-recorded tickers are skipped; a run that falls back to the fast path is recorded as fast."
           onClick={() => run.start('deep')}
         >
