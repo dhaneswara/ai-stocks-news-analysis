@@ -53,6 +53,8 @@ describe('EvaluationCommandBar', () => {
     expect(names.slice(0, 4)).toEqual([
       'Full Discover rescan', 'Snapshot technical/network', 'Fast LLM analysis', 'Deep LLM analysis (slow)',
     ]);
+    // The when-to-run hint renders with live clock data (either market state is valid here).
+    expect(screen.getByText(/US market is (open|closed)/)).toBeInTheDocument();
   });
 
   it('disables everything and hints when the watchlist is empty', async () => {

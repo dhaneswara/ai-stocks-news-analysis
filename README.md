@@ -102,6 +102,9 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   to the fast path is honestly recorded as fast so the deep-vs-fast comparison never lies.
   The snapshot's network call blends the latest knowledge-graph and Discover-board snapshots,
   so it records the freshest state right after a rescan (which is why Discover chains it).
+  The bar also shows whether the **US market is open and the next close in your local
+  timezone** — run after the close so calls are recorded against final daily prices (the app
+  covers S&P 500 names, so the US session is the one that matters; holidays not modeled).
   Scoring runs automatically when you open the page, and can also run unattended via
   `python -m app.evaluation`.
   *Caveats:* a "hit" is a simple directional check (buy⇢up, sell⇢down, hold⇢flat within a
