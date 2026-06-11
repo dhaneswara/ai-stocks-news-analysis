@@ -208,7 +208,7 @@ def analyze_deep_stream(
     return StreamingResponse(
         event_stream(),
         media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        headers=_SSE_HEADERS,
     )
 
 
@@ -233,7 +233,7 @@ _SSE_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
 
 @router.get("/analyze/watchlist/stream")
 def analyze_watchlist_stream(
-    mode: Literal["fast"] = "fast",
+    mode: Literal["fast", "deep"] = "fast",
     period: str = "2y",
     cache: Cache = Depends(get_cache),
     store: SettingsStore = Depends(get_settings_store),
@@ -249,7 +249,7 @@ def analyze_watchlist_stream(
     error body. A client disconnect cancels the loop at the next yield: the in-flight
     ticker still completes and records."""
     settings = store.load()
-    source = SOURCE_LLM_FAST
+    source = SOURCE_LLM_FAST if mode == "fast" else SOURCE_LLM_DEEP
 
     def one_error(message: str) -> StreamingResponse:
         return StreamingResponse(
@@ -267,7 +267,7 @@ def analyze_watchlist_stream(
     if provider_id != "ollama" and not effective.api_key:
         return one_error(f"Missing API key for provider '{provider_id}'. Set it in Settings.")
     try:
-        build_provider(settings)  # pre-flight only here; Task 2's deep branch keeps the instance
+        provider = build_provider(settings)
     except LLMError as exc:
         return one_error(str(exc))
 
@@ -288,14 +288,27 @@ def analyze_watchlist_stream(
                     yield _sse(WatchlistRunEvent(type="ticker", ticker=ticker, index=i,
                                                  total=len(tickers), status="skipped"))
                     continue
-                result = run_analysis(ticker, period, settings, cache, prediction_store)
+                fell_back = False
+                if mode == "fast":
+                    result = run_analysis(ticker, period, settings, cache, prediction_store)
+                else:
+                    deep_stock = gather_stock_context(ticker, period, settings, cache,
+                                                      provider, store=prediction_store)
+                    ctx = ToolContext(stock=deep_stock, settings=settings, cache=cache)
+                    result, trace = ReActAgent().run(provider, cfg.model, provider_id, ctx)
+                    if result is None:
+                        raise LLMError("agent produced no result")
+                    _persist_deep_final(AgentEvent(type="final", result=result, trace=trace),
+                                        deep_stock, settings, cache, prediction_store,
+                                        trace_store)
+                    fell_back = trace.fell_back if trace else True
                 analyzed += 1
                 yield _sse(WatchlistRunEvent(
                     type="ticker", ticker=ticker, index=i, total=len(tickers),
                     status="done", recommendation=result.current_recommendation,
-                    confidence=result.confidence))
+                    confidence=result.confidence, fell_back=fell_back))
             except Exception as exc:  # noqa: BLE001 — per-ticker isolation
-                logger.warning("watchlist %s run failed for %s", mode, ticker)
+                logger.warning("watchlist %s run failed for %s: %s", mode, ticker, exc)
                 failed += 1
                 yield _sse(WatchlistRunEvent(type="ticker", ticker=ticker, index=i,
                                              total=len(tickers), status="failed",

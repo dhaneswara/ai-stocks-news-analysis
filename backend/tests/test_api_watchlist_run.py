@@ -212,3 +212,106 @@ def test_fast_run_isolates_a_failing_ticker(tmp_path, monkeypatch):
     assert "boom" in failed["error"]
     summary = evs[-1][1]
     assert (summary["analyzed"], summary["skipped"], summary["failed"]) == (1, 0, 1)
+
+
+# ---------------- deep mode ----------------
+
+from app.evaluation import signals
+from app.models.schemas import StockScore
+from tests.test_analyzer import VALID_PAYLOAD
+
+
+def _fake_score():
+    return StockScore(ticker="AAPL", name="Apple", sector="", price=204.0, change_pct=0.5,
+                      score=70.0, direction="buy", net=0.3, base_net=0.3, base_score=70.0,
+                      as_of="t")
+
+
+def _deep_ready(monkeypatch, outputs):
+    monkeypatch.setattr(routes, "get_stock_data", lambda t, p, ip, c: _stock_with_candles(t))
+    monkeypatch.setattr(routes, "gather_stock_context",
+                        lambda t, p, s, c, prov, store=None: _stock_with_candles(t))
+    monkeypatch.setattr(routes, "build_provider", lambda settings: FakeProvider(outputs))
+    monkeypatch.setattr(signals, "score_one", lambda t, s, c: _fake_score())
+
+
+def test_deep_run_records_llm_deep_and_trace(tmp_path, monkeypatch):
+    client, settings_store, pred_store, trace_store = _client(tmp_path)
+    _ready_settings(settings_store, watchlist=["AAPL"])
+    _deep_ready(monkeypatch,
+                [f'Thought: done\nFinal Answer: {json.dumps(VALID_PAYLOAD)}'])
+
+    resp = client.get("/api/analyze/watchlist/stream?mode=deep")
+    evs = _events(resp.text)
+    done = [p for n, p in evs if n == "ticker" and p["status"] == "done"][0]
+    assert done["fell_back"] is False
+    assert pred_store.get_prediction("AAPL", "2026-06-05", "llm_deep") is not None
+    assert pred_store.get_prediction("AAPL", "2026-06-05", "llm_fast") is None
+    assert len(trace_store.recent("AAPL")) == 1
+    assert evs[-1][1]["analyzed"] == 1
+
+
+def test_deep_run_skips_on_existing_llm_deep_only(tmp_path, monkeypatch):
+    """An llm_fast row does not suppress a deep run; an llm_deep row does."""
+    client, settings_store, pred_store, _ = _client(tmp_path)
+    _ready_settings(settings_store, watchlist=["AAPL"])
+    _seed_prediction(pred_store, "AAPL", "2026-06-05", "llm_fast")
+    _deep_ready(monkeypatch,
+                [f'Thought: done\nFinal Answer: {json.dumps(VALID_PAYLOAD)}'])
+    resp = client.get("/api/analyze/watchlist/stream?mode=deep")
+    assert _events(resp.text)[-1][1]["analyzed"] == 1   # fast row ignored
+
+    _seed_prediction(pred_store, "AAPL", "2026-06-05", "llm_deep")
+    resp = client.get("/api/analyze/watchlist/stream?mode=deep")
+    assert _events(resp.text)[-1][1]["skipped"] == 1    # deep row skips
+
+
+def test_deep_fallback_is_done_with_fell_back_flag_and_records_fast(tmp_path, monkeypatch):
+    client, settings_store, pred_store, _ = _client(tmp_path)
+    _ready_settings(settings_store, watchlist=["AAPL"])
+    # Two protocol-breaking turns exhaust the agent -> single-shot fallback eats the third.
+    _deep_ready(monkeypatch, ["nonsense", "still nonsense", json.dumps(VALID_PAYLOAD)])
+
+    resp = client.get("/api/analyze/watchlist/stream?mode=deep")
+    evs = _events(resp.text)
+    done = [p for n, p in evs if n == "ticker" and p["status"] == "done"][0]
+    assert done["fell_back"] is True
+    assert pred_store.get_prediction("AAPL", "2026-06-05", "llm_fast") is not None
+    assert pred_store.get_prediction("AAPL", "2026-06-05", "llm_deep") is None
+
+
+def test_deep_llm_error_marks_ticker_failed_and_run_completes(tmp_path, monkeypatch):
+    class _Raising:
+        name = "raise"
+
+        def complete(self, system, user, json_mode=True, stop=None):
+            raise LLMError("provider down")
+
+    client, settings_store, _, _ = _client(tmp_path)
+    _ready_settings(settings_store, watchlist=["AAPL", "MSFT"])
+    monkeypatch.setattr(routes, "get_stock_data", lambda t, p, ip, c: _stock_with_candles(t))
+    monkeypatch.setattr(routes, "gather_stock_context",
+                        lambda t, p, s, c, prov, store=None: _stock_with_candles(t))
+    monkeypatch.setattr(routes, "build_provider", lambda settings: _Raising())
+    monkeypatch.setattr(signals, "score_one", lambda t, s, c: _fake_score())
+
+    resp = client.get("/api/analyze/watchlist/stream?mode=deep")
+    evs = _events(resp.text)
+    statuses = [p["status"] for n, p in evs if n == "ticker" and p["status"] != "running"]
+    assert statuses == ["failed", "failed"]
+    summary = evs[-1][1]
+    assert (summary["analyzed"], summary["skipped"], summary["failed"]) == (0, 0, 2)
+
+
+def test_run_marks_ticker_with_no_candles_failed(tmp_path, monkeypatch):
+    client, settings_store, _, _ = _client(tmp_path)
+    _ready_settings(settings_store, watchlist=["AAPL"])
+    monkeypatch.setattr(routes, "build_provider", lambda settings: FakeProvider([]))
+    monkeypatch.setattr(routes, "get_stock_data", lambda t, p, ip, c: _stock())  # no candles
+    monkeypatch.setattr(routes, "run_analysis", lambda t, p, s, c, ps: _result(t))
+
+    resp = client.get("/api/analyze/watchlist/stream?mode=fast")
+    evs = _events(resp.text)
+    failed = [p for n, p in evs if n == "ticker" and p["status"] == "failed"][0]
+    assert "no price data" in failed["error"]
+    assert evs[-1][1]["failed"] == 1
