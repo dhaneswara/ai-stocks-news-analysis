@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { EvaluationBoard } from '../components/EvaluationBoard';
+import { EvaluationCommandBar } from '../components/EvaluationCommandBar';
 import { ScoreBar } from '../components/ScoreBar';
 import { useDeleteTracked, useEvaluation, useExplainPrediction } from '../hooks/queries';
 import type {
@@ -129,6 +130,7 @@ export default function Evaluation() {
 
   return (
     <>
+      <EvaluationCommandBar />
       <section className="panel">
         <div className="panel-head">
           <span className="section-label">Call accuracy by source — click a company to see its calls</span>

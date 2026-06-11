@@ -10,7 +10,12 @@ vi.mock('../api/client', () => ({
     getEvaluation: vi.fn(),
     explainPrediction: vi.fn(),
     deleteTracked: vi.fn(),
+    getSettings: vi.fn(),
+    saveSettings: vi.fn(),
+    snapshotEvaluation: vi.fn(),
+    rescan: vi.fn(),
   },
+  streamWatchlistRun: vi.fn(() => () => {}),
 }));
 
 import { api } from '../api/client';
@@ -57,6 +62,7 @@ beforeEach(() => {
   vi.mocked(api.getEvaluation).mockResolvedValue(BOARD);
   vi.mocked(api.explainPrediction).mockResolvedValue({ explanation: 'Missed an earnings beat.' });
   vi.mocked(api.deleteTracked).mockResolvedValue({ deleted: 1 });
+  vi.mocked(api.getSettings).mockResolvedValue({ watchlist: ['AAPL'] } as never);
 });
 
 describe('Evaluation page', () => {
@@ -106,5 +112,13 @@ describe('Evaluation page', () => {
     // Expand AAPL company detail — fixture call is llm_fast, so filter=llm_deep → empty
     fireEvent.click(await screen.findByText('AAPL'));
     expect(await screen.findByText('No calls from this source yet.')).toBeInTheDocument();
+  });
+
+  it('renders the watchlist command bar above the board', async () => {
+    renderPage();
+    expect(await screen.findByRole('button', { name: /fast llm analysis/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /deep llm analysis/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /snapshot technical\/network/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /full discover rescan/i })).toBeInTheDocument();
   });
 });
