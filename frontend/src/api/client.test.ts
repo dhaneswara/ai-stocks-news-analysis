@@ -255,4 +255,18 @@ describe('streamWatchlistRun', () => {
     expect(onError).toHaveBeenCalledWith('Connection error');
     expect(FakeEventSource.last!.closed).toBe(true);
   });
+
+  it('targets mode=deep in the URL', () => {
+    (globalThis as unknown as { EventSource: unknown }).EventSource = FakeEventSource;
+    streamWatchlistRun('deep', { onEvent: vi.fn(), onError: vi.fn() });
+    expect(FakeEventSource.last!.url).toContain('mode=deep');
+  });
+
+  it('reports a malformed server payload', () => {
+    (globalThis as unknown as { EventSource: unknown }).EventSource = FakeEventSource;
+    const onError = vi.fn();
+    streamWatchlistRun('fast', { onEvent: vi.fn(), onError });
+    FakeEventSource.last!.emit('start', 'not json');
+    expect(onError).toHaveBeenCalledWith('Malformed event from server');
+  });
 });
