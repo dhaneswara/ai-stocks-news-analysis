@@ -1,3 +1,16 @@
+import os
+import tempfile
+
+# Sandbox DATA_DIR before any app module is imported: app.deps resolves DATA_DIR at
+# import time and its @lru_cache store singletons otherwise point at the developer's
+# real backend/data/app.db. Any test that exercises a route without overriding every
+# store dependency would silently write there (an /api/analyze test once recorded a
+# synthetic AAPL prediction that the Evaluation page then displayed as a real call).
+_SANDBOX_DATA_DIR = tempfile.TemporaryDirectory(
+    prefix="stocks-test-data-", ignore_cleanup_errors=True
+)
+os.environ["DATA_DIR"] = _SANDBOX_DATA_DIR.name
+
 import pytest
 
 from app.data import truth_social
