@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { act } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { EvaluationCommandBar } from './EvaluationCommandBar';
+import { WatchlistRunProvider } from '../state/watchlistRunState';
 import type { WatchlistStreamHandlers } from '../api/client';
 
 const handlers: { current?: WatchlistStreamHandlers } = {};
@@ -27,7 +28,9 @@ function renderBar() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <EvaluationCommandBar />
+      <WatchlistRunProvider>
+        <EvaluationCommandBar />
+      </WatchlistRunProvider>
     </QueryClientProvider>,
   );
 }

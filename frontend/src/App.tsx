@@ -4,7 +4,9 @@ import Dashboard from './pages/Dashboard';
 import Discover from './pages/Discover';
 import Settings from './pages/Settings';
 import Evaluation from './pages/Evaluation';
+import { RunIndicator } from './components/RunIndicator';
 import { DashboardStateProvider } from './state/dashboardState';
+import { WatchlistRunProvider } from './state/watchlistRunState';
 
 const Graph = lazy(() => import('./pages/Graph'));
 
@@ -14,6 +16,7 @@ const navClass = ({ isActive }: { isActive: boolean }) =>
 export default function App() {
   return (
     <DashboardStateProvider>
+    <WatchlistRunProvider>
       <div className="app">
         <header className="masthead">
           <Link className="brand" to="/">
@@ -22,6 +25,7 @@ export default function App() {
               MarketCortex
             </span>
           </Link>
+          <RunIndicator />
           <nav className="nav">
             <NavLink to="/" end className={navClass}>Dashboard</NavLink>
             <NavLink to="/discover" className={navClass}>Discover</NavLink>
@@ -41,6 +45,7 @@ export default function App() {
           </Routes>
         </main>
       </div>
+    </WatchlistRunProvider>
     </DashboardStateProvider>
   );
 }

@@ -1,5 +1,5 @@
 import { useRescan, useSettings, useSnapshotEvaluation, useWatchlist } from '../hooks/queries';
-import { useWatchlistRun } from '../hooks/useWatchlistRun';
+import { useWatchlistRunContext } from '../state/watchlistRunState';
 import { MarketHint } from './MarketHint';
 import type { TickerRunStatus } from '../types';
 
@@ -17,7 +17,7 @@ export function EvaluationCommandBar() {
   const watch = useWatchlist();
   const snapshot = useSnapshotEvaluation();
   const rescan = useRescan();
-  const run = useWatchlistRun();
+  const run = useWatchlistRunContext(); // app-level stream — survives page navigation
 
   const running = run.phase === 'running';
   const busy = snapshot.isPending || rescan.isPending || running;

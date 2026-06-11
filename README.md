@@ -100,6 +100,9 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   watchlist (live per-ticker progress, a Stop button, and already-recorded tickers skipped so
   reruns only fill gaps), or trigger a full Discover rescan; a deep run that silently fell back
   to the fast path is honestly recorded as fast so the deep-vs-fast comparison never lies.
+  An LLM batch **keeps running while you browse other pages** — a pulsing chip in the masthead
+  shows live progress from anywhere and links back to the Evaluation page (a browser refresh
+  or closed tab still ends the run after the in-flight ticker; rerun to resume from the gap).
   The snapshot's network call blends the latest knowledge-graph and Discover-board snapshots,
   so it records the freshest state right after a rescan (which is why Discover chains it).
   The Evaluation and Discover bars show whether the **US market is open and the next close in

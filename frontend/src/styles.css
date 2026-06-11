@@ -805,6 +805,16 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
   border: 1px solid var(--panel-brd); border-radius: 8px; padding: 10px 12px;
   background: var(--panel);
 }
+/* Live batch-run chip in the masthead — visible on every page while a run is active. */
+.run-indicator {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--gold); border: 1px solid var(--gold-line); border-radius: 999px;
+  padding: 4px 12px; background: var(--gold-tint); text-decoration: none; white-space: nowrap;
+}
+.run-indicator-pulse { animation: run-pulse 1.2s ease-in-out infinite; }
+@keyframes run-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+
 /* Inline accordion: the company detail expands directly under the clicked board row. */
 .board-detail-row > td { padding: 6px 6px 16px; }
 .board-detail-row .panel { margin: 0; }
