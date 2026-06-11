@@ -53,19 +53,21 @@ it('ignores start() while already running', () => {
 });
 
 it('surfaces a run-level error event', () => {
-  const { hook, handlers } = setup();
+  const { hook, handlers, invalidate } = setup();
   act(() => hook.result.current.start('deep'));
   act(() => handlers.current!.onEvent({ type: 'error', message: 'disabled' }));
   expect(hook.result.current.phase).toBe('error');
   expect(hook.result.current.message).toBe('disabled');
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: ['evaluation'] });
 });
 
 it('surfaces a transport error', () => {
-  const { hook, handlers } = setup();
+  const { hook, handlers, invalidate } = setup();
   act(() => hook.result.current.start('fast'));
   act(() => handlers.current!.onError('Connection error'));
   expect(hook.result.current.phase).toBe('error');
   expect(hook.result.current.message).toBe('Connection error');
+  expect(invalidate).toHaveBeenCalledWith({ queryKey: ['evaluation'] });
 });
 
 it('stop() closes the stream, marks the run stopped and invalidates', () => {
@@ -83,4 +85,20 @@ it('closes the stream on unmount', () => {
   act(() => hook.result.current.start('fast'));
   hook.unmount();
   expect(closer).toHaveBeenCalled();
+});
+
+it('allows a second run after done and resets per-run state', () => {
+  const { hook, handlers } = setup();
+  act(() => hook.result.current.start('fast'));
+  act(() => handlers.current!.onEvent({ type: 'start', total: 1, tickers: ['AAPL'] }));
+  act(() => handlers.current!.onEvent({ type: 'ticker', ticker: 'AAPL', status: 'done' }));
+  act(() => handlers.current!.onEvent({ type: 'done', analyzed: 1, skipped: 0, failed: 0 }));
+  expect(hook.result.current.phase).toBe('done');
+
+  act(() => hook.result.current.start('deep'));
+  expect(client.streamWatchlistRun).toHaveBeenCalledTimes(2);
+  expect(hook.result.current.phase).toBe('running');
+  expect(hook.result.current.mode).toBe('deep');
+  expect(hook.result.current.statuses).toEqual({});
+  expect(hook.result.current.summary).toBeNull();
 });

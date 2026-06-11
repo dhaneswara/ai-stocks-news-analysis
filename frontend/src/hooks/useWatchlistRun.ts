@@ -45,6 +45,7 @@ export function useWatchlistRun() {
   const start = useCallback((mode: RunMode) => {
     if (runningRef.current) return;
     runningRef.current = true;
+    closeRef.current?.(); // a prior errored run may have left its stream open
     setState({ ...IDLE, phase: 'running', mode });
     closeRef.current = streamWatchlistRun(mode, {
       onEvent: (e) => {
