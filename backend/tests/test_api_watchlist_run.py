@@ -7,11 +7,12 @@ from app.api import routes
 from app.config.cache import Cache
 from app.config.settings_store import SettingsStore
 from app.deps import get_cache, get_prediction_store, get_settings_store, get_trace_store
+from app.evaluation import signals
 from app.evaluation.store import PredictionStore
 from app.llm.base import LLMError
 from app.main import app
-from app.models.schemas import AnalysisResult, Candle
-from tests.test_analyzer import FakeProvider, _stock
+from app.models.schemas import AnalysisResult, Candle, StockScore
+from tests.test_analyzer import VALID_PAYLOAD, FakeProvider, _stock
 
 
 def _client(tmp_path):
@@ -214,11 +215,21 @@ def test_fast_run_isolates_a_failing_ticker(tmp_path, monkeypatch):
     assert (summary["analyzed"], summary["skipped"], summary["failed"]) == (1, 0, 1)
 
 
-# ---------------- deep mode ----------------
+def test_run_marks_ticker_with_no_candles_failed(tmp_path, monkeypatch):
+    client, settings_store, _, _ = _client(tmp_path)
+    _ready_settings(settings_store, watchlist=["AAPL"])
+    monkeypatch.setattr(routes, "build_provider", lambda settings: FakeProvider([]))
+    monkeypatch.setattr(routes, "get_stock_data", lambda t, p, ip, c: _stock())  # no candles
+    monkeypatch.setattr(routes, "run_analysis", lambda t, p, s, c, ps: _result(t))
 
-from app.evaluation import signals
-from app.models.schemas import StockScore
-from tests.test_analyzer import VALID_PAYLOAD
+    resp = client.get("/api/analyze/watchlist/stream?mode=fast")
+    evs = _events(resp.text)
+    failed = [p for n, p in evs if n == "ticker" and p["status"] == "failed"][0]
+    assert "no price data" in failed["error"]
+    assert evs[-1][1]["failed"] == 1
+
+
+# ---------------- deep mode ----------------
 
 
 def _fake_score():
@@ -301,17 +312,3 @@ def test_deep_llm_error_marks_ticker_failed_and_run_completes(tmp_path, monkeypa
     assert statuses == ["failed", "failed"]
     summary = evs[-1][1]
     assert (summary["analyzed"], summary["skipped"], summary["failed"]) == (0, 0, 2)
-
-
-def test_run_marks_ticker_with_no_candles_failed(tmp_path, monkeypatch):
-    client, settings_store, _, _ = _client(tmp_path)
-    _ready_settings(settings_store, watchlist=["AAPL"])
-    monkeypatch.setattr(routes, "build_provider", lambda settings: FakeProvider([]))
-    monkeypatch.setattr(routes, "get_stock_data", lambda t, p, ip, c: _stock())  # no candles
-    monkeypatch.setattr(routes, "run_analysis", lambda t, p, s, c, ps: _result(t))
-
-    resp = client.get("/api/analyze/watchlist/stream?mode=fast")
-    evs = _events(resp.text)
-    failed = [p for n, p in evs if n == "ticker" and p["status"] == "failed"][0]
-    assert "no price data" in failed["error"]
-    assert evs[-1][1]["failed"] == 1

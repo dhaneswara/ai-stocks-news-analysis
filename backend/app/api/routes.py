@@ -134,6 +134,9 @@ def _sse(event: AgentEvent | WatchlistRunEvent) -> str:
     return f"event: {event.type}\ndata: {event.model_dump_json()}\n\n"
 
 
+_SSE_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+
+
 def _persist_deep_final(event: AgentEvent, stock: StockData, settings: Settings, cache: Cache,
                         prediction_store: PredictionStore, trace_store: AgentTraceStore) -> None:
     """Persist the trace + predictions when a deep run completes. Each persistence concern is
@@ -228,9 +231,6 @@ def get_traces(
     return results
 
 
-_SSE_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
-
-
 @router.get("/analyze/watchlist/stream")
 def analyze_watchlist_stream(
     mode: Literal["fast", "deep"] = "fast",
@@ -247,7 +247,8 @@ def analyze_watchlist_stream(
     on purpose (provider rate limits). Pre-flight failures (evaluation off, provider
     misconfigured) are a single run-level `error` event — EventSource cannot read an HTTP
     error body. A client disconnect cancels the loop at the next yield: the in-flight
-    ticker still completes and records."""
+    ticker still completes and records. A deep run that fell back records llm_fast, so the
+    next deep run retries that ticker — deliberate: the goal is a true deep call eventually."""
     settings = store.load()
     source = SOURCE_LLM_FAST if mode == "fast" else SOURCE_LLM_DEEP
 
