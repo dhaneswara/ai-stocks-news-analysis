@@ -19,13 +19,16 @@ def teardown_function():
 
 
 def test_provider_test_ok(tmp_path, monkeypatch):
+    seen: dict = {}
+
     class FakeProvider:
         name = "anthropic"
 
         def __init__(self, cfg):
             pass
 
-        def complete(self, system, user):
+        def complete(self, system, user, **kwargs):
+            seen.update(kwargs)
             return "pong"
 
     monkeypatch.setattr(routes, "build_provider", lambda s: FakeProvider(None))
@@ -37,6 +40,9 @@ def test_provider_test_ok(tmp_path, monkeypatch):
     resp = client.post("/api/providers/anthropic/test")
     assert resp.status_code == 200
     assert resp.json()["ok"] is True
+    # The ping wants the plain word "ok" — a JSON-forced call 400s on DeepSeek/OpenAI
+    # because the prompt never mentions "json".
+    assert seen.get("json_mode") is False
 
 
 def test_provider_test_failure_reports_message(tmp_path, monkeypatch):

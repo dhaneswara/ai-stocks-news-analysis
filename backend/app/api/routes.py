@@ -363,7 +363,8 @@ def test_provider(
     settings.active_provider = provider_id  # type: ignore[assignment]
     try:
         provider = build_provider(settings)
-        provider.complete("You are a connection test.", "Reply with the single word: ok")
+        # Prose ping — json_mode would 400 on DeepSeek/OpenAI (prompt never says "json").
+        provider.complete("You are a connection test.", "Reply with the single word: ok", json_mode=False)
         return {"ok": True, "message": "Connection succeeded."}
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "message": str(exc)}

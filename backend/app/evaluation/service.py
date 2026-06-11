@@ -246,6 +246,7 @@ def explain_prediction(ticker: str, call_date: str, settings: Settings, cache: C
         "Explain the most likely reasons the call was off, and what signal may have been missed."
     )
     provider = build_provider(settings)
-    text = provider.complete(system, user).strip()
+    # Prose answer — json_mode would 400 on DeepSeek/OpenAI (prompt never says "json").
+    text = provider.complete(system, user, json_mode=False).strip()
     cache.set(key, text, EXPLAIN_TTL_SECONDS)
     return text

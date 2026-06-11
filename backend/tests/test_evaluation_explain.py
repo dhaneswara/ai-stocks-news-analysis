@@ -18,9 +18,11 @@ class FakeProvider:
 
     def __init__(self):
         self.calls = 0
+        self.kwargs: dict = {}
 
-    def complete(self, system, user):
+    def complete(self, system, user, **kwargs):
         self.calls += 1
+        self.kwargs = kwargs
         return "The call missed an earnings surprise that reversed the trend."
 
 
@@ -51,6 +53,9 @@ def test_explain_returns_and_caches(tmp_path, monkeypatch):
 
     text = service.explain_prediction("AAPL", "2026-06-01", Settings(), cache, store)
     assert "earnings" in text and fake.calls == 1
+    # The post-mortem is prose: a JSON-forced call 400s on DeepSeek/OpenAI because the
+    # prompt never mentions "json", so the explain path must opt out of json_mode.
+    assert fake.kwargs.get("json_mode") is False
 
     # Second call is served from cache (provider not invoked again).
     again = service.explain_prediction("AAPL", "2026-06-01", Settings(), cache, store)
@@ -89,7 +94,7 @@ def test_explain_uses_source_specific_row(tmp_path, monkeypatch):
         name = "fake"
         def __init__(self):
             self.user = ""
-        def complete(self, system, user):
+        def complete(self, system, user, **kwargs):
             self.user = user
             return "because reasons"
 
