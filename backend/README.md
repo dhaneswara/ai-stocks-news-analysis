@@ -11,6 +11,11 @@ FastAPI service: US-stock data + indicators + news + multi-provider LLM analysis
     .venv\Scripts\Activate.ps1      # PowerShell  (macOS/Linux: source .venv/bin/activate)
     pip install -e ".[dev]"
 
+> Dependencies are pinned to install from prebuilt wheels everywhere: the server uses
+> plain `uvicorn`, **not** `uvicorn[standard]` — the `httptools` extra ships no Windows
+> ARM64 wheels, and the extras are performance-only (`uvloop` is a no-op on Windows).
+> Don't re-add the extra without checking wheel availability for your platforms.
+
 ## Run
 
     uvicorn app.main:app --reload --port 8000

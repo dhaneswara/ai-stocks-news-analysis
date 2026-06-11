@@ -129,7 +129,10 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
 
 ## Prerequisites
 
-- **Python 3.11+** (3.13 recommended)
+- **Python 3.11+** (3.12/3.13 recommended). Avoid interpreters too new for prebuilt
+  wheels — on a brand-new Python (e.g. 3.14) or **Windows on ARM**, `pip install` can
+  fall back to source builds that need a C/Rust toolchain. If that happens, create the
+  venv with an older arm64/x64 build instead (e.g. `py -3.12 -m venv .venv`).
 - **Node.js 20.x** (the frontend toolchain is pinned to Vite 5 for Node 20 compatibility)
 - Optional: a provider API key (Anthropic/OpenAI/Gemini) **or** [Ollama](https://ollama.com)
   running locally for free, key-less analysis.
