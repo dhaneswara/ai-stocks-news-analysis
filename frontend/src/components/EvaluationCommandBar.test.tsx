@@ -95,9 +95,25 @@ describe('EvaluationCommandBar', () => {
     expect(screen.getByRole('button', { name: /snapshot technical\/network/i })).toBeEnabled();
   });
 
+  it('renders failed and fell-back chips', async () => {
+    renderBar();
+    fireEvent.click(await screen.findByRole('button', { name: /deep llm analysis/i }));
+    act(() => handlers.current!.onEvent({ type: 'start', total: 2, tickers: ['AAPL', 'MSFT'] }));
+    act(() => handlers.current!.onEvent({
+      type: 'ticker', ticker: 'AAPL', status: 'failed', error: 'boom',
+    }));
+    act(() => handlers.current!.onEvent({
+      type: 'ticker', ticker: 'MSFT', status: 'done', recommendation: 'hold', fell_back: true,
+    }));
+    expect(screen.getByText(/✗ AAPL/)).toBeInTheDocument();
+    expect(screen.getByText(/✗ AAPL/)).toHaveAttribute('title', 'boom');
+    expect(screen.getByText(/✓ MSFT HOLD \(fell back\)/)).toBeInTheDocument();
+  });
+
   it('stop closes the stream and notes the run was stopped', async () => {
     renderBar();
     fireEvent.click(await screen.findByRole('button', { name: /deep llm analysis/i }));
+    expect(vi.mocked(streamWatchlistRun)).toHaveBeenCalledWith('deep', expect.anything());
     act(() => handlers.current!.onEvent({ type: 'start', total: 2, tickers: ['AAPL', 'MSFT'] }));
     fireEvent.click(screen.getByRole('button', { name: /stop/i }));
     expect(closer).toHaveBeenCalled();

@@ -21,8 +21,8 @@ export function EvaluationCommandBar() {
   const disabled = busy || watch.list.length === 0;
   const progressed = Object.values(run.statuses).filter((t) => t.status !== 'running').length;
 
-  // Don't render the action buttons until settings have loaded — this lets tests
-  // use findByRole to wait for the watchlist to be available before clicking.
+  // Until settings load, the bar would render a misleading frame — "(0 tickers)", the
+  // add-tickers hint, disabled buttons — that snaps to real data a beat later.
   if (settings.isPending) {
     return (
       <div className="panel commandbar">
@@ -60,16 +60,17 @@ export function EvaluationCommandBar() {
         <p className="muted">Add tickers to your watchlist first (★ on the Dashboard).</p>
       )}
 
-      {run.tickers.length > 0 && (running || run.summary || run.stopped) && (
+      {run.tickers.length > 0 && run.phase !== 'idle' && (
         <div className="run-strip">
           {running && <span className="muted mono">{progressed}/{run.total}</span>}
           {run.tickers.map((t) => {
             const st = run.statuses[t];
             return (
-              <span key={t} className={`run-chip ${st?.status ?? 'pending'}`} title={st?.error ?? ''}>
+              <span key={t} className={`run-chip ${st?.status ?? 'pending'}`} title={st?.error || undefined}>
                 {st ? CHIP_ICON[st.status] : '·'} {t}
                 {st?.status === 'done' && st.recommendation
                   ? ` ${st.recommendation.toUpperCase()}` : ''}
+                {st?.status === 'done' && st.fellBack ? ' (fell back)' : ''}
               </span>
             );
           })}
