@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api, streamDeepAnalysis } from './client';
+import { api, streamDeepAnalysis, streamWatchlistRun } from './client';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -222,4 +222,37 @@ it('reports a connection error when the native error event has no data', () => {
   FakeEventSource.last!.emit('error');
   expect(onError).toHaveBeenCalled();
   expect(FakeEventSource.last!.closed).toBe(true);
+});
+
+describe('streamWatchlistRun', () => {
+  it('targets the batch endpoint with the mode and forwards start/ticker/done', () => {
+    (globalThis as unknown as { EventSource: unknown }).EventSource = FakeEventSource;
+    const events: { type: string }[] = [];
+    streamWatchlistRun('fast', { onEvent: (e) => events.push(e), onError: vi.fn() });
+    const es = FakeEventSource.last!;
+    expect(es.url).toContain('/analyze/watchlist/stream?mode=fast');
+    es.emit('start', JSON.stringify({ total: 2, tickers: ['AAPL', 'MSFT'] }));
+    es.emit('ticker', JSON.stringify({ ticker: 'AAPL', status: 'running' }));
+    es.emit('done', JSON.stringify({ analyzed: 1, skipped: 1, failed: 0 }));
+    expect(events.map((e) => e.type)).toEqual(['start', 'ticker', 'done']);
+    expect(es.closed).toBe(true); // closed after the terminal done
+  });
+
+  it('forwards a server-sent error event with data and closes', () => {
+    (globalThis as unknown as { EventSource: unknown }).EventSource = FakeEventSource;
+    const events: { type: string; message?: string }[] = [];
+    streamWatchlistRun('deep', { onEvent: (e) => events.push(e), onError: vi.fn() });
+    FakeEventSource.last!.emit('error', JSON.stringify({ message: 'disabled' }));
+    expect(events).toEqual([{ type: 'error', message: 'disabled' }]);
+    expect(FakeEventSource.last!.closed).toBe(true);
+  });
+
+  it('reports a connection error when the native error event has no data', () => {
+    (globalThis as unknown as { EventSource: unknown }).EventSource = FakeEventSource;
+    const onError = vi.fn();
+    streamWatchlistRun('fast', { onEvent: vi.fn(), onError });
+    FakeEventSource.last!.emit('error');
+    expect(onError).toHaveBeenCalledWith('Connection error');
+    expect(FakeEventSource.last!.closed).toBe(true);
+  });
 });

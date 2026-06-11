@@ -150,6 +150,26 @@ export interface SnapshotResult {
   skipped: { ticker: string; reason: string }[];
 }
 
+export type TickerRunStatus = 'running' | 'done' | 'skipped' | 'failed';
+
+/** One SSE frame of a watchlist-wide LLM batch run (mode=fast|deep). */
+export interface WatchlistRunEvent {
+  type: 'start' | 'ticker' | 'done' | 'error';
+  ticker?: string;
+  index?: number;
+  total?: number;
+  status?: TickerRunStatus;
+  recommendation?: Recommendation | '';
+  confidence?: number;
+  fell_back?: boolean;
+  error?: string;
+  analyzed?: number;
+  skipped?: number;
+  failed?: number;
+  message?: string;
+  tickers?: string[];
+}
+
 export interface HorizonResult {
   horizon: number;
   status: 'pending' | 'final';

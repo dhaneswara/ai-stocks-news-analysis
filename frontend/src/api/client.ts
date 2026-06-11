@@ -17,6 +17,7 @@ import type {
   StockData,
   StockScore,
   TestResult,
+  WatchlistRunEvent,
 } from '../types';
 
 const BASE = (import.meta.env.VITE_API_BASE as string) || 'http://localhost:8000/api';
@@ -136,6 +137,40 @@ export function streamDeepAnalysis(
   }) as EventListener);
   es.addEventListener('error', ((e: MessageEvent) => {
     if (e.data) forward('error')(e);          // server-sent `event: error` (has data)
+    else handlers.onError('Connection error'); // native connection failure (no data)
+    es.close();
+  }) as EventListener);
+  return () => es.close();
+}
+
+export interface WatchlistStreamHandlers {
+  onEvent: (event: WatchlistRunEvent) => void;
+  onError: (message: string) => void;
+}
+
+/** Open the SSE stream for a watchlist-wide LLM batch run. Returns a closer the caller
+ *  MUST keep and invoke on unmount/stop — EventSource auto-reconnects otherwise, which
+ *  would restart the batch from the top. */
+export function streamWatchlistRun(
+  mode: 'fast' | 'deep',
+  handlers: WatchlistStreamHandlers,
+): () => void {
+  const es = new EventSource(`${BASE}/analyze/watchlist/stream?mode=${mode}`);
+  const forward = (type: WatchlistRunEvent['type']) => (e: MessageEvent) => {
+    try {
+      handlers.onEvent({ ...(JSON.parse(e.data) as WatchlistRunEvent), type });
+    } catch {
+      handlers.onError('Malformed event from server');
+    }
+  };
+  es.addEventListener('start', forward('start') as EventListener);
+  es.addEventListener('ticker', forward('ticker') as EventListener);
+  es.addEventListener('done', ((e: MessageEvent) => {
+    forward('done')(e);
+    es.close(); // terminal — close before EventSource auto-reconnects
+  }) as EventListener);
+  es.addEventListener('error', ((e: MessageEvent) => {
+    if (e.data) forward('error')(e);          // server-sent run-level error (has data)
     else handlers.onError('Connection error'); // native connection failure (no data)
     es.close();
   }) as EventListener);
