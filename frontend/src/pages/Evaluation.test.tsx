@@ -10,6 +10,7 @@ vi.mock('../api/client', () => ({
     getEvaluation: vi.fn(),
     explainPrediction: vi.fn(),
     deleteTracked: vi.fn(),
+    clearEvaluation: vi.fn(),
     getSettings: vi.fn(),
     saveSettings: vi.fn(),
     snapshotEvaluation: vi.fn(),
@@ -62,6 +63,8 @@ beforeEach(() => {
   vi.mocked(api.getEvaluation).mockResolvedValue(BOARD);
   vi.mocked(api.explainPrediction).mockResolvedValue({ explanation: 'Missed an earnings beat.' });
   vi.mocked(api.deleteTracked).mockResolvedValue({ deleted: 1 });
+  vi.mocked(api.clearEvaluation).mockReset();
+  vi.mocked(api.clearEvaluation).mockResolvedValue({ predictions: 3, evals: 2 });
   vi.mocked(api.getSettings).mockResolvedValue({ watchlist: ['AAPL'] } as never);
 });
 
@@ -117,6 +120,22 @@ describe('Evaluation page', () => {
     expect(deepBtn.className).toContain('secondary');
     expect(deepBtn.className).toContain('active');
     expect(await screen.findByText('No calls from this source yet.')).toBeInTheDocument();
+  });
+
+  it('clears all results only after confirmation', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderPage();
+    await screen.findByText('AAPL'); // board loaded — the button is disabled until it has rows
+    const btn = screen.getByRole('button', { name: /clear all results/i });
+
+    fireEvent.click(btn);
+    expect(api.clearEvaluation).not.toHaveBeenCalled(); // cancelled
+
+    confirmSpy.mockReturnValue(true);
+    fireEvent.click(btn);
+    expect(await screen.findByText(/cleared 3 calls and 2 scored outcomes/i)).toBeInTheDocument();
+    expect(api.clearEvaluation).toHaveBeenCalledTimes(1);
+    confirmSpy.mockRestore();
   });
 
   it('renders the watchlist command bar', async () => {

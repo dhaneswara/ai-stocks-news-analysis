@@ -168,6 +168,18 @@ describe('signals / snapshot / explainPrediction with source', () => {
     expect(fetchMock.mock.calls[0][0] as string).toContain('/signals/AAPL');
   });
 
+  it('clearEvaluation DELETEs the /evaluation collection', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ predictions: 4, evals: 6 }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.clearEvaluation();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect((url as string).endsWith('/evaluation')).toBe(true);
+    expect((init as RequestInit).method).toBe('DELETE');
+  });
+
   it('snapshotEvaluation POSTs /evaluation/snapshot', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,

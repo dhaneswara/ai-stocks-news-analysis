@@ -106,6 +106,8 @@ export const api = {
     ),
   deleteTracked: (ticker: string) =>
     http<{ deleted: number }>(`/evaluation/${encodeURIComponent(ticker)}`, { method: 'DELETE' }),
+  clearEvaluation: () =>
+    http<{ predictions: number; evals: number }>('/evaluation', { method: 'DELETE' }),
 };
 
 export interface DeepStreamHandlers {

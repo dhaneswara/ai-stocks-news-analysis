@@ -195,3 +195,15 @@ export function useDeleteTracked() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['evaluation'] }),
   });
 }
+
+export function useClearEvaluation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.clearEvaluation(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['evaluation'] });
+      // The Dashboard signals strip reads the same store — clear its caches too.
+      qc.invalidateQueries({ queryKey: ['signals'] });
+    },
+  });
+}

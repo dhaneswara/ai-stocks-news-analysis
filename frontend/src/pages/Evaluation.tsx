@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { EvaluationBoard } from '../components/EvaluationBoard';
 import { EvaluationCommandBar } from '../components/EvaluationCommandBar';
 import { ScoreBar } from '../components/ScoreBar';
-import { useDeleteTracked, useEvaluation, useExplainPrediction } from '../hooks/queries';
+import { useClearEvaluation, useDeleteTracked, useEvaluation, useExplainPrediction } from '../hooks/queries';
 import type {
   CompanyEvaluation, HorizonResult, PredictionRecord, Source, SourceTrack,
 } from '../types';
@@ -135,11 +135,18 @@ function CompanyDetail({ company, srcFilter, onFilter }: {
 
 export default function Evaluation() {
   const board = useEvaluation();
+  const clearAll = useClearEvaluation();
   const [selected, setSelected] = useState<string | null>(null);
   const [srcFilter, setSrcFilter] = useState<Source | null>(null);
 
   const companies = board.data?.companies ?? [];
   const current = companies.find((c) => c.rollup.ticker === selected) ?? null;
+
+  const startOver = () => {
+    if (window.confirm('Delete ALL recorded calls and scores for every tracked ticker? This cannot be undone.')) {
+      clearAll.mutate();
+    }
+  };
 
   return (
     <>
@@ -150,7 +157,22 @@ export default function Evaluation() {
           {board.data?.as_of && (
             <span className="muted board-asof">As of {new Date(board.data.as_of).toLocaleString()}</span>
           )}
+          <button
+            className="secondary"
+            disabled={clearAll.isPending || companies.length === 0}
+            title="Start over: wipe every recorded call and score, for all tickers — e.g. after testing, so old junk doesn't pollute the track record."
+            onClick={startOver}
+          >
+            {clearAll.isPending ? 'Clearing…' : 'Clear all results'}
+          </button>
         </div>
+        {clearAll.isError && <p className="error">Couldn't clear: {(clearAll.error as Error).message}</p>}
+        {clearAll.data && (
+          <p className="muted">
+            ✓ Cleared {clearAll.data.predictions} call{clearAll.data.predictions === 1 ? '' : 's'} and{' '}
+            {clearAll.data.evals} scored outcome{clearAll.data.evals === 1 ? '' : 's'} — a fresh start.
+          </p>
+        )}
         {board.isLoading && <p className="muted">Loading evaluation…</p>}
         {board.isError && <p className="error">Could not load evaluation: {(board.error as Error).message}</p>}
         {board.data && (
