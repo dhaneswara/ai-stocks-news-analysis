@@ -920,3 +920,16 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 .trace-raw { color: var(--ink-faint); }
 .trace-final-label { margin: 6px 0 0; color: var(--buy); font-size: 12px; }
 .trace-step.pending { color: var(--ink-faint); list-style: none; }
+
+/* ----- Evaluation command bar: watchlist run progress ---------------------- */
+.run-strip { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+.run-chip {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.02em;
+  color: var(--ink-soft); background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--panel-brd); border-radius: 999px;
+  padding: 2px 9px; white-space: nowrap;
+}
+.run-chip.running { border-color: var(--gold-line); background: var(--gold-tint); color: var(--gold-bright); }
+.run-chip.done { border-color: rgba(95, 211, 155, 0.35); color: var(--buy); }
+.run-chip.skipped { opacity: 0.55; }
+.run-chip.failed { border-color: rgba(240, 129, 124, 0.4); color: var(--sell); }
