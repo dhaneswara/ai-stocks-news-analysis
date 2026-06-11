@@ -5,7 +5,8 @@ from fastapi.testclient import TestClient
 
 from app.config.cache import Cache
 from app.config.settings_store import SettingsStore
-from app.deps import get_cache, get_settings_store
+from app.deps import get_cache, get_prediction_store, get_settings_store
+from app.evaluation.store import PredictionStore
 from app.main import app
 from app.services import analysis_service, stock_service
 
@@ -13,8 +14,10 @@ from app.services import analysis_service, stock_service
 def _client(tmp_path):
     cache = Cache(str(tmp_path / "cache.db"))
     store = SettingsStore(str(tmp_path / "settings.db"))
+    pred_store = PredictionStore(str(tmp_path / "predictions.db"))
     app.dependency_overrides[get_cache] = lambda: cache
     app.dependency_overrides[get_settings_store] = lambda: store
+    app.dependency_overrides[get_prediction_store] = lambda: pred_store
     return TestClient(app), store
 
 
