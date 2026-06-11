@@ -48,6 +48,11 @@ describe('EvaluationCommandBar', () => {
     expect(screen.getByRole('button', { name: /fast llm analysis/i })).toBeEnabled();
     expect(screen.getByRole('button', { name: /deep llm analysis/i })).toBeEnabled();
     expect(screen.getByRole('button', { name: /full discover rescan/i })).toBeEnabled();
+    // Pipeline order: the rescan (which chains the snapshot) leads, as the freshest first step.
+    const names = screen.getAllByRole('button').map((b) => b.textContent);
+    expect(names.slice(0, 4)).toEqual([
+      'Full Discover rescan', 'Snapshot technical/network', 'Fast LLM analysis', 'Deep LLM analysis (slow)',
+    ]);
   });
 
   it('disables everything and hints when the watchlist is empty', async () => {

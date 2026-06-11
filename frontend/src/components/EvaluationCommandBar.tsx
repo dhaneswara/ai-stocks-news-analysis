@@ -6,9 +6,11 @@ const CHIP_ICON: Record<TickerRunStatus, string> = {
   running: '⏳', done: '✓', skipped: '−', failed: '✗',
 };
 
-/** One button per watchlist-wide process: snapshot technical/network calls, fast/deep LLM
- *  batches (live per-ticker progress + Stop), and a full Discover rescan. One process at
- *  a time. */
+/** One button per watchlist-wide process, ordered as a left-to-right pipeline: full
+ *  Discover rescan (refreshes the board the network call blends against, then chains the
+ *  snapshot itself), snapshot technical/network calls (the cheap alternative when the
+ *  board is fresh), and the fast/deep LLM batches (live per-ticker progress + Stop). One
+ *  process at a time. */
 export function EvaluationCommandBar() {
   const settings = useSettings();
   const watch = useWatchlist();
@@ -40,7 +42,18 @@ export function EvaluationCommandBar() {
           Run on your watchlist ({watch.list.length} ticker{watch.list.length === 1 ? '' : 's'})
         </span>
         <span className="spacer" />
-        <button className="secondary" disabled={disabled} onClick={() => snapshot.mutate()}>
+        <button
+          className="secondary" disabled={disabled}
+          title="Rebuilds the S&P 500 board (fresh neighbour data for the network call), then snapshots the watchlist — no separate Snapshot click needed."
+          onClick={() => rescan.mutate(undefined, { onSuccess: () => snapshot.mutate() })}
+        >
+          {rescan.isPending ? 'Scanning…' : 'Full Discover rescan'}
+        </button>
+        <button
+          className="secondary" disabled={disabled}
+          title="Records today's technical/network calls from the latest board data — rescan first if the board is stale."
+          onClick={() => snapshot.mutate()}
+        >
           {snapshot.isPending ? 'Snapshotting…' : 'Snapshot technical/network'}
         </button>
         <button className="secondary" disabled={disabled} onClick={() => run.start('fast')}>
@@ -48,12 +61,6 @@ export function EvaluationCommandBar() {
         </button>
         <button className="secondary" disabled={disabled} onClick={() => run.start('deep')}>
           {running && run.mode === 'deep' ? 'Deep analyzing…' : 'Deep LLM analysis (slow)'}
-        </button>
-        <button
-          className="secondary" disabled={disabled}
-          onClick={() => rescan.mutate(undefined, { onSuccess: () => snapshot.mutate() })}
-        >
-          {rescan.isPending ? 'Scanning…' : 'Full Discover rescan'}
         </button>
         {running && <button onClick={run.stop}>Stop</button>}
       </div>
