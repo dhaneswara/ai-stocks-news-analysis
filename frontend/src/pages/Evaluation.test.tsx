@@ -97,7 +97,6 @@ describe('Evaluation page', () => {
     renderPage();
 
     // Scoreboard card assertions
-    // "Technical" appears in the card label and in the filter button; both are fine
     await screen.findByText(/66\.7% hit rate/);
     expect(screen.getAllByText('Technical').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(/66\.7% hit rate/)).toBeInTheDocument();
@@ -105,12 +104,13 @@ describe('Evaluation page', () => {
     // "Mixed" appears in the scoreboard card and in the board row — both are expected
     expect(screen.getAllByText('Mixed').length).toBeGreaterThanOrEqual(1);
 
-    // Click the "LLM deep" filter button
-    const deepBtn = screen.getByRole('button', { name: 'LLM deep' });
-    fireEvent.click(deepBtn);
+    // The filter only acts on a company's call list, so it lives in the detail panel:
+    // no filter buttons until a company is expanded.
+    expect(screen.queryByRole('button', { name: 'LLM deep' })).not.toBeInTheDocument();
 
-    // Expand AAPL company detail — fixture call is llm_fast, so filter=llm_deep → empty
+    // Expand AAPL, then filter — fixture call is llm_fast, so filter=llm_deep → empty
     fireEvent.click(await screen.findByText('AAPL'));
+    fireEvent.click(await screen.findByRole('button', { name: 'LLM deep' }));
     expect(await screen.findByText('No calls from this source yet.')).toBeInTheDocument();
   });
 

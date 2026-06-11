@@ -53,7 +53,11 @@ function SourceScoreboard({ sources }: { sources: Partial<Record<Source, SourceT
   );
 }
 
-function CompanyDetail({ company, srcFilter }: { company: CompanyEvaluation; srcFilter: Source | null }) {
+function CompanyDetail({ company, srcFilter, onFilter }: {
+  company: CompanyEvaluation;
+  srcFilter: Source | null;
+  onFilter: (src: Source | null) => void;
+}) {
   const explain = useExplainPrediction();
   const remove = useDeleteTracked();
   const [openExplain, setOpenExplain] = useState<string | null>(null);
@@ -89,6 +93,14 @@ function CompanyDetail({ company, srcFilter }: { company: CompanyEvaluation; src
         })}
       </div>
       {remove.isError && <p className="error">Couldn't remove: {(remove.error as Error).message}</p>}
+      <div className="src-filter">
+        <button className={srcFilter == null ? 'active' : 'secondary'} onClick={() => onFilter(null)}>All</button>
+        {SOURCE_ORDER.map((k) => (
+          <button key={k} className={srcFilter === k ? 'active' : 'secondary'} onClick={() => onFilter(k)}>
+            {SOURCE_LABEL[k]}
+          </button>
+        ))}
+      </div>
       {!calls.length && <p className="muted">No calls from this source yet.</p>}
       <div className="calls">
         {calls.map((call) => {
@@ -143,19 +155,11 @@ export default function Evaluation() {
         {board.data && (
           <>
             <SourceScoreboard sources={board.data.sources ?? {}} />
-            <div className="src-filter">
-              <button className={srcFilter == null ? 'active' : 'secondary'} onClick={() => setSrcFilter(null)}>All</button>
-              {SOURCE_ORDER.map((k) => (
-                <button key={k} className={srcFilter === k ? 'active' : 'secondary'} onClick={() => setSrcFilter(k)}>
-                  {SOURCE_LABEL[k]}
-                </button>
-              ))}
-            </div>
             <EvaluationBoard companies={companies} selected={selected} onSelect={setSelected} />
           </>
         )}
       </section>
-      {current && <CompanyDetail company={current} srcFilter={srcFilter} />}
+      {current && <CompanyDetail company={current} srcFilter={srcFilter} onFilter={setSrcFilter} />}
     </>
   );
 }
