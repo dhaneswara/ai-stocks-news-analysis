@@ -15,8 +15,9 @@ const CHIP_ICON: Record<TickerRunStatus, string> = {
 export function EvaluationCommandBar() {
   const settings = useSettings();
   const watch = useWatchlist();
-  // All four processes live at app level — they survive page navigation.
-  const { run, snapshot, rescan, rescanAndSnapshot } = useWatchlistRunContext();
+  // All four processes live at app level — they survive page navigation, and each
+  // wrapped action clears the previous process's status so the bar tells one story.
+  const { run, snapshot, rescan, startRun, snapshotNow, rescanAndSnapshot } = useWatchlistRunContext();
 
   const running = run.phase === 'running';
   const busy = snapshot.isPending || rescan.isPending || running;
@@ -54,21 +55,21 @@ export function EvaluationCommandBar() {
         <button
           disabled={disabled}
           title="Records today's technical/network calls from the latest board data — rescan first if the board is stale."
-          onClick={() => snapshot.mutate()}
+          onClick={() => snapshotNow()}
         >
           {snapshot.isPending ? 'Snapshotting…' : 'Snapshot technical/network'}
         </button>
         <button
           disabled={disabled}
           title="Runs the single-shot LLM analysis for each watchlist ticker (one provider call apiece, costs tokens) — tickers already recorded for the latest trading day are skipped, so re-running only fills gaps."
-          onClick={() => run.start('fast')}
+          onClick={() => startRun('fast')}
         >
           {running && run.mode === 'fast' ? 'Analyzing…' : 'Fast LLM analysis'}
         </button>
         <button
           disabled={disabled}
           title="Runs the agentic deep analysis for each watchlist ticker (several LLM calls + data tools apiece — slow, costs more tokens). Already-recorded tickers are skipped; a run that falls back to the fast path is recorded as fast."
-          onClick={() => run.start('deep')}
+          onClick={() => startRun('deep')}
         >
           {running && run.mode === 'deep' ? 'Deep analyzing…' : 'Deep LLM analysis (slow)'}
         </button>
@@ -81,38 +82,41 @@ export function EvaluationCommandBar() {
 
       <MarketHint />
 
-      {run.tickers.length > 0 && run.phase !== 'idle' && (
-        <div className="run-strip">
-          {running && <span className="muted mono">{progressed}/{run.total}</span>}
-          {run.tickers.map((t) => {
-            const st = run.statuses[t];
-            return (
-              <span key={t} className={`run-chip ${st?.status ?? 'pending'}`} title={st?.error || undefined}>
-                {st ? CHIP_ICON[st.status] : '·'} {t}
-                {st?.status === 'done' && st.recommendation
-                  ? ` ${st.recommendation.toUpperCase()}` : ''}
-                {st?.status === 'done' && st.fellBack ? ' (fell back)' : ''}
-              </span>
-            );
-          })}
-        </div>
-      )}
-
-      {run.summary && (
-        <p className="muted">
-          Analyzed {run.summary.analyzed} · skipped {run.summary.skipped} · failed {run.summary.failed}.
-        </p>
-      )}
-      {run.stopped && <p className="muted">Stopped — run again to resume the rest.</p>}
-      {run.phase === 'error' && run.message && <p className="error">Run failed: {run.message}</p>}
-      {snapshot.data && (
-        <p className="muted">
-          ✓ Recorded {snapshot.data.recorded} watchlist signal{snapshot.data.recorded === 1 ? '' : 's'} for
-          evaluation{snapshot.data.skipped.length ? ` (${snapshot.data.skipped.length} skipped)` : ''}.
-        </p>
-      )}
-      {snapshot.isError && <p className="error">Snapshot failed: {(snapshot.error as Error).message}</p>}
-      {rescan.isError && <p className="error">Rescan failed: {(rescan.error as Error).message}</p>}
+      {/* One process at a time renders here — starting a new process clears the rest
+          (CSS hides the zone entirely when empty). */}
+      <div className="commandbar-status">
+        {run.tickers.length > 0 && run.phase !== 'idle' && (
+          <div className="run-strip">
+            {running && <span className="muted mono">{progressed}/{run.total}</span>}
+            {run.tickers.map((t) => {
+              const st = run.statuses[t];
+              return (
+                <span key={t} className={`run-chip ${st?.status ?? 'pending'}`} title={st?.error || undefined}>
+                  {st ? CHIP_ICON[st.status] : '·'} {t}
+                  {st?.status === 'done' && st.recommendation
+                    ? ` ${st.recommendation.toUpperCase()}` : ''}
+                  {st?.status === 'done' && st.fellBack ? ' (fell back)' : ''}
+                </span>
+              );
+            })}
+          </div>
+        )}
+        {run.summary && (
+          <p className="muted">
+            Analyzed {run.summary.analyzed} · skipped {run.summary.skipped} · failed {run.summary.failed}.
+          </p>
+        )}
+        {run.stopped && <p className="muted">Stopped — run again to resume the rest.</p>}
+        {run.phase === 'error' && run.message && <p className="error">Run failed: {run.message}</p>}
+        {snapshot.data && (
+          <p className="muted">
+            ✓ Recorded {snapshot.data.recorded} watchlist signal{snapshot.data.recorded === 1 ? '' : 's'} for
+            evaluation{snapshot.data.skipped.length ? ` (${snapshot.data.skipped.length} skipped)` : ''}.
+          </p>
+        )}
+        {snapshot.isError && <p className="error">Snapshot failed: {(snapshot.error as Error).message}</p>}
+        {rescan.isError && <p className="error">Rescan failed: {(rescan.error as Error).message}</p>}
+      </div>
     </div>
   );
 }

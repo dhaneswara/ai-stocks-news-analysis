@@ -130,6 +130,22 @@ describe('EvaluationCommandBar', () => {
     expect(screen.getByText(/stopped — run again to resume/i)).toBeInTheDocument();
   });
 
+  it('starting a new process clears the previous status — one story at a time', async () => {
+    renderBar();
+    // Start a deep batch, then stop it mid-run — chips + stopped note shown.
+    fireEvent.click(await screen.findByRole('button', { name: /deep llm analysis/i }));
+    act(() => handlers.current!.onEvent({ type: 'start', total: 2, tickers: ['AAPL', 'MSFT'] }));
+    fireEvent.click(screen.getByRole('button', { name: /stop/i }));
+    expect(screen.getByText(/stopped — run again/i)).toBeInTheDocument();
+    expect(screen.getByText(/· AAPL/)).toBeInTheDocument();
+
+    // Snapshot next: the stopped run's residue vanishes; only the snapshot result shows.
+    fireEvent.click(screen.getByRole('button', { name: /snapshot technical\/network/i }));
+    expect(await screen.findByText(/recorded 2 watchlist signals/i)).toBeInTheDocument();
+    expect(screen.queryByText(/stopped — run again/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/· AAPL/)).not.toBeInTheDocument();
+  });
+
   it('shows a run-level error line', async () => {
     renderBar();
     fireEvent.click(await screen.findByRole('button', { name: /fast llm analysis/i }));

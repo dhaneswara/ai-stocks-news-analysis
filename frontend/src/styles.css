@@ -394,12 +394,15 @@ select { cursor: pointer; }
 select option { background: var(--bg-2); color: var(--ink); }
 input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; vertical-align: -2px; }
 
-/* ----- Command bar (ticker search) ---------------------------------------- */
+/* ----- Command bar (ticker search / watchlist processes) ------------------- */
+/* A column: the controls row first, then any hint/status lines each on their own
+   row — as a wrapping row the hints, run chips and result lines used to squash
+   side-by-side into an unreadable jumble. */
 .commandbar {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
   padding: 12px 16px;
 }
 .tickerbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; width: 100%; }
@@ -938,7 +941,14 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 .trace-step.pending { color: var(--ink-faint); list-style: none; }
 
 /* ----- Evaluation command bar: watchlist run progress ---------------------- */
-.run-strip { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-top: 10px; }
+/* The one-process-at-a-time activity zone under the command bar's buttons. */
+.commandbar-status {
+  display: flex; flex-direction: column; gap: 8px;
+  border-top: 1px solid var(--hairline); padding-top: 10px;
+}
+.commandbar-status:empty { display: none; }
+
+.run-strip { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .run-strip .mono { font-family: var(--mono); font-size: 11px; }
 .run-chip {
   font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.02em;

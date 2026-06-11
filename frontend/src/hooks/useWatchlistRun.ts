@@ -96,7 +96,15 @@ export function useWatchlistRun() {
     finish();
   }, [finish]);
 
+  /** Clear a finished/stopped run's chips and messages (no-op while running) — used when
+   *  another process starts so the command bar shows one activity at a time. */
+  const reset = useCallback(() => {
+    if (runningRef.current) return;
+    closeRef.current?.();
+    setState(IDLE);
+  }, []);
+
   useEffect(() => () => closeRef.current?.(), []); // close the stream on unmount
 
-  return { ...state, start, stop };
+  return { ...state, start, stop, reset };
 }

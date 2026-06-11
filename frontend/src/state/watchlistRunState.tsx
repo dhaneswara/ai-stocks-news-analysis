@@ -9,6 +9,10 @@ interface ProcessesValue {
   snapshot: ReturnType<typeof useSnapshotEvaluation>;
   /** The Discover board rescan mutation. */
   rescan: ReturnType<typeof useRescan>;
+  /** Start a fast/deep batch, clearing the other processes' leftover status first. */
+  startRun: (mode: 'fast' | 'deep') => void;
+  /** Snapshot now, clearing the other processes' leftover status first. */
+  snapshotNow: () => void;
   /** Rescan with the watchlist snapshot chained — the chain lives HERE so it survives
    *  page navigation (a call-site onSuccess dies with the page that registered it). */
   rescanAndSnapshot: (sector?: string) => void;
@@ -28,14 +32,34 @@ export function WatchlistRunProvider({ children }: { children: ReactNode }) {
   const run = useWatchlistRun();
   const snapshot = useSnapshotEvaluation();
   const rescan = useRescan();
-  const { mutate: rescanMutate } = rescan;
-  const { mutate: snapshotMutate } = snapshot;
-  const rescanAndSnapshot = useCallback(
-    (sector?: string) => rescanMutate(sector, { onSuccess: () => snapshotMutate() }),
-    [rescanMutate, snapshotMutate],
-  );
+  const { mutate: rescanMutate, reset: rescanReset } = rescan;
+  const { mutate: snapshotMutate, reset: snapshotReset } = snapshot;
+  const { start: runStart, reset: runReset } = run;
+
+  // Each action clears the OTHER processes' leftover chips/result lines first, so the
+  // command bar's status zone always describes a single (the latest) activity.
+  const startRun = useCallback((mode: 'fast' | 'deep') => {
+    snapshotReset();
+    rescanReset();
+    runStart(mode);
+  }, [snapshotReset, rescanReset, runStart]);
+
+  const snapshotNow = useCallback(() => {
+    runReset();
+    rescanReset();
+    snapshotMutate();
+  }, [runReset, rescanReset, snapshotMutate]);
+
+  const rescanAndSnapshot = useCallback((sector?: string) => {
+    runReset();
+    snapshotReset();
+    rescanMutate(sector, { onSuccess: () => snapshotMutate() });
+  }, [runReset, snapshotReset, rescanMutate, snapshotMutate]);
+
   return (
-    <RunContext.Provider value={{ run, snapshot, rescan, rescanAndSnapshot }}>
+    <RunContext.Provider
+      value={{ run, snapshot, rescan, startRun, snapshotNow, rescanAndSnapshot }}
+    >
       {children}
     </RunContext.Provider>
   );
