@@ -42,8 +42,10 @@ export function EvaluationCommandBar() {
           Run on your watchlist ({watch.list.length} ticker{watch.list.length === 1 ? '' : 's'})
         </span>
         <span className="spacer" />
+        {/* The bar's one gold primary, mirroring Discover's gold "Rescan all" — the other
+            three stay secondary like the Dashboard's Deep Analysis/Load buttons. */}
         <button
-          className="secondary" disabled={disabled}
+          disabled={disabled}
           title="Rebuilds the S&P 500 board (fresh neighbour data for the network call), then snapshots the watchlist — no separate Snapshot click needed."
           onClick={() => rescan.mutate(undefined, { onSuccess: () => snapshot.mutate() })}
         >
