@@ -777,18 +777,17 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
   background: rgba(13, 17, 23, 0.85); border: 1px solid var(--gold-line); border-radius: 6px;
   padding: 6px 10px; font-size: 11px; color: var(--gold); cursor: pointer;
 }
-.graph-search {
-  position: absolute; right: 10px; top: 10px; z-index: 10;
-  display: flex; flex-direction: column; gap: 4px; width: 220px;
+/* Lives at the right end of the ontology toolbar (same row as Save); the results
+   drop down over the canvas. */
+.graph-search { position: relative; margin-left: auto; width: 220px; }
+.graph-search input { width: 100%; padding: 5px 8px; font-size: 12px; }
+.graph-search > .muted, .graph-search-results {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30;
+  margin: 0; background: rgba(13, 17, 23, 0.92); border: 1px solid #30363d; border-radius: 6px;
 }
-.graph-search input { background: rgba(13, 17, 23, 0.85); padding: 5px 8px; font-size: 12px; }
-.graph-search > .muted {
-  background: rgba(13, 17, 23, 0.85); border: 1px solid #30363d; border-radius: 6px;
-  margin: 0; padding: 4px 8px; font-size: 11px;
-}
+.graph-search > .muted { padding: 4px 8px; font-size: 11px; }
 .graph-search-results {
-  list-style: none; margin: 0; padding: 4px;
-  background: rgba(13, 17, 23, 0.92); border: 1px solid #30363d; border-radius: 6px;
+  list-style: none; padding: 4px;
   max-height: 230px; overflow: auto;
 }
 .graph-search-results button {

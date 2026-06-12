@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GraphCanvas } from '../components/GraphCanvas';
+import { GraphSearch } from '../components/GraphSearch';
 import { GraphSidebar } from '../components/GraphSidebar';
 import { MergePreview } from '../components/MergePreview';
 import {
@@ -73,6 +74,10 @@ export default function Graph() {
   }, [working, expanded, selectedId, ontologyName]);
 
   const selectNode = (id: string) => { setSelectedId(id); setTab('explore'); };
+
+  // Toolbar find box: select the picked node and hand the canvas a camera command.
+  const [focusReq, setFocusReq] = useState<{ id: string; n: number } | null>(null);
+  const findNode = (id: string) => { selectNode(id); setFocusReq((p) => ({ id, n: (p?.n ?? 0) + 1 })); };
 
   // The one way in: empty-state CTA, the Explore-tab button and the canvas
   // right-click all open the same add-company form.
@@ -263,6 +268,7 @@ export default function Graph() {
           </button>
           <button className="secondary" onClick={doNew}>New</button>
           {hint && <span className="muted">{hint}</span>}
+          {!empty && <GraphSearch nodes={view.nodes} onPick={findNode} />}
         </div>
         {empty && !busy && (
           <div className="graph-empty">
@@ -285,6 +291,7 @@ export default function Graph() {
             onDeleteEdge={removeEdge}
             watchlist={watch.list}
             onToggleWatch={toggleWatch}
+            focus={focusReq}
           />
         )}
         {mergeImport && (

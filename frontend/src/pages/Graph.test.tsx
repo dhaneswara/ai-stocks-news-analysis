@@ -290,6 +290,17 @@ it('rejects a rename onto an existing node with a notice', async () => {
   expect(screen.getByRole('button', { name: 'sel-TSM' })).toBeInTheDocument(); // unchanged
 });
 
+it('finds a node from the toolbar search and selects it', async () => {
+  renderGraph();
+  await addCompany('AAPL');
+  await addCompany('MSFT');           // MSFT is now the selected node
+  const find = screen.getByLabelText('find node');
+  fireEvent.change(find, { target: { value: 'aapl' } });
+  fireEvent.keyDown(find, { key: 'Enter' });
+  expect(await screen.findByRole('heading', { name: /aapl/i })).toBeInTheDocument();
+  expect(find).toHaveValue('');       // box clears after the pick
+});
+
 it('adds AAPL to watchlist via the sidebar detail panel watchlist button', async () => {
   renderGraph();
   await addCompany('AAPL');
