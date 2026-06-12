@@ -145,6 +145,27 @@ class SavedGraphSummary(BaseModel):
     versions: list[str] = Field(default_factory=list)
 
 
+class OntologyVersion(BaseModel):
+    """One saved revision of a named ontology (the user-curated graph behind scoring)."""
+    name: str
+    saved_at: str = ""
+    expanded: list[str] = Field(default_factory=list)
+    graph: KnowledgeGraph = Field(default_factory=KnowledgeGraph)
+
+
+class OntologySummary(BaseModel):
+    name: str
+    versions: list[str] = Field(default_factory=list)   # saved_at stamps, newest first
+    node_count: int = 0                                 # of the latest version
+    edge_count: int = 0
+    active: bool = False
+
+
+class ActiveOntology(BaseModel):
+    """GET/PUT /api/graph/active body — name=None means scoring runs with no network signal."""
+    name: Optional[str] = None
+
+
 class ImportSetSummary(BaseModel):
     id: str = ""
     name: str = ""

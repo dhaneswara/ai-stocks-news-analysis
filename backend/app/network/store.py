@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 
 from app.config.cache import Cache
-from app.models.schemas import ImportSetSummary, KnowledgeGraph, SavedGraphSummary, SavedGraphVersion
+from app.models.schemas import ImportSetSummary, KnowledgeGraph, OntologySummary, OntologyVersion, SavedGraphSummary, SavedGraphVersion
 
 _SNAPSHOT_TTL_SECONDS = 7 * 24 * 60 * 60  # 7 days
 _USER_SAVE_TTL_SECONDS = 3650 * 24 * 60 * 60  # ~10 years (effectively permanent)
@@ -222,3 +222,133 @@ def effective_graph(cache: Cache, scope: str = "focus") -> KnowledgeGraph:
     if not overlay.edges and not overlay.nodes:
         return base
     return merge_graphs(base, overlay)
+
+
+# --- named ontologies (the user-curated graphs behind scoring) ---------------------------------
+
+_ONTOLOGY_INDEX_KEY = "ontology:__index__"
+_ONTOLOGY_ACTIVE_KEY = "ontology:__active__"
+
+
+def _ontology_key(name: str) -> str:
+    return f"ontology:{name}"
+
+
+def _load_ontology_index(cache: Cache) -> list[str]:
+    raw = cache.get(_ONTOLOGY_INDEX_KEY)
+    try:
+        return json.loads(raw) if raw else []
+    except Exception:  # noqa: BLE001 — corrupt index -> empty
+        return []
+
+
+def _save_ontology_index(names: list[str], cache: Cache) -> None:
+    cache.set(_ONTOLOGY_INDEX_KEY, json.dumps(names), _USER_SAVE_TTL_SECONDS)
+
+
+def canonical_ontology_name(name: str, cache: Cache) -> str | None:
+    """The stored spelling of `name`, matched case-insensitively; None when unknown."""
+    want = (name or "").strip().lower()
+    return next((n for n in _load_ontology_index(cache) if n.lower() == want), None)
+
+
+def _load_ontology_versions(name: str, cache: Cache) -> list[OntologyVersion]:
+    raw = cache.get(_ontology_key(name))
+    if not raw:
+        return []
+    try:
+        return [OntologyVersion.model_validate(v) for v in json.loads(raw)]
+    except Exception:  # noqa: BLE001 — corrupt entry -> none
+        return []
+
+
+def _store_ontology_versions(name: str, versions: list[OntologyVersion], cache: Cache) -> None:
+    cache.set(_ontology_key(name), json.dumps([v.model_dump() for v in versions]),
+              _USER_SAVE_TTL_SECONDS)
+
+
+def save_ontology(version: OntologyVersion, cache: Cache) -> OntologyVersion:
+    """Create-or-update under a case-insensitively unique name; newest first, capped at 5."""
+    name = canonical_ontology_name(version.name, cache) or version.name.strip()
+    version = version.model_copy(update={"name": name})
+    versions = ([version] + _load_ontology_versions(name, cache))[:_MAX_VERSIONS]
+    _store_ontology_versions(name, versions, cache)
+    idx = _load_ontology_index(cache)
+    if name not in idx:
+        idx.append(name)
+        _save_ontology_index(idx, cache)
+    return version
+
+
+def load_ontology(name: str, cache: Cache, version: str | None = None) -> OntologyVersion | None:
+    canon = canonical_ontology_name(name, cache)
+    if canon is None:
+        return None
+    versions = _load_ontology_versions(canon, cache)
+    if not versions:
+        return None
+    if version is None:
+        return versions[0]  # latest
+    return next((v for v in versions if v.saved_at == version), None)
+
+
+def list_ontologies(cache: Cache) -> list[OntologySummary]:
+    active = get_active_ontology(cache)
+    out: list[OntologySummary] = []
+    for name in _load_ontology_index(cache):
+        versions = _load_ontology_versions(name, cache)
+        if versions:
+            latest = versions[0].graph
+            out.append(OntologySummary(
+                name=name, versions=[v.saved_at for v in versions],
+                node_count=len(latest.nodes), edge_count=len(latest.edges),
+                active=name == active,
+            ))
+    return out
+
+
+def delete_ontology(name: str, cache: Cache, version: str | None = None) -> bool:
+    canon = canonical_ontology_name(name, cache)
+    if canon is None:
+        return False
+    versions = _load_ontology_versions(canon, cache)
+    if not versions:
+        return False
+    remaining = [] if version is None else [v for v in versions if v.saved_at != version]
+    if version is not None and len(remaining) == len(versions):
+        return False  # version not found
+    if remaining:
+        _store_ontology_versions(canon, remaining, cache)
+    else:
+        _store_ontology_versions(canon, [], cache)  # Cache has no delete; store empty
+        _save_ontology_index([n for n in _load_ontology_index(cache) if n != canon], cache)
+        if get_active_ontology(cache) == canon:
+            set_active_ontology(None, cache)        # the master pointer must never dangle
+    return True
+
+
+def get_active_ontology(cache: Cache) -> str | None:
+    raw = cache.get(_ONTOLOGY_ACTIVE_KEY)
+    return raw or None
+
+
+def set_active_ontology(name: str | None, cache: Cache) -> bool:
+    """Point scoring at `name` (case-insensitive; canonical spelling stored). None clears."""
+    if name is None:
+        cache.set(_ONTOLOGY_ACTIVE_KEY, "", _USER_SAVE_TTL_SECONDS)
+        return True
+    canon = canonical_ontology_name(name, cache)
+    if canon is None:
+        return False
+    cache.set(_ONTOLOGY_ACTIVE_KEY, canon, _USER_SAVE_TTL_SECONDS)
+    return True
+
+
+def active_graph(cache: Cache) -> KnowledgeGraph:
+    """The graph every scoring path consumes: the active ontology's latest revision, or an
+    empty graph when none is active (=> no network signal, by design)."""
+    name = get_active_ontology(cache)
+    if not name:
+        return KnowledgeGraph(scope="active")
+    found = load_ontology(name, cache)
+    return found.graph if found else KnowledgeGraph(scope="active")
