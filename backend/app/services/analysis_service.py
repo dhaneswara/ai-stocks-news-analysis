@@ -10,7 +10,7 @@ from app.config.cache import Cache
 from app.data import truth_social
 from app.evaluation.service import record_prediction
 from app.evaluation.signals import build_track_record_block, record_deterministic_pair
-from app.evaluation.store import PredictionStore
+from app.evaluation.store import SOURCE_LLM_FAST, PredictionStore
 from app.llm.base import LLMError
 from app.llm.factory import build_provider, resolve_config
 from app.models.schemas import AnalysisResult, Settings, StockData
@@ -56,6 +56,41 @@ def gather_stock_context(ticker, period, settings, cache, provider,
     return stock
 
 
+def _record_calls(stock: StockData, result: AnalysisResult, settings: Settings, cache: Cache,
+                  prediction_store: PredictionStore | None) -> None:
+    """Best-effort persistence of the llm_fast call + its technical/network pair."""
+    if prediction_store is None or not settings.evaluation.enabled:
+        return
+    try:
+        record_prediction(stock, result, prediction_store)
+    except Exception:  # noqa: BLE001 — recording must never break analysis
+        logger.warning("prediction recording failed for %s", stock.ticker)
+    try:
+        record_deterministic_pair(stock, settings, cache, prediction_store)
+    except Exception:  # noqa: BLE001 — recording must never break analysis
+        logger.warning("deterministic pair recording failed for %s", stock.ticker)
+
+
+def _record_if_missing(ticker: str, period: str, result: AnalysisResult, settings: Settings,
+                       cache: Cache, prediction_store: PredictionStore | None) -> None:
+    """Recording rides the fresh-compute path, so a cache-hit result was either recorded when
+    first computed or never will be (analysis cached while evaluation was off, or its row
+    deleted since — e.g. Clear all results). If the latest candle has no llm_fast row, record
+    the cached result now; otherwise every same-day re-run keeps serving the cache, the call
+    never reaches the evaluation store, and skip-already-done never engages."""
+    if prediction_store is None or not settings.evaluation.enabled:
+        return
+    try:
+        stock = get_stock_data(ticker, period, settings.indicator_params, cache)
+    except Exception:  # noqa: BLE001 — recording must never break analysis
+        logger.warning("recording skipped for %s: stock fetch failed", ticker)
+        return
+    if not stock.candles or prediction_store.get_prediction(
+            ticker, stock.candles[-1].time, SOURCE_LLM_FAST):
+        return
+    _record_calls(stock, result, settings, cache, prediction_store)
+
+
 def run_analysis(
     ticker: str,
     period: str,
@@ -78,7 +113,9 @@ def run_analysis(
     cache_key = f"analysis:{ticker}:{provider_id}:{cfg.model}:{period}:{date.today().isoformat()}"
     cached = cache.get(cache_key)
     if cached is not None:
-        return AnalysisResult.model_validate_json(cached)
+        result = AnalysisResult.model_validate_json(cached)
+        _record_if_missing(ticker, period, result, settings, cache, prediction_store)
+        return result
 
     provider = build_provider(settings)
     stock = gather_stock_context(ticker, period, settings, cache, provider,
@@ -86,13 +123,5 @@ def run_analysis(
 
     result = analyze(stock, provider, model=cfg.model, provider_name=provider_id)
     cache.set(cache_key, result.model_dump_json(), ANALYSIS_TTL_SECONDS)
-    if prediction_store is not None and settings.evaluation.enabled:
-        try:
-            record_prediction(stock, result, prediction_store)
-        except Exception:  # noqa: BLE001 — recording must never break analysis
-            logger.warning("prediction recording failed for %s", ticker)
-        try:
-            record_deterministic_pair(stock, settings, cache, prediction_store)
-        except Exception:  # noqa: BLE001 — recording must never break analysis
-            logger.warning("deterministic pair recording failed for %s", ticker)
+    _record_calls(stock, result, settings, cache, prediction_store)
     return result

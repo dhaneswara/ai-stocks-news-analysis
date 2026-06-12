@@ -124,6 +124,95 @@ def test_run_analysis_also_records_deterministic_pair(tmp_path, monkeypatch):
     assert store.get_prediction("AAPL", "2026-06-05", "technical") is not None
 
 
+def _seed_analysis_cache(cache, settings, ticker="AAPL", period="2y"):
+    """Plant a cached result under the exact key run_analysis builds for today."""
+    from datetime import date
+
+    cfg = settings.providers[settings.active_provider]
+    key = f"analysis:{ticker}:{settings.active_provider}:{cfg.model}:{period}:{date.today().isoformat()}"
+    cache.set(key, _result().model_dump_json(), 3600)
+
+
+def _no_provider(monkeypatch):
+    def boom(settings):
+        raise AssertionError("provider must not be built on a cache hit")
+    monkeypatch.setattr(analysis_service, "build_provider", boom)
+
+
+def test_run_analysis_cache_hit_records_missing_prediction(tmp_path, monkeypatch):
+    # The trap: an analysis cached today whose prediction row is gone (recorded while
+    # evaluation was off, or wiped by Clear all results). The cache-hit path must record
+    # it — otherwise every same-day re-run serves the cache and the call never lands.
+    settings = Settings()
+    settings.providers["anthropic"].api_key = "k"
+    monkeypatch.setattr(analysis_service, "get_stock_data", lambda *a, **k: _stock_with_candles())
+    pair = {"called": False}
+    monkeypatch.setattr(analysis_service, "record_deterministic_pair",
+                        lambda *a, **k: pair.__setitem__("called", True))
+    _no_provider(monkeypatch)
+    cache = Cache(str(tmp_path / "c.db"))
+    store = PredictionStore(str(tmp_path / "p.db"))
+    _seed_analysis_cache(cache, settings)
+
+    result = analysis_service.run_analysis("AAPL", "2y", settings, cache, store)
+
+    assert result.current_recommendation == "buy"  # served from cache (provider untouched)
+    row = store.get_prediction("AAPL", "2026-06-05")
+    assert row is not None and row.entry_price == 204.0 and row.confidence == 0.8
+    assert pair["called"] is True  # the technical/network pair rides along, as on fresh path
+
+
+def test_run_analysis_cache_hit_keeps_existing_prediction(tmp_path, monkeypatch):
+    settings = Settings()
+    settings.providers["anthropic"].api_key = "k"
+    monkeypatch.setattr(analysis_service, "get_stock_data", lambda *a, **k: _stock_with_candles())
+    pair = {"called": False}
+    monkeypatch.setattr(analysis_service, "record_deterministic_pair",
+                        lambda *a, **k: pair.__setitem__("called", True))
+    _no_provider(monkeypatch)
+    cache = Cache(str(tmp_path / "c.db"))
+    store = PredictionStore(str(tmp_path / "p.db"))
+    _seed_analysis_cache(cache, settings)
+    store.upsert_prediction(  # already recorded earlier today, with different values
+        ticker="AAPL", call_date="2026-06-05", provider="x", model="m",
+        recommendation="sell", confidence=0.5, sentiment="bearish",
+        entry_price=204.0, source="llm_fast",
+    )
+
+    analysis_service.run_analysis("AAPL", "2y", settings, cache, store)
+
+    row = store.get_prediction("AAPL", "2026-06-05")
+    assert row.recommendation == "sell" and row.confidence == 0.5  # not overwritten
+    assert pair["called"] is False
+
+
+def test_run_analysis_cache_hit_respects_disabled_gate(tmp_path, monkeypatch):
+    settings = Settings()
+    settings.evaluation.enabled = False
+    settings.providers["anthropic"].api_key = "k"
+    monkeypatch.setattr(analysis_service, "get_stock_data", lambda *a, **k: _stock_with_candles())
+    _no_provider(monkeypatch)
+    cache = Cache(str(tmp_path / "c.db"))
+    store = PredictionStore(str(tmp_path / "p.db"))
+    _seed_analysis_cache(cache, settings)
+
+    analysis_service.run_analysis("AAPL", "2y", settings, cache, store)
+    assert store.all_predictions() == []
+
+
+def test_run_analysis_cache_hit_without_store_is_unchanged(tmp_path, monkeypatch):
+    # The alerts path passes no store — a cache hit must stay a plain cached read.
+    settings = Settings()
+    settings.providers["anthropic"].api_key = "k"
+    monkeypatch.setattr(analysis_service, "get_stock_data", lambda *a, **k: _stock_with_candles())
+    _no_provider(monkeypatch)
+    cache = Cache(str(tmp_path / "c.db"))
+    _seed_analysis_cache(cache, settings)
+
+    result = analysis_service.run_analysis("AAPL", "2y", settings, cache)
+    assert result.current_recommendation == "buy"
+
+
 def test_run_analysis_disabled_gates_pair_recording_too(tmp_path, monkeypatch):
     import json as _json
 
