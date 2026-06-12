@@ -205,6 +205,20 @@ def test_deleting_the_active_ontology_rebakes_to_no_signal(client):
     assert aapl.network is None
 
 
+def test_reactivating_same_ontology_skips_rebake(client, monkeypatch):
+    tc, cache = client
+    _seed_board(cache)
+    tc.post("/api/graph/ontologies", json=_onto_payload())
+    tc.put("/api/graph/active", json={"name": "Tech Map"})
+    calls = {"n": 0}
+    monkeypatch.setattr(routes, "_rebake_board",
+                        lambda settings, cache: calls.__setitem__("n", calls["n"] + 1))
+    tc.put("/api/graph/active", json={"name": "Tech Map"})   # no change
+    assert calls["n"] == 0
+    tc.put("/api/graph/active", json={"name": None})         # change -> rebake
+    assert calls["n"] == 1
+
+
 def test_deleting_latest_version_of_active_ontology_rebakes(client):
     tc, cache = client
     _seed_board(cache)

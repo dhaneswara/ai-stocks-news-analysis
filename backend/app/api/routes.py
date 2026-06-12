@@ -584,9 +584,11 @@ def put_active(
     cache: Cache = Depends(get_cache),
     store: SettingsStore = Depends(get_settings_store),
 ) -> ActiveOntology:
+    before = get_active_ontology(cache)
     if not set_active_ontology(payload.name, cache):
         raise HTTPException(status_code=404, detail=f"No ontology '{payload.name}'")
-    _rebake_board(store.load(), cache)
+    if get_active_ontology(cache) != before:
+        _rebake_board(store.load(), cache)
     return ActiveOntology(name=get_active_ontology(cache))
 
 

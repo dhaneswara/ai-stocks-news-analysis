@@ -81,7 +81,7 @@ export default function Graph() {
     try {
       const frag = await ego.mutateAsync(t);
       setWorking(frag); setRoot(t); setExpanded(new Set()); setSelectedId(t); setTab('explore');
-      setDirty(false);
+      setOntologyName(''); setDirty(false);
       if (frag.edges.length === 0) setNotice(`No relationships found for ${t}.`);
     } catch { /* surfaced via the load-error banner */ }
   };
@@ -92,6 +92,7 @@ export default function Graph() {
       const frag = await ego.mutateAsync(ticker);
       setWorking((w) => mergeGraph(w, frag));
       setExpanded((s) => new Set(s).add(ticker));
+      setDirty(true);
       if (frag.edges.length === 0) setNotice(`No further relationships for ${ticker}.`);
     } catch { /* surfaced via the load-error banner */ }
   };

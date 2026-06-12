@@ -258,6 +258,23 @@ it('loading an old version marks the canvas dirty so the hint is visible', async
   expect(await screen.findByText(/unsaved changes here/i)).toBeInTheDocument();
 });
 
+it('loadRoot clears the ontology name so the hint stays visible', async () => {
+  vi.mocked(api.getActiveOntology).mockResolvedValue({ name: 'Tech' });
+  vi.mocked(api.loadOntology).mockResolvedValue({ name: 'Tech', saved_at: 't', expanded: [], graph: AAPL_GRAPH });
+  vi.mocked(api.getCompanyGraph).mockResolvedValue(TSM_GRAPH);
+  renderGraph();
+  // Wait for boot load to complete — ontology name should be 'Tech'
+  await screen.findByDisplayValue('Tech');
+  // Start a fresh exploration from a different ticker — should clear the name field
+  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'TSM' } });
+  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
+  await screen.findByTestId('graph-canvas');
+  // Name field must be cleared
+  expect(screen.getByLabelText('ontology name')).toHaveValue('');
+  // hint should now be visible: canvas no longer matches any saved ontology
+  expect(await screen.findByText(/analysis currently uses "?tech"?/i)).toBeInTheDocument();
+});
+
 it('adds AAPL to watchlist via the sidebar detail panel watchlist button', async () => {
   vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
   renderGraph();
