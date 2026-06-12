@@ -74,8 +74,11 @@ it('rename form prefills from the node and submits ticker + name', () => {
   expect(props.onSubmitRename).toHaveBeenCalledWith({ ticker: 'TSM', label: 'TSMC' });
 });
 
-it('detail-panel Rename… starts a rename for the selected node', () => {
+it('the standing Rename… starts a rename for the selected node, disabled without one', () => {
   const props = base();
+  const view = wrap(<GraphSidebar {...props} selected={null} />);
+  expect(screen.getByRole('button', { name: /rename…/i })).toBeDisabled();
+  view.unmount();
   wrap(<GraphSidebar {...props} selected={SELECTED} />);
   fireEvent.click(screen.getByRole('button', { name: /rename…/i }));
   expect(props.onStartRename).toHaveBeenCalledWith('AAPL');

@@ -183,7 +183,16 @@ export function GraphSidebar(props: GraphSidebarProps) {
               </div>
             </div>
           )}
-          <button onClick={onStartAddCompany}>Add company…</button>
+          <div className="graph-actions">
+            <button onClick={onStartAddCompany}>Add company…</button>
+            <button
+              className="secondary" disabled={!selected}
+              title={selected ? `Rename ${selected.label}` : 'Select a node first'}
+              onClick={() => selected && onStartRename(selected.id)}
+            >
+              Rename…
+            </button>
+          </div>
 
           <div className="graph-section">
             <p className="muted">{nodeCount} nodes · {linkCount} edges</p>
@@ -209,7 +218,6 @@ export function GraphSidebar(props: GraphSidebarProps) {
               </h4>
               {selected.onBoard && <p className="muted">score {selected.score.toFixed(0)}</p>}
               <button disabled={loading} onClick={() => onExpand(selected.id)}>Expand neighbours</button>
-              <button className="secondary" onClick={() => onStartRename(selected.id)}>Rename…</button>
               {!selected.id.includes(':') && (
                 <button className="secondary" onClick={() => onToggleWatch(selected.id)}>
                   {watchlist.includes(selected.id) ? '★ Remove from watchlist' : '☆ Add to watchlist'}
