@@ -21,22 +21,22 @@ vi.mock('../components/GraphCanvas', () => ({
 vi.mock('../api/client', () => ({
   api: {
     getScreen: vi.fn(),
-    getCompanyGraph: vi.fn(), listSavedGraphs: vi.fn(), saveGraph: vi.fn(),
-    loadSavedGraph: vi.fn(), deleteSavedGraph: vi.fn(),
-    listImports: vi.fn(), getOverlay: vi.fn(), importGraph: vi.fn(), deleteImport: vi.fn(),
+    getCompanyGraph: vi.fn(),
+    listImports: vi.fn(),
+    importGraph: vi.fn(),
+    deleteImport: vi.fn(),
     getImportSet: vi.fn(),
+    listOntologies: vi.fn(),
+    saveOntology: vi.fn(),
+    loadOntology: vi.fn(),
+    deleteOntology: vi.fn(),
+    getActiveOntology: vi.fn(),
+    setActiveOntology: vi.fn(),
   },
 }));
 import { api } from '../api/client';
 
 const BOARD: ScreenBoard = { as_of: 't', scope: 'all', scanned: 0, skipped: 0, items: [] };
-const EMPTY_OVERLAY: KnowledgeGraph = { as_of: '', scope: 'imported', built: 0, skipped: 0, nodes: [], edges: [], node_meta: {} };
-const OVERLAY: KnowledgeGraph = {
-  as_of: 't', scope: 'imported', built: 1, skipped: 0,
-  nodes: ['AAPL', 'ext:openai'],
-  node_meta: { 'ext:openai': { label: 'OpenAI', kind: 'private_company', source: 'imported' } },
-  edges: [{ source: 'AAPL', target: 'ext:openai', type: 'other', sentiment: 'positive', weight: 1, confidence: 1, evidence: '', url: '', as_of: '', origin: 'imported' }],
-};
 const AAPL_GRAPH: KnowledgeGraph = {
   as_of: 't', scope: 'company:AAPL', built: 1, skipped: 0, nodes: ['AAPL', 'TSM'],
   edges: [{ source: 'AAPL', target: 'TSM', type: 'supplier', sentiment: 'negative', weight: 1, confidence: 1, evidence: '', url: '', as_of: '' }],
@@ -58,9 +58,9 @@ function renderGraph() {
 beforeEach(() => {
   sessionStorage.clear();
   vi.mocked(api.getScreen).mockResolvedValue(BOARD);
-  vi.mocked(api.listSavedGraphs).mockResolvedValue([]);
   vi.mocked(api.listImports).mockResolvedValue([]);
-  vi.mocked(api.getOverlay).mockResolvedValue(EMPTY_OVERLAY);
+  vi.mocked(api.listOntologies).mockResolvedValue([]);
+  vi.mocked(api.getActiveOntology).mockResolvedValue({ name: null });
 });
 
 it('shows the empty prompt before anything is loaded', async () => {
@@ -87,15 +87,16 @@ it('expands a selected node and grows the graph', async () => {
   await waitFor(() => expect(screen.getByText(/3 nodes/)).toBeInTheDocument());
 });
 
-it('saves the working graph', async () => {
+it('saves the working graph as a named ontology', async () => {
   vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
-  vi.mocked(api.saveGraph).mockResolvedValue({ root: 'AAPL', saved_at: 't', expanded: [], graph: AAPL_GRAPH });
+  vi.mocked(api.saveOntology).mockResolvedValue({ name: 'Tech', saved_at: 't', expanded: [], graph: AAPL_GRAPH });
   renderGraph();
   fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
   fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
   await screen.findByTestId('graph-canvas');
-  fireEvent.click(screen.getByRole('button', { name: /save as aapl/i }));
-  await waitFor(() => expect(api.saveGraph).toHaveBeenCalled());
+  fireEvent.change(screen.getByRole('textbox', { name: /ontology name/i }), { target: { value: 'Tech' } });
+  fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+  await waitFor(() => expect(api.saveOntology).toHaveBeenCalledWith(expect.objectContaining({ name: 'Tech' })));
 });
 
 it('surfaces a load error when extraction fails', async () => {
@@ -127,22 +128,10 @@ it('switches back to the Explore tab when a node is selected', async () => {
   fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
   fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
   await screen.findByTestId('graph-canvas');
-  fireEvent.click(screen.getByRole('button', { name: /^saved/i })); // go to Saved tab
+  fireEvent.click(screen.getByRole('button', { name: /^ontologies/i })); // go to Ontologies tab
   expect(screen.queryByRole('button', { name: /expand neighbours/i })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'sel-AAPL' })); // select a node on the canvas
   expect(await screen.findByRole('button', { name: /expand neighbours/i })).toBeInTheDocument();
-});
-
-it('unions an imported overlay edge incident to a working node', async () => {
-  vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
-  vi.mocked(api.getOverlay).mockResolvedValue(OVERLAY);
-  renderGraph();
-  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
-  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
-  await screen.findByTestId('graph-canvas');
-  // AAPL + TSM (working) + ext:openai (overlay, incident to AAPL) = 3 nodes
-  await waitFor(() => expect(screen.getByText(/3 nodes/)).toBeInTheDocument());
-  expect(screen.getByRole('button', { name: 'sel-ext:openai' })).toBeInTheDocument();
 });
 
 it('deletes a node from the working graph', async () => {
@@ -167,4 +156,19 @@ it('adds a manual relationship via the form', async () => {
   fireEvent.change(await screen.findByPlaceholderText(/ticker or company/i), { target: { value: 'BIDU' } });
   fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
   await waitFor(() => expect(screen.getByText(/3 nodes/)).toBeInTheDocument());
+});
+
+it('boots into the active ontology when nothing restored', async () => {
+  vi.mocked(api.getActiveOntology).mockResolvedValue({ name: 'Tech' });
+  vi.mocked(api.loadOntology).mockResolvedValue({ name: 'Tech', saved_at: 't', expanded: [], graph: AAPL_GRAPH });
+  renderGraph();
+  expect(await screen.findByDisplayValue('Tech')).toBeInTheDocument();
+  expect(api.loadOntology).toHaveBeenCalledWith('Tech', undefined);
+});
+
+it('hint names the active ontology when canvas is empty and no active set', async () => {
+  vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
+  renderGraph();
+  // active is null (default), no graph loaded — hint should say "no network signal"
+  expect(await screen.findByText(/analysis currently uses no network signal/i)).toBeInTheDocument();
 });

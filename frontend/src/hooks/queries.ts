@@ -149,8 +149,6 @@ export function useImportGraph() {
     mutationFn: ({ name, payload }: { name: string; payload: unknown }) => api.importGraph(name, payload),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['graphImports'] });
-      qc.invalidateQueries({ queryKey: ['graph', 'imported'] });
-      qc.invalidateQueries({ queryKey: ['screen'] });
     },
   });
 }
@@ -161,8 +159,6 @@ export function useDeleteImport() {
     mutationFn: (id: string) => api.deleteImport(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['graphImports'] });
-      qc.invalidateQueries({ queryKey: ['graph', 'imported'] });
-      qc.invalidateQueries({ queryKey: ['screen'] });
     },
   });
 }

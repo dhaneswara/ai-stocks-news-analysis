@@ -963,3 +963,6 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 .run-chip.done { border-color: rgba(95, 211, 155, 0.35); color: var(--buy); }
 .run-chip.skipped { opacity: 0.55; }
 .run-chip.failed { border-color: rgba(240, 129, 124, 0.4); color: var(--sell); }
+
+.ontology-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.ontology-bar input { max-width: 220px; }

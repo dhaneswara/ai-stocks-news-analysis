@@ -4,7 +4,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { GraphSidebar } from './GraphSidebar';
 import type { ViewNode } from '../lib/graphView';
-import type { ImportSetSummary, RelationType, SavedGraphSummary } from '../types';
+import type { ImportSetSummary, OntologySummary, RelationType } from '../types';
 
 const SELECTED: ViewNode = {
   id: 'AAPL', label: 'AAPL', direction: 'sell', score: 80, sector: 'Tech', onBoard: true, external: false, kind: '',
@@ -16,9 +16,7 @@ const SELECTED: ViewNode = {
 function base() {
   return {
     tab: 'explore' as const, onTab: vi.fn(),
-    onLoadRoot: vi.fn(), onExpand: vi.fn(), onSave: vi.fn(), onClear: vi.fn(),
-    canSave: true, saveAs: 'AAPL', saving: false, loading: false,
-    saved: [] as SavedGraphSummary[], onLoadSaved: vi.fn(), onDeleteSaved: vi.fn(),
+    onLoadRoot: vi.fn(), onExpand: vi.fn(), loading: false,
     nodeCount: 2, linkCount: 1,
     enabledTypes: new Set<RelationType>(['supplier']), onToggleType: vi.fn(),
     imports: [] as ImportSetSummary[],
@@ -32,6 +30,11 @@ function base() {
     onCancelRelationship: vi.fn(),
     onMergeImport: vi.fn(),
     promptDefault: 'AAPL',
+    ontologies: [] as OntologySummary[],
+    activeName: null as string | null,
+    onLoadOntology: vi.fn(),
+    onDeleteOntology: vi.fn(),
+    onActivate: vi.fn(),
   };
 }
 
@@ -66,29 +69,11 @@ it('shows the selected node detail and a Dashboard link', () => {
   expect(link).toHaveAttribute('href', expect.stringContaining('ticker=AAPL'));
 });
 
-it('fires save and clear', () => {
+it('switches to the Ontologies tab', () => {
   const props = base();
   wrap(<GraphSidebar {...props} selected={null} />);
-  fireEvent.click(screen.getByRole('button', { name: /save as aapl/i }));
-  fireEvent.click(screen.getByRole('button', { name: /^clear$/i }));
-  expect(props.onSave).toHaveBeenCalled();
-  expect(props.onClear).toHaveBeenCalled();
-});
-
-it('switches to the Saved tab', () => {
-  const props = base();
-  wrap(<GraphSidebar {...props} selected={null} />);
-  fireEvent.click(screen.getByRole('button', { name: /^saved/i }));
+  fireEvent.click(screen.getByRole('button', { name: /^ontologies/i }));
   expect(props.onTab).toHaveBeenCalledWith('saved');
-});
-
-it('lists saved graphs and fires load / delete (Saved tab)', () => {
-  const props = { ...base(), tab: 'saved' as const, saved: [{ root: 'AAPL', versions: ['t2', 't1'] }] };
-  wrap(<GraphSidebar {...props} selected={null} />);
-  fireEvent.click(screen.getByRole('button', { name: /^load AAPL$/i }));
-  expect(props.onLoadSaved).toHaveBeenCalledWith('AAPL', undefined);
-  fireEvent.click(screen.getByRole('button', { name: /delete AAPL/i }));
-  expect(props.onDeleteSaved).toHaveBeenCalledWith('AAPL', undefined);
 });
 
 it('toggling an edge-type fires onToggleType', () => {
@@ -154,4 +139,38 @@ it('fires merge for an import set (Import tab)', () => {
   wrap(<GraphSidebar {...props} selected={null} />);
   fireEvent.click(screen.getByRole('button', { name: /merge demo/i }));
   expect(props.onMergeImport).toHaveBeenCalledWith('t1');
+});
+
+it('Ontologies tab: lists ontologies, active badge, Set active, load, delete', () => {
+  const ontos: OntologySummary[] = [
+    { name: 'A', versions: ['t1'], node_count: 3, edge_count: 2, active: false },
+    { name: 'B', versions: ['t1', 't2'], node_count: 1, edge_count: 0, active: true },
+  ];
+  const props = { ...base(), tab: 'saved' as const, ontologies: ontos, activeName: 'B' };
+  wrap(<GraphSidebar {...props} selected={null} />);
+
+  // Row A: stats, Set active, load, delete
+  expect(screen.getByText('3n · 2e')).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole('button', { name: /^load A$/i }));
+  expect(props.onLoadOntology).toHaveBeenCalledWith('A');
+
+  fireEvent.click(screen.getByRole('button', { name: /delete A/i }));
+  expect(props.onDeleteOntology).toHaveBeenCalledWith('A');
+
+  // Row A has Set active (not ACTIVE badge); click it
+  // The "None" row also has Set active (activeName='B'), so collect all and find A's row button
+  // None row comes first, then A row, then B row (ACTIVE badge).
+  // getAllByRole returns them in DOM order: None's "Set active" first, then A's "Set active".
+  const setActiveButtons = screen.getAllByRole('button', { name: /^set active$/i });
+  // index 0 = None row, index 1 = row A
+  fireEvent.click(setActiveButtons[1]);
+  expect(props.onActivate).toHaveBeenCalledWith('A');
+
+  // Row B: ACTIVE badge, no Set active for B
+  expect(screen.getByText('ACTIVE')).toBeInTheDocument();
+
+  // None row: activeName is 'B' (not null), so "None" row shows "Set active" not ACTIVE
+  fireEvent.click(setActiveButtons[0]);
+  expect(props.onActivate).toHaveBeenCalledWith(null);
 });

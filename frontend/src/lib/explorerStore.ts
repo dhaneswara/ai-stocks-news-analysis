@@ -5,6 +5,7 @@ export interface ExplorerState {
   root: string;
   expanded: string[];
   selectedId: string | null;
+  ontologyName: string;
 }
 
 const KEY = 'graphExplorer:v1';

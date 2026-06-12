@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { EdgeSentiment, ImportReport, ImportSetSummary, RelationType, SavedGraphSummary } from '../types';
+import type { EdgeSentiment, ImportReport, ImportSetSummary, OntologySummary, RelationType } from '../types';
 import type { ViewNode } from '../lib/graphView';
 import { chatGptPrompt } from '../lib/importPrompt';
 
@@ -11,15 +11,7 @@ export interface GraphSidebarProps {
   onTab: (t: 'explore' | 'saved' | 'import') => void;
   onLoadRoot: (ticker: string) => void;
   onExpand: (ticker: string) => void;
-  onSave: () => void;
-  onClear: () => void;
-  canSave: boolean;
-  saveAs: string;
-  saving: boolean;
   loading: boolean;
-  saved: SavedGraphSummary[];
-  onLoadSaved: (root: string, version?: string) => void;
-  onDeleteSaved: (root: string, version?: string) => void;
   nodeCount: number;
   linkCount: number;
   enabledTypes: Set<RelationType>;
@@ -36,15 +28,21 @@ export interface GraphSidebarProps {
   onCancelRelationship: () => void;
   onMergeImport: (id: string) => void;
   promptDefault: string;
+  ontologies: OntologySummary[];
+  activeName: string | null;
+  onLoadOntology: (name: string, version?: string) => void;
+  onDeleteOntology: (name: string, version?: string) => void;
+  onActivate: (name: string | null) => void;
 }
 
 export function GraphSidebar(props: GraphSidebarProps) {
   const {
-    tab, onTab, onLoadRoot, onExpand, onSave, onClear, canSave, saveAs, saving, loading,
-    saved, onLoadSaved, onDeleteSaved, nodeCount, linkCount, enabledTypes, onToggleType, selected,
+    tab, onTab, onLoadRoot, onExpand, loading,
+    nodeCount, linkCount, enabledTypes, onToggleType, selected,
     imports, onImport, onDeleteImport, importing, importReport, importError,
     addingFrom, onSubmitRelationship, onCancelRelationship, onMergeImport,
     promptDefault,
+    ontologies, activeName, onLoadOntology, onDeleteOntology, onActivate,
   } = props;
   const [rootInput, setRootInput] = useState('');
   const [jsonText, setJsonText] = useState('');
@@ -90,7 +88,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
           Explore
         </button>
         <button type="button" className={`tab${tab === 'saved' ? ' active' : ''}`} onClick={() => onTab('saved')}>
-          Saved{saved.length ? ` (${saved.length})` : ''}
+          Ontologies{ontologies.length ? ` (${ontologies.length})` : ''}
         </button>
         <button type="button" className={`tab${tab === 'import' ? ' active' : ''}`} onClick={() => onTab('import')}>
           Import
@@ -135,10 +133,6 @@ export function GraphSidebar(props: GraphSidebarProps) {
 
           <div className="graph-section">
             <p className="muted">{nodeCount} nodes · {linkCount} edges</p>
-            <div className="graph-actions">
-              <button disabled={!canSave || saving} onClick={onSave}>{saving ? 'Saving…' : saveAs ? `Save as ${saveAs}` : 'Save'}</button>
-              <button className="secondary" disabled={!canSave} onClick={onClear}>Clear</button>
-            </div>
           </div>
 
           <div className="graph-section">
@@ -183,24 +177,29 @@ export function GraphSidebar(props: GraphSidebarProps) {
 
       {tab === 'saved' && (
         <div className="graph-tab">
-          {saved.length > 0 ? (
-            <div className="graph-saves">
-              {saved.map((s) => (
-                <div key={s.root} className="graph-save-row">
-                  <button className="linklike" onClick={() => onLoadSaved(s.root, undefined)}>Load {s.root}</button>
-                  {s.versions.length > 1 && (
-                    <select defaultValue="" onChange={(e) => { if (e.target.value) onLoadSaved(s.root, e.target.value); }}>
-                      <option value="">latest ({s.versions.length})</option>
-                      {s.versions.map((v) => <option key={v} value={v}>{new Date(v).toLocaleString()}</option>)}
-                    </select>
-                  )}
-                  <button className="icon-btn" aria-label={`delete ${s.root}`} onClick={() => onDeleteSaved(s.root, undefined)}>✕</button>
-                </div>
-              ))}
+          <div className="graph-save-row">
+            <span className="muted">None (network signal off)</span>
+            {activeName === null
+              ? <span className="badge hold">ACTIVE</span>
+              : <button className="linklike" onClick={() => onActivate(null)}>Set active</button>}
+          </div>
+          {ontologies.map((o) => (
+            <div key={o.name} className="graph-save-row">
+              <button className="linklike" onClick={() => onLoadOntology(o.name)}>Load {o.name}</button>
+              <span className="muted">{o.node_count}n · {o.edge_count}e</span>
+              {o.active
+                ? <span className="badge buy">ACTIVE</span>
+                : <button className="linklike" onClick={() => onActivate(o.name)}>Set active</button>}
+              {o.versions.length > 1 && (
+                <select defaultValue="" onChange={(e) => { if (e.target.value) onLoadOntology(o.name, e.target.value); }}>
+                  <option value="">latest ({o.versions.length})</option>
+                  {o.versions.map((v) => <option key={v} value={v}>{new Date(v).toLocaleString()}</option>)}
+                </select>
+              )}
+              <button className="icon-btn" aria-label={`delete ${o.name}`} onClick={() => onDeleteOntology(o.name)}>✕</button>
             </div>
-          ) : (
-            <p className="muted">No saved graphs yet. Explore a company, then Save.</p>
-          )}
+          ))}
+          {ontologies.length === 0 && <p className="muted">No ontologies yet — build a graph and Save it.</p>}
         </div>
       )}
 

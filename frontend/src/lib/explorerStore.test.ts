@@ -12,16 +12,17 @@ describe('explorerStore', () => {
   });
 
   it('round-trips the explorer state through sessionStorage', () => {
-    saveExplorerState({ working: G, root: 'AAPL', expanded: ['AAPL'], selectedId: 'AAPL' });
+    saveExplorerState({ working: G, root: 'AAPL', expanded: ['AAPL'], selectedId: 'AAPL', ontologyName: 'Tech' });
     const s = loadExplorerState();
     expect(s?.root).toBe('AAPL');
     expect(s?.working?.nodes).toEqual(['AAPL', 'TSM']);
     expect(s?.expanded).toEqual(['AAPL']);
     expect(s?.selectedId).toBe('AAPL');
+    expect(s?.ontologyName).toBe('Tech');
   });
 
   it('clear removes the stored state', () => {
-    saveExplorerState({ working: G, root: 'AAPL', expanded: [], selectedId: null });
+    saveExplorerState({ working: G, root: 'AAPL', expanded: [], selectedId: null, ontologyName: '' });
     clearExplorerState();
     expect(loadExplorerState()).toBeNull();
   });

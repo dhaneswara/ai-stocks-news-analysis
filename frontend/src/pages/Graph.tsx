@@ -1,15 +1,16 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { GraphCanvas } from '../components/GraphCanvas';
 import { GraphSidebar } from '../components/GraphSidebar';
 import { MergePreview } from '../components/MergePreview';
 import {
-  useDeleteImport, useDeleteSavedGraph, useEgoGraph, useImportGraph, useImports,
-  useLoadSavedGraph, useOverlay, useSaveGraph, useSavedGraphs, useScreen,
+  useActiveOntology, useDeleteImport, useDeleteOntology, useEgoGraph, useImportGraph, useImports,
+  useLoadOntology, useOntologies, useSaveOntology, useSetActiveOntology,
 } from '../hooks/queries';
 import { addManualEdge, addManualNode, applyFilters, deleteEdge, deleteNode, mergeGraph, mergeNodes, resolveManualTarget, toLinks, type ViewNode } from '../lib/graphView';
 import { loadExplorerState, saveExplorerState } from '../lib/explorerStore';
 import type { EdgeSentiment, GraphEdge, ImportReport, KnowledgeGraph, RelationType } from '../types';
 import { api } from '../api/client';
+import { useScreen } from '../hooks/queries';
 
 const ALL_TYPES: RelationType[] = ['supplier', 'customer', 'partner', 'competitor', 'owner', 'subsidiary', 'other'];
 const EMPTY_GRAPH: KnowledgeGraph = { as_of: '', scope: 'explore', nodes: [], edges: [], built: 0, skipped: 0 };
@@ -18,13 +19,14 @@ export default function Graph() {
   const restored = useMemo(() => loadExplorerState(), []);
   const board = useScreen(undefined, undefined, 0); // full uncapped board for node colour/size
   const ego = useEgoGraph();
-  const saved = useSavedGraphs();
-  const saveGraph = useSaveGraph();
-  const loadSaved = useLoadSavedGraph();
-  const deleteSaved = useDeleteSavedGraph();
+  const ontologies = useOntologies();
+  const activeOnto = useActiveOntology();
+  const saveOntology = useSaveOntology();
+  const loadOntology = useLoadOntology();
+  const deleteOntology = useDeleteOntology();
+  const setActiveOnto = useSetActiveOntology();
 
   const imports = useImports();
-  const overlay = useOverlay();
   const importGraph = useImportGraph();
   const deleteImport = useDeleteImport();
   const [importReport, setImportReport] = useState<ImportReport | null>(null);
@@ -55,6 +57,7 @@ export default function Graph() {
   const [selectedId, setSelectedId] = useState<string | null>(restored?.selectedId ?? null);
   const [enabledTypes, setEnabledTypes] = useState<Set<RelationType>>(new Set(ALL_TYPES));
   const [notice, setNotice] = useState<string | null>(null);
+  const [ontologyName, setOntologyName] = useState(restored?.ontologyName ?? '');
 
   const [addingFrom, setAddingFrom] = useState<string | null>(null);
   const [mergeSetId, setMergeSetId] = useState<string | null>(null);
@@ -63,8 +66,8 @@ export default function Graph() {
 
   // Persist the exploration so switching menus / reloading restores it.
   useEffect(() => {
-    saveExplorerState({ working, root, expanded: [...expanded], selectedId });
-  }, [working, root, expanded, selectedId]);
+    saveExplorerState({ working, root, expanded: [...expanded], selectedId, ontologyName });
+  }, [working, root, expanded, selectedId, ontologyName]);
 
   const selectNode = (id: string) => { setSelectedId(id); setTab('explore'); };
 
@@ -90,38 +93,53 @@ export default function Graph() {
     } catch { /* surfaced via the load-error banner */ }
   };
 
-  const clearGraph = () => {
-    setWorking(null); setRoot(''); setExpanded(new Set()); setSelectedId(null); setNotice(null);
-    setDirty(false);
-  };
-
-  const doSave = async () => {
+  const doSaveAs = async (name: string) => {
+    const n = name.trim();
     if (!working || working.nodes.length === 0) return;
-    // Save the whole exploration under the SELECTED node (what you're focused on), falling back to
-    // the start company, then the first node (e.g. a freshly-loaded graph).
-    try {
-      await saveGraph.mutateAsync({
-        root: selectedId || root || working.nodes[0], saved_at: '', expanded: [...expanded], graph: working,
-      });
-      setDirty(false);
-    } catch { setNotice('Could not save this graph.'); }
-  };
-
-  const doLoadSaved = async (r: string, version?: string) => {
+    if (!n) { setNotice('Name the ontology first.'); return; }
     setNotice(null);
     try {
-      const v = await loadSaved.mutateAsync({ root: r, version });
-      setWorking(v.graph); setRoot(v.root); setExpanded(new Set(v.expanded)); setSelectedId(v.root || null);
-      setTab('explore');
+      const saved = await saveOntology.mutateAsync({
+        name: n, saved_at: '', expanded: [...expanded], graph: working,
+      });
+      setOntologyName(saved.name);   // canonical spelling from the server
       setDirty(false);
-    } catch { setNotice(`Could not load the saved graph for ${r}.`); }
+    } catch { setNotice('Could not save this ontology.'); }
   };
 
-  const doDeleteSaved = async (r: string, version?: string) => {
-    try {
-      await deleteSaved.mutateAsync({ root: r, version });
-    } catch { setNotice(`Could not delete the saved graph for ${r}.`); }
+  const doNew = () => {
+    setWorking(null); setOntologyName(''); setRoot(''); setExpanded(new Set());
+    setSelectedId(null); setNotice(null); setDirty(false);
   };
+
+  const doLoadOntology = async (name: string, version?: string) => {
+    setNotice(null);
+    try {
+      const v = await loadOntology.mutateAsync({ name, version });
+      setWorking(v.graph); setOntologyName(v.name); setExpanded(new Set(v.expanded));
+      setRoot(''); setSelectedId(null); setDirty(false); setTab('explore');
+    } catch { setNotice(`Could not load the ontology ${name}.`); }
+  };
+
+  const doDeleteOntology = async (name: string, version?: string) => {
+    try { await deleteOntology.mutateAsync({ name, version }); }
+    catch { setNotice(`Could not delete ${name}.`); }
+  };
+
+  const doActivate = async (name: string | null) => {
+    setNotice(null);
+    try { await setActiveOnto.mutateAsync(name); }
+    catch { setNotice('Could not change the active ontology.'); }
+  };
+
+  // Boot precedence: restored canvas wins; otherwise load the active ontology once; otherwise empty canvas.
+  const booted = useRef(false);
+  useEffect(() => {
+    if (booted.current || restored?.working || working || !activeOnto.data?.name) return;
+    booted.current = true;
+    void doLoadOntology(activeOnto.data.name);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- boot-once on first active fetch
+  }, [activeOnto.data]);
 
   const toggleType = (t: RelationType) =>
     setEnabledTypes((prev) => {
@@ -173,26 +191,8 @@ export default function Graph() {
 
   const view = useMemo(() => {
     const g = working ?? EMPTY_GRAPH;
-    let merged = g;
-    const ov = overlay.data;
-    if (ov && ov.edges.length) {
-      const present = new Set(g.nodes);
-      const incident = ov.edges.filter((e) => present.has(e.source) || present.has(e.target));
-      if (incident.length) {
-        const incidentIds = new Set(incident.flatMap((e) => [e.source, e.target]));
-        const frag: KnowledgeGraph = {
-          ...ov,
-          edges: incident,
-          nodes: Array.from(incidentIds),
-          node_meta: Object.fromEntries(
-            Object.entries(ov.node_meta ?? {}).filter(([id]) => incidentIds.has(id)),
-          ),
-        };
-        merged = mergeGraph(g, frag);
-      }
-    }
-    return applyFilters(mergeNodes(merged, board.data), toLinks(merged), null, enabledTypes);
-  }, [working, board.data, enabledTypes, overlay.data]);
+    return applyFilters(mergeNodes(g, board.data), toLinks(g), null, enabledTypes);
+  }, [working, board.data, enabledTypes]);
 
   const selected = useMemo<ViewNode | null>(
     () => view.nodes.find((n) => n.id === selectedId) ?? null,
@@ -203,13 +203,37 @@ export default function Graph() {
   const loadErr = ego.isError ? (ego.error as Error).message : null;
   const empty = !working || working.nodes.length === 0;
 
+  const activeName = activeOnto.data?.name ?? null;
+  const onActive = !dirty && !!ontologyName && ontologyName === activeName;
+  const hint = onActive ? null
+    : `Analysis currently uses ${activeName ? `"${activeName}"` : 'no network signal'}${dirty ? ' — unsaved changes here' : ''}.`;
+
   return (
     <div className="graph-page">
       <div className="graph-main panel">
         {busy && <p className="muted">Loading…</p>}
         {loadErr && <p className="error">Couldn't load: {loadErr}</p>}
         {notice && <p className="muted">{notice}</p>}
-        {dirty && <p className="muted unsaved-hint">Unsaved changes — click Save to keep them.</p>}
+        <div className="ontology-bar">
+          <input
+            placeholder="Ontology name" aria-label="ontology name"
+            value={ontologyName} onChange={(e) => setOntologyName(e.target.value)}
+          />
+          <button
+            disabled={!working || working.nodes.length === 0 || saveOntology.isPending}
+            onClick={() => { void doSaveAs(ontologyName || window.prompt('Name this ontology', '') || ''); }}
+          >
+            {saveOntology.isPending ? 'Saving…' : 'Save'}
+          </button>
+          <button
+            className="secondary" disabled={!working || working.nodes.length === 0}
+            onClick={() => { const n = window.prompt('Save as…', ontologyName ? `${ontologyName} copy` : ''); if (n) void doSaveAs(n); }}
+          >
+            Save as
+          </button>
+          <button className="secondary" onClick={doNew}>New</button>
+          {hint && <span className="muted">{hint}</span>}
+        </div>
         {empty && !busy && (
           <div className="graph-empty">
             <p className="muted">Type a company ticker in the panel to start exploring.</p>
@@ -237,15 +261,7 @@ export default function Graph() {
         onTab={setTab}
         onLoadRoot={loadRoot}
         onExpand={expand}
-        onSave={doSave}
-        onClear={clearGraph}
-        canSave={!!working && working.nodes.length > 0}
-        saveAs={selectedId || root || (working?.nodes[0] ?? '')}
-        saving={saveGraph.isPending}
         loading={busy}
-        saved={saved.data ?? []}
-        onLoadSaved={doLoadSaved}
-        onDeleteSaved={doDeleteSaved}
         nodeCount={view.nodes.length}
         linkCount={view.links.length}
         enabledTypes={enabledTypes}
@@ -262,6 +278,11 @@ export default function Graph() {
         onCancelRelationship={() => setAddingFrom(null)}
         onMergeImport={startMerge}
         promptDefault={selectedId || root || ''}
+        ontologies={ontologies.data ?? []}
+        activeName={activeName}
+        onLoadOntology={doLoadOntology}
+        onDeleteOntology={doDeleteOntology}
+        onActivate={doActivate}
       />
     </div>
   );
