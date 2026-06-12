@@ -857,7 +857,9 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 .legend-title { color: #6e7681; width: 100%; text-transform: uppercase; letter-spacing: 0.04em; font-size: 9px; }
 .legend-group .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 3px; vertical-align: middle; }
 .legend-group .bar { display: inline-block; width: 12px; height: 3px; margin-right: 3px; vertical-align: middle; }
-.legend-group .line { display: inline-block; width: 16px; height: 0; margin-right: 3px; vertical-align: middle; border-top: 2px solid #8b949e; }
+/* Brighter than the neutral sentiment bar (#6e7681) so the style samples read as
+   patterns, not as yet another grey colour swatch. */
+.legend-group .line { display: inline-block; width: 18px; height: 0; margin-right: 3px; vertical-align: middle; border-top: 2px solid #b6b1a7; }
 .legend-group .line.dashed { border-top-style: dashed; }
 .legend-group .line.dotted { border-top-style: dotted; }
 .legend-note { color: #6e7681; font-style: italic; }

@@ -21,13 +21,13 @@ export function GraphLegend() {
             <span className="legend-note">size = score</span>
           </div>
           <div className="legend-group">
-            <span className="legend-title">News effect</span>
+            <span className="legend-title">Line colour · news effect</span>
             <span><i className="bar" style={{ background: '#3fb950' }} />positive</span>
             <span><i className="bar" style={{ background: '#f85149' }} />negative</span>
             <span><i className="bar" style={{ background: '#6e7681' }} />neutral</span>
           </div>
           <div className="legend-group">
-            <span className="legend-title">Source</span>
+            <span className="legend-title">Line style · source</span>
             <span><i className="line solid" />news</span>
             <span><i className="line dashed" />imported</span>
             <span><i className="line dotted" />manual</span>

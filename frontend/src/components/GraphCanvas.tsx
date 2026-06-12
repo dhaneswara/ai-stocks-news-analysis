@@ -142,7 +142,7 @@ export function GraphCanvas({
           return selectedId && isIncident(l) ? w + 1.5 : w;   // emphasise the focused node's edges
         }}
         linkCurvature={(l: any) => curvature.get(`${endpointId(l.source)}|${endpointId(l.target)}|${l.type}`) ?? 0}
-        linkLineDash={(l: any) => (l.origin === 'imported' ? [4, 2] : l.origin === 'manual' ? [1, 3] : [])}
+        linkLineDash={(l: any) => (l.origin === 'imported' ? [6, 3] : l.origin === 'manual' ? [1.5, 3.5] : [])}
         linkDirectionalArrowLength={4}
         linkDirectionalArrowRelPos={1}
         linkLabel={(l: any) => `${l.type} · ${l.sentiment}${l.evidence ? ` · ${l.evidence}` : ''}`}
