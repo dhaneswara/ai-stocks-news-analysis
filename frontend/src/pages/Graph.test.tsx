@@ -172,3 +172,41 @@ it('hint names the active ontology when canvas is empty and no active set', asyn
   // active is null (default), no graph loaded — hint should say "no network signal"
   expect(await screen.findByText(/analysis currently uses no network signal/i)).toBeInTheDocument();
 });
+
+it('empty-name Save shows the notice and does not call saveOntology', async () => {
+  vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
+  renderGraph();
+  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
+  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
+  await screen.findByTestId('graph-canvas');
+  // Explicitly clear the ontology name input so the test is not sensitive to sessionStorage
+  // residue from a prior test run in the same environment.
+  const nameInput = screen.getByRole('textbox', { name: /ontology name/i });
+  fireEvent.change(nameInput, { target: { value: '' } });
+  expect(nameInput).toHaveValue('');
+  vi.mocked(api.saveOntology).mockClear();
+  fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+  expect(await screen.findByText(/name the ontology first/i)).toBeInTheDocument();
+  expect(api.saveOntology).not.toHaveBeenCalled();
+});
+
+it('loading an old version marks the canvas dirty so the hint is visible', async () => {
+  vi.mocked(api.listOntologies).mockResolvedValue([
+    { name: 'Tech', versions: ['t2', 't1'], node_count: 2, edge_count: 1, active: true },
+  ]);
+  vi.mocked(api.getActiveOntology).mockResolvedValue({ name: 'Tech' });
+  // boot load (latest, version=undefined) → resolves Tech graph; the test then drives a 't1' load.
+  vi.mocked(api.loadOntology).mockResolvedValue({ name: 'Tech', saved_at: 't2', expanded: [], graph: AAPL_GRAPH });
+  renderGraph();
+  // Wait for the boot load to finish (dirty=false at this point).
+  await screen.findByDisplayValue('Tech');
+  // Switch to Ontologies tab so the version select is visible.
+  fireEvent.click(screen.getByRole('button', { name: /^ontologies/i }));
+  // The select only renders when versions.length > 1 — it is present now.
+  const versionSelect = await screen.findByDisplayValue(/latest/i);
+  // Mock the 't1' load response before triggering it.
+  vi.mocked(api.loadOntology).mockResolvedValue({ name: 'Tech', saved_at: 't1', expanded: [], graph: AAPL_GRAPH });
+  fireEvent.change(versionSelect, { target: { value: 't1' } });
+  // dirty=true because 't1' !== 't2' (latest) → hint must show "unsaved changes here".
+  expect(await screen.findByText(/unsaved changes here/i)).toBeInTheDocument();
+});

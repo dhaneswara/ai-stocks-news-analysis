@@ -4,13 +4,12 @@ import { GraphSidebar } from '../components/GraphSidebar';
 import { MergePreview } from '../components/MergePreview';
 import {
   useActiveOntology, useDeleteImport, useDeleteOntology, useEgoGraph, useImportGraph, useImports,
-  useLoadOntology, useOntologies, useSaveOntology, useSetActiveOntology,
+  useLoadOntology, useOntologies, useSaveOntology, useScreen, useSetActiveOntology,
 } from '../hooks/queries';
 import { addManualEdge, addManualNode, applyFilters, deleteEdge, deleteNode, mergeGraph, mergeNodes, resolveManualTarget, toLinks, type ViewNode } from '../lib/graphView';
 import { loadExplorerState, saveExplorerState } from '../lib/explorerStore';
 import type { EdgeSentiment, GraphEdge, ImportReport, KnowledgeGraph, RelationType } from '../types';
 import { api } from '../api/client';
-import { useScreen } from '../hooks/queries';
 
 const ALL_TYPES: RelationType[] = ['supplier', 'customer', 'partner', 'competitor', 'owner', 'subsidiary', 'other'];
 const EMPTY_GRAPH: KnowledgeGraph = { as_of: '', scope: 'explore', nodes: [], edges: [], built: 0, skipped: 0 };
@@ -117,7 +116,10 @@ export default function Graph() {
     try {
       const v = await loadOntology.mutateAsync({ name, version });
       setWorking(v.graph); setOntologyName(v.name); setExpanded(new Set(v.expanded));
-      setRoot(''); setSelectedId(null); setDirty(false); setTab('explore');
+      setRoot(''); setSelectedId(null); setTab('explore');
+      // A historical revision is NOT the live one: dirty until re-saved (Save = restore).
+      const latest = ontologies.data?.find((o) => o.name === v.name)?.versions[0];
+      setDirty(!!version && version !== latest);
     } catch { setNotice(`Could not load the ontology ${name}.`); }
   };
 
@@ -221,7 +223,7 @@ export default function Graph() {
           />
           <button
             disabled={!working || working.nodes.length === 0 || saveOntology.isPending}
-            onClick={() => { void doSaveAs(ontologyName || window.prompt('Name this ontology', '') || ''); }}
+            onClick={() => { void doSaveAs(ontologyName); }}
           >
             {saveOntology.isPending ? 'Saving…' : 'Save'}
           </button>
