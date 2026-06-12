@@ -195,3 +195,98 @@ def test_apply_network_empty_symmetric_types_is_directed():
     settings.network.symmetric_types = []
     out = apply_network(board, graph, settings)
     assert next(i for i in out.items if i.ticker == "BBB").network is None  # directed: target unscored
+
+
+# ---------------------------------------------------------------------------
+# New tests for re-bake / strip_network semantics
+# ---------------------------------------------------------------------------
+
+def test_apply_network_empty_graph_strips_previous_blend():
+    """Re-applying with an empty graph must undo a previous blend (not leave stale values)."""
+    board = _board(
+        _score("AAPL", net=0.0, direction="hold"),
+        _score("TSM", net=-0.9, direction="sell"),
+    )
+    graph = KnowledgeGraph(scope="focus", edges=[
+        GraphEdge(source="AAPL", target="TSM", type="supplier", sentiment="negative",
+                  weight=1.0, confidence=1.0)
+    ])
+    blended = apply_network(board, graph, Settings())
+    aapl_blended = next(i for i in blended.items if i.ticker == "AAPL")
+    assert aapl_blended.network is not None  # sanity: it was blended
+
+    # Re-apply with an empty graph -> stale blend must be undone
+    out = apply_network(blended, KnowledgeGraph(), Settings())
+    aapl_out = next(i for i in out.items if i.ticker == "AAPL")
+
+    assert aapl_out.network is None
+    assert aapl_out.score == aapl_out.base_score
+    assert aapl_out.net == aapl_out.base_net
+    from app.analysis.scoring import direction_for
+    assert aapl_out.direction == direction_for(aapl_out.base_net)
+    assert "network" not in aapl_out.components
+    # Network reason chips must be gone
+    for reason in aapl_blended.network.reasons:
+        assert reason not in aapl_out.reasons
+
+
+def test_apply_network_resets_row_whose_edges_disappeared():
+    """A row with no incident edges in the new graph is reset to base; other rows still blend."""
+    board = _board(
+        _score("AAPL", net=0.0, direction="hold"),
+        _score("TSM", net=-0.9, direction="sell"),
+        _score("MSFT", net=0.5, direction="buy"),
+        _score("ORCL", net=0.3, direction="hold"),
+    )
+    # First blend: AAPL->TSM edge
+    graph1 = KnowledgeGraph(scope="focus", edges=[
+        GraphEdge(source="AAPL", target="TSM", type="supplier", sentiment="negative",
+                  weight=1.0, confidence=1.0)
+    ])
+    blended = apply_network(board, graph1, Settings())
+    aapl_blended = next(i for i in blended.items if i.ticker == "AAPL")
+    assert aapl_blended.network is not None
+
+    # Re-bake with a DIFFERENT graph that only touches MSFT/ORCL
+    graph2 = KnowledgeGraph(scope="focus", edges=[
+        GraphEdge(source="MSFT", target="ORCL", type="partner", sentiment="positive",
+                  weight=1.0, confidence=1.0)
+    ])
+    out = apply_network(blended, graph2, Settings())
+
+    aapl_out = next(i for i in out.items if i.ticker == "AAPL")
+    msft_out = next(i for i in out.items if i.ticker == "MSFT")
+
+    # AAPL had no edges in graph2 -> stripped back to base
+    assert aapl_out.network is None
+    assert aapl_out.score == aapl_out.base_score
+    assert "network" not in aapl_out.components
+
+    # MSFT has a forward edge in graph2 -> blended
+    assert msft_out.network is not None
+    assert "network" in msft_out.components
+
+
+def test_blend_twice_does_not_duplicate_reasons():
+    """Applying apply_network twice with the same graph must NOT duplicate network reasons."""
+    board = _board(
+        _score("AAPL", net=0.0, direction="hold"),
+        _score("TSM", net=-0.9, direction="sell"),
+    )
+    graph = KnowledgeGraph(scope="focus", edges=[
+        GraphEdge(source="AAPL", target="TSM", type="supplier", sentiment="negative",
+                  weight=1.0, confidence=1.0)
+    ])
+    settings = Settings()
+    once = apply_network(board, graph, settings)
+    twice = apply_network(once, graph, settings)
+
+    a1 = next(i for i in once.items if i.ticker == "AAPL")
+    a2 = next(i for i in twice.items if i.ticker == "AAPL")
+
+    # Score and net must be identical
+    assert a1.score == a2.score
+    assert a1.net == a2.net
+
+    # Reasons list must be identical (no duplication of network reason chips)
+    assert a1.reasons == a2.reasons

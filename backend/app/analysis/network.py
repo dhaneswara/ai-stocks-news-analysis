@@ -12,6 +12,7 @@ from app.models.schemas import (
     ScreenBoard, Settings, StockScore,
 )
 
+
 _SENTIMENT = {"positive": 1.0, "neutral": 0.0, "negative": -1.0}
 
 
@@ -88,10 +89,26 @@ def compute_network_signal(
 _DIRECTIONAL = ("extremes", "trend", "momentum")
 
 
+def strip_network(s: StockScore) -> StockScore:
+    """Undo a previous blend: restore the row to its pre-network base (no-op on clean rows).
+
+    A blended row carries ``network=sig`` whose reasons were PREPENDED to the row's reasons, so
+    the original reasons are an exact suffix — recoverable without storing them separately."""
+    if s.network is None:
+        return s
+    reasons = s.reasons[len(s.network.reasons):]
+    components = {k: v for k, v in s.components.items() if k != "network"}
+    return s.model_copy(update={
+        "score": s.base_score, "net": s.base_net, "direction": direction_for(s.base_net),
+        "components": components, "reasons": reasons, "network": None,
+    })
+
+
 def blend_network_into_score(s: StockScore, sig: NetworkSignal, settings: Settings) -> StockScore:
     """Fold a computed network signal into ONE row's score/direction. Closed-form re-blend from
     base_score/base_net (never the already-blended score/net) so it stays idempotent. Shared by
     apply_network (per row) and the single-ticker score path."""
+    s = strip_network(s)  # re-blends start from the clean base row (reasons/components too)
     weights = settings.screener.weights
     w_base = sum(weights.values()) or 1.0
     w_dir = sum(weights.get(f, 0.0) for f in _DIRECTIONAL) or 1.0
@@ -112,14 +129,16 @@ def blend_network_into_score(s: StockScore, sig: NetworkSignal, settings: Settin
 
 
 def apply_network(board: ScreenBoard, graph: KnowledgeGraph, settings: Settings) -> ScreenBoard:
-    """Fold a capped `network` family into each focus company's score/direction.
+    """Fold a capped ``network`` family into each focus company's score/direction.
 
-    Pure: reads neighbours' BASE scores (one hop, no feedback) and returns a new board. Blends from
-    each row's ``base_score``/``base_net`` (never the already-blended values) via
+    Pure: reads neighbours' BASE scores (one hop, no feedback) and returns a new board. Blends
+    from each row's ``base_score``/``base_net`` (never the already-blended values) via
     ``blend_network_into_score``, so applying it twice is idempotent and never double-counts.
+    Rows whose edges have disappeared (graph emptied or edge removed) are reset to their base
+    values — true re-bake semantics for activate/deactivate/save-ontology flows.
     """
     ncfg = settings.network
-    if not ncfg.enabled or not graph.edges:
+    if not ncfg.enabled:
         return board
 
     base_index = {s.ticker: s for s in board.items}
@@ -127,9 +146,9 @@ def apply_network(board: ScreenBoard, graph: KnowledgeGraph, settings: Settings)
 
     new_items = []
     for s in board.items:
-        edges = incident_edges(s.ticker, graph.edges, symmetric)
+        edges = incident_edges(s.ticker, graph.edges, symmetric) if graph.edges else []
         if not edges:
-            new_items.append(s)
+            new_items.append(strip_network(s))  # edges gone (or graph empty) -> back to base
             continue
         sig = compute_network_signal(s.ticker, edges, base_index, ncfg)
         new_items.append(blend_network_into_score(s, sig, settings))

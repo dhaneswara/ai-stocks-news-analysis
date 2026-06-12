@@ -542,26 +542,10 @@ def _valid_ontology_name(name: str) -> str:
 
 def _rebake_board(settings: Settings, cache: Cache) -> None:
     """Re-blend the Discover snapshot against the active graph so NET scores flip
-    immediately — no rescan needed. When the active graph is empty (no edges) the
-    existing network signal is explicitly cleared — apply_network short-circuits on
-    an empty graph and would leave stale signals in place."""
+    immediately — no rescan needed."""
     board = load_snapshot(cache, "all")
-    if board is None:
-        return
-    graph = active_graph(cache)
-    if not graph.edges:
-        # Reset every item to its base values; no network influence to apply.
-        reset_items = [
-            item.model_copy(update={
-                "score": item.base_score or item.score,
-                "net": item.base_net,
-                "network": None,
-            })
-            for item in board.items
-        ]
-        save_snapshot(board.model_copy(update={"items": reset_items}), cache)
-    else:
-        save_snapshot(apply_network(board, graph, settings), cache)
+    if board is not None:
+        save_snapshot(apply_network(board, active_graph(cache), settings), cache)
 
 
 @router.get("/graph/ontologies", response_model=list[OntologySummary])
