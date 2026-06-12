@@ -269,6 +269,19 @@ class WatchlistRunEvent(BaseModel):
     tickers: list[str] = Field(default_factory=list)
 
 
+class RescanEvent(BaseModel):
+    """One SSE frame of a Discover board rescan.
+
+    `tick` carries the in-flight ticker plus progress counts; `done` carries the final counts
+    once the snapshot is saved; `error` is a scan-aborting failure with `message`."""
+    type: Literal["tick", "done", "error"]
+    ticker: str = ""
+    scanned: int = 0
+    total: int = 0
+    skipped: int = 0
+    message: str = ""
+
+
 class HorizonResult(BaseModel):
     horizon: int
     status: Literal["pending", "final"] = "pending"

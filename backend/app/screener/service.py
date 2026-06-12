@@ -1,7 +1,9 @@
 """Run the scorer across the universe and return a ranked board (no persistence here)."""
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Iterator
 
 from app.analysis import political
 from app.analysis.scoring import score_stock
@@ -17,7 +19,19 @@ from app.services.stock_service import get_stock_data
 SCAN_PERIOD = "1y"  # enough history for SMA200, RSI, 1-month momentum, 52-wk extremes
 
 
-def run_scan(scope: str | None, settings: Settings, cache: Cache) -> ScreenBoard:
+@dataclass(frozen=True)
+class ScanProgress:
+    """One in-flight scan step: `ticker` is about to be fetched, counts are completed-so-far."""
+    ticker: str
+    scanned: int
+    total: int
+    skipped: int
+
+
+def iter_scan(scope: str | None, settings: Settings, cache: Cache) -> Iterator[ScanProgress | ScreenBoard]:
+    """Scan the universe, yielding a ScanProgress per ticker and the finished board last.
+
+    Progress is emitted BEFORE each fetch so a stalled ticker is identifiable by name."""
     entries = load_universe(scope)
     ts = settings.truth_signal
     posts = (
@@ -29,6 +43,7 @@ def run_scan(scope: str | None, settings: Settings, cache: Cache) -> ScreenBoard
     scanned = 0
     skipped = 0
     for entry in entries:
+        yield ScanProgress(ticker=entry.ticker, scanned=scanned, total=len(entries), skipped=skipped)
         scanned += 1
         try:
             stock = get_stock_data(entry.ticker, SCAN_PERIOD, settings.indicator_params, cache)
@@ -41,13 +56,23 @@ def run_scan(scope: str | None, settings: Settings, cache: Cache) -> ScreenBoard
             continue
 
     items.sort(key=lambda s: s.score, reverse=True)
-    return ScreenBoard(
+    yield ScreenBoard(
         as_of=datetime.now(timezone.utc).isoformat(),
         scope=scope or "all",
         scanned=scanned,
         skipped=skipped,
         items=items,
     )
+
+
+def run_scan(scope: str | None, settings: Settings, cache: Cache) -> ScreenBoard:
+    """Blocking variant of iter_scan — the CLI, the scheduled runner and the POST route."""
+    board: ScreenBoard | None = None
+    for step in iter_scan(scope, settings, cache):
+        if isinstance(step, ScreenBoard):
+            board = step
+    assert board is not None  # iter_scan always ends with the board
+    return board
 
 
 def score_one(ticker: str, settings: Settings, cache: Cache) -> StockScore:

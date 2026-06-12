@@ -63,6 +63,32 @@ def test_run_scan_skips_failures(tmp_path, monkeypatch):
     assert [i.ticker for i in board.items] == ["OK"]
 
 
+def test_iter_scan_yields_progress_then_board(tmp_path, monkeypatch):
+    monkeypatch.setattr(service, "load_universe", lambda scope=None: [
+        UniverseEntry(ticker="OK", name="O", sector="Tech"),
+        UniverseEntry(ticker="BAD", name="X", sector="Tech"),
+        UniverseEntry(ticker="OK2", name="O2", sector="Tech"),
+    ])
+
+    def fake_get(ticker, *a, **k):
+        if ticker == "BAD":
+            raise ValueError("no price history")
+        return _stock(ticker)
+
+    monkeypatch.setattr(service, "get_stock_data", fake_get)
+    steps = list(service.iter_scan(None, Settings(), Cache(str(tmp_path / "c.db"))))
+
+    progress = [s for s in steps if isinstance(s, service.ScanProgress)]
+    # One tick per ticker, emitted BEFORE its fetch — counts cover completed tickers only.
+    assert [(p.ticker, p.scanned, p.total, p.skipped) for p in progress] == [
+        ("OK", 0, 3, 0), ("BAD", 1, 3, 0), ("OK2", 2, 3, 1),
+    ]
+    board = steps[-1]
+    assert isinstance(board, ScreenBoard)
+    assert board.scanned == 3 and board.skipped == 1
+    assert [i.ticker for i in board.items] == ["OK", "OK2"]
+
+
 def test_snapshot_round_trip(tmp_path):
     cache = Cache(str(tmp_path / "c.db"))
     board = ScreenBoard(as_of="t", scope="all", scanned=1, items=[

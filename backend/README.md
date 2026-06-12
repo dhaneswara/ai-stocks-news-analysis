@@ -47,6 +47,7 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 - `GET  /api/truth/mood` — current Truth Social mood + post count
 - `GET  /api/screen?sector=&direction=&limit=` — read the latest opportunity board
 - `POST /api/screen/rescan?sector=` — trigger a fresh scan and persist the result
+- `GET  /api/screen/rescan/stream?sector=` — the same scan as SSE with live per-ticker progress (one `tick` per ticker, terminal `done`; the UI's rescan buttons use this)
 - `GET  /api/screen/sectors` — list available sectors from the universe file
 - `POST /api/universe/refresh` — rescrape the S&P 500 constituents from Wikipedia (validated, atomic)
 - `GET  /api/graph?scope=focus` — read the cached knowledge graph
@@ -138,8 +139,10 @@ Create a Basic Task -> Daily (e.g. 5:00 PM, after US close) -> Start a program:
 (macOS/Linux: add a cron entry running the same command from `backend/`.)
 
 The snapshot is stored in the existing SQLite `Cache` (key `screen_snapshot:all`; 7-day TTL).
-A `POST /api/screen/rescan` from the frontend triggers the same scan on demand; a sector
-rescan merges fresh rows back into the full board without clobbering other sectors.
+The frontend triggers the same scan on demand via `GET /api/screen/rescan/stream` (SSE, so the
+minutes-long scan shows live per-ticker progress; `POST /api/screen/rescan` remains the
+blocking variant); a sector rescan merges fresh rows back into the full board without
+clobbering other sectors.
 
 ### Knowledge-graph daily build (network signal)
 

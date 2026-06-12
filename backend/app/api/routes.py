@@ -21,6 +21,7 @@ from app.models.schemas import (
     ImportReport,
     ImportSetSummary,
     KnowledgeGraph,
+    RescanEvent,
     SavedGraphSummary,
     SavedGraphVersion,
     ScreenBoard,
@@ -60,7 +61,7 @@ from app.analysis.relationships import TickerResolver
 from app.network.import_model import normalize_import
 from app.data import universe
 from app.data.universe import list_sectors
-from app.screener.service import run_scan, score_one
+from app.screener.service import iter_scan, run_scan, score_one
 from app.screener.store import load_snapshot, merge_sector, save_snapshot
 
 router = APIRouter(prefix="/api")
@@ -130,7 +131,7 @@ def analyze_ticker(
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
-def _sse(event: AgentEvent | WatchlistRunEvent) -> str:
+def _sse(event: AgentEvent | WatchlistRunEvent | RescanEvent) -> str:
     return f"event: {event.type}\ndata: {event.model_dump_json()}\n\n"
 
 
@@ -427,6 +428,19 @@ def screen(
     return board.model_copy(update={"items": shown})
 
 
+def _persist_rescan(board: ScreenBoard, sector: str | None, settings: Settings, cache: Cache) -> None:
+    """Network-blend a fresh scan and save it as the snapshot (sector scans merge into the full board)."""
+    graph = effective_graph(cache, "focus")
+    if sector:
+        full = load_snapshot(cache, "all")
+        # No full board yet (first-ever scan is sector-scoped): promote the sector board to
+        # the "all" snapshot — save_snapshot keys by scope, and only "all" is ever read back.
+        merged = merge_sector(full, board) if full else board.model_copy(update={"scope": "all"})
+        save_snapshot(apply_network(merged, graph, settings), cache)
+    else:
+        save_snapshot(apply_network(board, graph, settings), cache)
+
+
 @router.post("/screen/rescan", response_model=ScreenBoard)
 def screen_rescan(
     sector: str | None = None,
@@ -435,15 +449,39 @@ def screen_rescan(
 ) -> ScreenBoard:
     settings = store.load()
     board = run_scan(sector, settings, cache)
-    graph = effective_graph(cache, "focus")
-    if sector:
-        full = load_snapshot(cache, "all")
-        merged = merge_sector(full, board) if full else board
-        merged = apply_network(merged, graph, settings)
-        save_snapshot(merged, cache)
-    else:
-        save_snapshot(apply_network(board, graph, settings), cache)
+    _persist_rescan(board, sector, settings, cache)
     return board
+
+
+@router.get("/screen/rescan/stream")
+def screen_rescan_stream(
+    sector: str | None = None,
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+) -> StreamingResponse:
+    """Rescan the board as an SSE stream (one `tick` per ticker, terminal `done`), so the
+    minutes-long scan shows live progress instead of a silent pending POST. The snapshot is
+    saved only when the scan completes — a client disconnect cancels at the next tick and
+    saves nothing (per-ticker price data is cached, so a redo is fast). Failures surface as
+    an in-stream `error` event — EventSource cannot read an HTTP error body."""
+    settings = store.load()
+
+    def event_stream():
+        try:
+            for step in iter_scan(sector, settings, cache):
+                if isinstance(step, ScreenBoard):
+                    _persist_rescan(step, sector, settings, cache)
+                    yield _sse(RescanEvent(type="done", scanned=step.scanned,
+                                           skipped=step.skipped, total=step.scanned))
+                else:
+                    yield _sse(RescanEvent(type="tick", ticker=step.ticker, scanned=step.scanned,
+                                           total=step.total, skipped=step.skipped))
+        except Exception as exc:  # noqa: BLE001 — surface any abort as a stream event
+            logger.warning("rescan stream failed: %s", exc)
+            yield _sse(RescanEvent(type="error", message=str(exc)))
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream",
+                             headers=_SSE_HEADERS)
 
 
 @router.get("/screen/sectors", response_model=list[str])
