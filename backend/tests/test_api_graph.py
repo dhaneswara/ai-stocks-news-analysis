@@ -262,3 +262,21 @@ def test_deleting_the_active_ontology_rebakes_to_no_signal(client):
     assert tc.get("/api/graph/active").json()["name"] is None
     aapl = next(i for i in load_snapshot(cache, "all").items if i.ticker == "AAPL")
     assert aapl.network is None
+
+
+def test_deleting_latest_version_of_active_ontology_rebakes(client):
+    tc, cache = client
+    _seed_board(cache)
+    tc.post("/api/graph/ontologies", json=_onto_payload())            # v1: 1 edge
+    empty = _onto_payload()
+    empty["graph"]["edges"] = []
+    r = tc.post("/api/graph/ontologies", json=empty)                  # v2 (latest): no edges
+    v2_stamp = r.json()["saved_at"]
+    tc.put("/api/graph/active", json={"name": "Tech Map"})
+    aapl = next(i for i in load_snapshot(cache, "all").items if i.ticker == "AAPL")
+    assert aapl.network is None                                       # v2 active: no signal
+
+    tc.delete(f"/api/graph/ontologies/tech map?version={v2_stamp}")   # case-insensitive delete
+    assert tc.get("/api/graph/active").json()["name"] == "Tech Map"   # pointer survives
+    aapl = next(i for i in load_snapshot(cache, "all").items if i.ticker == "AAPL")
+    assert aapl.network is not None                                   # re-baked against v1

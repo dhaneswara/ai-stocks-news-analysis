@@ -583,10 +583,15 @@ def delete_ontology_route(
     cache: Cache = Depends(get_cache),
     store: SettingsStore = Depends(get_settings_store),
 ) -> dict:
+    # URL query params decode '+' as a space; ISO-8601 timezone offsets use '+' — restore it.
+    if version is not None:
+        version = version.replace(" ", "+")
     was_active = get_active_ontology(cache)
     deleted = delete_ontology(name, cache, version)
-    if deleted and was_active is not None and get_active_ontology(cache) is None:
-        _rebake_board(store.load(), cache)  # active pointer was cleared -> signal off
+    # Any deletion that touched the ACTIVE ontology changes what scoring sees — whether the
+    # pointer was cleared (whole ontology gone) or an older/newest revision was removed.
+    if deleted and was_active is not None and was_active.lower() == name.strip().lower():
+        _rebake_board(store.load(), cache)
     return {"deleted": deleted}
 
 

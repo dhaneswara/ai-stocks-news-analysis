@@ -288,5 +288,6 @@ def test_blend_twice_does_not_duplicate_reasons():
     assert a1.score == a2.score
     assert a1.net == a2.net
 
-    # Reasons list must be identical (no duplication of network reason chips)
+    # Reasons list must be non-empty (guard against silent degeneration) and identical
+    assert a1.reasons
     assert a1.reasons == a2.reasons
