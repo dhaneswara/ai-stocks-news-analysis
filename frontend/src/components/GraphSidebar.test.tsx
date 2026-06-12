@@ -28,6 +28,10 @@ function base() {
     addingFrom: null as string | null,
     onSubmitRelationship: vi.fn(),
     onCancelRelationship: vi.fn(),
+    addingCompany: false,
+    onSubmitCompany: vi.fn(),
+    onCancelCompany: vi.fn(),
+    onStartAddCompany: vi.fn(),
     onMergeImport: vi.fn(),
     promptDefault: 'AAPL',
     ontologies: [] as OntologySummary[],
@@ -139,6 +143,26 @@ it('fires merge for an import set (Import tab)', () => {
   wrap(<GraphSidebar {...props} selected={null} />);
   fireEvent.click(screen.getByRole('button', { name: /merge demo/i }));
   expect(props.onMergeImport).toHaveBeenCalledWith('t1');
+});
+
+it('the standing Add company… button fires onStartAddCompany', () => {
+  const props = base();
+  wrap(<GraphSidebar {...props} selected={null} />);
+  fireEvent.click(screen.getByRole('button', { name: /^add company…$/i }));
+  expect(props.onStartAddCompany).toHaveBeenCalled();
+});
+
+it('renders the company form when addingCompany=true, submits and cancels', () => {
+  const props = { ...base(), addingCompany: true };
+  wrap(<GraphSidebar {...props} selected={null} />);
+  fireEvent.change(screen.getByPlaceholderText(/ticker.*tsm/i), { target: { value: 'tsm' } });
+  fireEvent.change(screen.getByPlaceholderText(/name.*optional/i), { target: { value: 'TSMC' } });
+  fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
+  expect(props.onSubmitCompany).toHaveBeenCalledWith({ ticker: 'tsm', label: 'TSMC' });
+
+  // reset and test Cancel
+  fireEvent.click(screen.getByRole('button', { name: /^cancel$/i }));
+  expect(props.onCancelCompany).toHaveBeenCalled();
 });
 
 it('Ontologies tab: lists ontologies, active badge, Set active, load, delete', () => {

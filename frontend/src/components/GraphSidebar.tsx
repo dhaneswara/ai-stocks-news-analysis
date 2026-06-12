@@ -26,6 +26,10 @@ export interface GraphSidebarProps {
   addingFrom: string | null;
   onSubmitRelationship: (data: { target: string; type: RelationType; sentiment: EdgeSentiment; note: string }) => void;
   onCancelRelationship: () => void;
+  addingCompany: boolean;
+  onSubmitCompany: (d: { ticker: string; label: string }) => void;
+  onCancelCompany: () => void;
+  onStartAddCompany: () => void;
   onMergeImport: (id: string) => void;
   promptDefault: string;
   ontologies: OntologySummary[];
@@ -40,7 +44,9 @@ export function GraphSidebar(props: GraphSidebarProps) {
     tab, onTab, onLoadRoot, onExpand, loading,
     nodeCount, linkCount, enabledTypes, onToggleType, selected,
     imports, onImport, onDeleteImport, importing, importReport, importError,
-    addingFrom, onSubmitRelationship, onCancelRelationship, onMergeImport,
+    addingFrom, onSubmitRelationship, onCancelRelationship,
+    addingCompany, onSubmitCompany, onCancelCompany, onStartAddCompany,
+    onMergeImport,
     promptDefault,
     ontologies, activeName, onLoadOntology, onDeleteOntology, onActivate,
   } = props;
@@ -52,6 +58,14 @@ export function GraphSidebar(props: GraphSidebarProps) {
   const [relType, setRelType] = useState<RelationType>('supplier');
   const [relEffect, setRelEffect] = useState<EdgeSentiment>('positive');
   const [relNote, setRelNote] = useState('');
+  const [coTicker, setCoTicker] = useState('');
+  const [coLabel, setCoLabel] = useState('');
+
+  const submitCompany = () => {
+    if (!coTicker.trim()) return;
+    onSubmitCompany({ ticker: coTicker.trim(), label: coLabel.trim() });
+    setCoTicker(''); setCoLabel('');
+  };
 
   const submitRel = () => {
     if (!relTarget.trim()) return;
@@ -97,6 +111,18 @@ export function GraphSidebar(props: GraphSidebarProps) {
 
       {tab === 'explore' && (
         <div className="graph-tab">
+          {addingCompany && (
+            <div className="graph-section rel-form">
+              <span className="label">Add a company</span>
+              <input placeholder="Ticker (e.g. TSM)" value={coTicker} onChange={(e) => setCoTicker(e.target.value)}
+                     onKeyDown={(e) => { if (e.key === 'Enter') submitCompany(); }} />
+              <input placeholder="Name (optional)" value={coLabel} onChange={(e) => setCoLabel(e.target.value)} />
+              <div className="graph-actions">
+                <button onClick={submitCompany}>Add</button>
+                <button className="secondary" onClick={onCancelCompany}>Cancel</button>
+              </div>
+            </div>
+          )}
           {addingFrom && (
             <div className="graph-section rel-form">
               <span className="label">Add relationship from <b>{addingFrom}</b></span>
@@ -130,6 +156,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
             />
           </label>
           <button disabled={loading || !rootInput.trim()} onClick={() => onLoadRoot(rootInput.trim())}>Start</button>
+          <button className="secondary" onClick={onStartAddCompany}>Add company…</button>
 
           <div className="graph-section">
             <p className="muted">{nodeCount} nodes · {linkCount} edges</p>

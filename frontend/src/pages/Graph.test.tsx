@@ -7,14 +7,16 @@ import type { KnowledgeGraph, ScreenBoard } from '../types';
 
 // Canvas can't render in jsdom — mock it; render a select button per node so tests can select.
 vi.mock('../components/GraphCanvas', () => ({
-  GraphCanvas: ({ nodes, onSelect, onDeleteNode, onAddRelationship }: {
+  GraphCanvas: ({ nodes, onSelect, onDeleteNode, onAddRelationship, onAddCompany }: {
     nodes: { id: string }[]; onSelect: (id: string) => void;
     onDeleteNode: (id: string) => void; onAddRelationship: (id: string) => void;
+    onAddCompany: () => void;
   }) => (
     <div data-testid="graph-canvas">
       {nodes.map((n) => <button key={n.id} onClick={() => onSelect(n.id)}>{`sel-${n.id}`}</button>)}
       {nodes.map((n) => <button key={`del-${n.id}`} onClick={() => onDeleteNode(n.id)}>{`del-${n.id}`}</button>)}
       {nodes.map((n) => <button key={`add-${n.id}`} onClick={() => onAddRelationship(n.id)}>{`add-${n.id}`}</button>)}
+      <button onClick={onAddCompany}>canvas-add-company</button>
     </div>
   ),
 }));
@@ -188,6 +190,37 @@ it('empty-name Save shows the notice and does not call saveOntology', async () =
   fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
   expect(await screen.findByText(/name the ontology first/i)).toBeInTheDocument();
   expect(api.saveOntology).not.toHaveBeenCalled();
+});
+
+it('adds a company node via the sidebar Add company… button', async () => {
+  vi.mocked(api.saveOntology).mockResolvedValue({ name: 'test', saved_at: 't', expanded: [], graph: AAPL_GRAPH });
+  renderGraph();
+  // Click the standing sidebar button (no canvas needed — empty canvas)
+  fireEvent.click(await screen.findByRole('button', { name: /^add company…$/i }));
+  // Company form appears
+  fireEvent.change(screen.getByPlaceholderText(/ticker.*tsm/i), { target: { value: 'tsm' } });
+  fireEvent.change(screen.getByPlaceholderText(/name.*optional/i), { target: { value: 'TSMC' } });
+  fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
+  // Node is selected → detail panel shows label
+  expect(await screen.findByText('TSMC')).toBeInTheDocument();
+  // Save to assert the graph payload contains the node
+  fireEvent.change(screen.getByRole('textbox', { name: /ontology name/i }), { target: { value: 'co-test' } });
+  fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
+  await waitFor(() =>
+    expect(api.saveOntology).toHaveBeenCalledWith(
+      expect.objectContaining({ graph: expect.objectContaining({ nodes: expect.arrayContaining(['TSM']) }) }),
+    ),
+  );
+});
+
+it('rejects a bad ticker from the company form and shows a notice', async () => {
+  renderGraph();
+  fireEvent.click(await screen.findByRole('button', { name: /^add company…$/i }));
+  fireEvent.change(screen.getByPlaceholderText(/ticker.*tsm/i), { target: { value: 'not a ticker!!' } });
+  fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
+  expect(await screen.findByText(/ticker must be/i)).toBeInTheDocument();
+  // form stays open, canvas still empty
+  expect(screen.queryByTestId('graph-canvas')).not.toBeInTheDocument();
 });
 
 it('loading an old version marks the canvas dirty so the hint is visible', async () => {

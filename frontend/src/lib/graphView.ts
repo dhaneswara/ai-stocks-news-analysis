@@ -115,6 +115,18 @@ export function resolveManualTarget(input: string, graph: KnowledgeGraph, board:
   return { id, label: raw, external: true, isNew: !has(id) };
 }
 
+export const COMPANY_TICKER_RE = /^[A-Za-z][A-Za-z0-9.\-]{0,9}$/;
+
+/** Add a manual COMPANY node (id = upper-cased ticker, expandable + scoreable), unlike the
+ *  `man:` concept nodes. No-op on invalid ticker or existing id. */
+export function addCompanyNode(graph: KnowledgeGraph, c: { ticker: string; label?: string }): KnowledgeGraph {
+  const id = c.ticker.trim().toUpperCase();
+  if (!COMPANY_TICKER_RE.test(c.ticker.trim()) || graph.nodes.includes(id)) return graph;
+  const node_meta = { ...(graph.node_meta ?? {}) };
+  node_meta[id] = { label: (c.label ?? '').trim() || id, kind: 'company', source: 'manual' };
+  return { ...graph, nodes: [...graph.nodes, id], node_meta };
+}
+
 /** Add a node; concept/external ids (`man:`/`ext:`) get a `manual`/existing meta entry. No-op if present. */
 export function addManualNode(graph: KnowledgeGraph, meta: { id: string; label: string; kind?: string }): KnowledgeGraph {
   if (graph.nodes.includes(meta.id)) return graph;

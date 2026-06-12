@@ -11,6 +11,7 @@ export interface GraphCanvasProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   onAddRelationship: (sourceId: string) => void;
+  onAddCompany: () => void;
   onDeleteNode: (id: string) => void;
   onDeleteEdge: (ref: { source: string; target: string; type: RelationType }) => void;
 }
@@ -18,7 +19,7 @@ export interface GraphCanvasProps {
 interface Menu { x: number; y: number; items: MenuItem[] }
 
 export function GraphCanvas({
-  nodes, links, selectedId, onSelect, onAddRelationship, onDeleteNode, onDeleteEdge,
+  nodes, links, selectedId, onSelect, onAddRelationship, onAddCompany, onDeleteNode, onDeleteEdge,
 }: GraphCanvasProps) {
   const wrap = useRef<HTMLDivElement>(null);
   const fgRef = useRef<any>(null);
@@ -151,10 +152,15 @@ export function GraphCanvas({
           setMenu({
             ...localXY(e),
             items: [
+              { label: 'Add company…', onClick: onAddCompany },
               { label: 'Add relationship', onClick: () => onAddRelationship(n.id) },
               { label: 'Delete node', danger: true, onClick: () => onDeleteNode(n.id) },
             ],
           });
+        }}
+        onBackgroundRightClick={(e: MouseEvent) => {
+          e.preventDefault();
+          setMenu({ ...localXY(e), items: [{ label: 'Add company…', onClick: onAddCompany }] });
         }}
         onLinkRightClick={(l: any, e: MouseEvent) => {
           e.preventDefault();

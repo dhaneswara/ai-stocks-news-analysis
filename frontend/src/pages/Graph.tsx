@@ -6,7 +6,7 @@ import {
   useActiveOntology, useDeleteImport, useDeleteOntology, useEgoGraph, useImportGraph, useImports,
   useLoadOntology, useOntologies, useSaveOntology, useScreen, useSetActiveOntology,
 } from '../hooks/queries';
-import { addManualEdge, addManualNode, applyFilters, deleteEdge, deleteNode, mergeGraph, mergeNodes, resolveManualTarget, toLinks, type ViewNode } from '../lib/graphView';
+import { addCompanyNode, addManualEdge, addManualNode, applyFilters, COMPANY_TICKER_RE, deleteEdge, deleteNode, mergeGraph, mergeNodes, resolveManualTarget, toLinks, type ViewNode } from '../lib/graphView';
 import { loadExplorerState, saveExplorerState } from '../lib/explorerStore';
 import type { EdgeSentiment, GraphEdge, ImportReport, KnowledgeGraph, RelationType } from '../types';
 import { api } from '../api/client';
@@ -59,6 +59,7 @@ export default function Graph() {
   const [ontologyName, setOntologyName] = useState(restored?.ontologyName ?? '');
 
   const [addingFrom, setAddingFrom] = useState<string | null>(null);
+  const [addingCompany, setAddingCompany] = useState(false);
   const [mergeSetId, setMergeSetId] = useState<string | null>(null);
   const [mergeImport, setMergeImport] = useState<KnowledgeGraph | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -108,7 +109,7 @@ export default function Graph() {
 
   const doNew = () => {
     setWorking(null); setOntologyName(''); setRoot(''); setExpanded(new Set());
-    setSelectedId(null); setNotice(null); setDirty(false);
+    setSelectedId(null); setNotice(null); setDirty(false); setAddingCompany(false);
   };
 
   const doLoadOntology = async (name: string, version?: string) => {
@@ -163,6 +164,14 @@ export default function Graph() {
   };
 
   const cancelMerge = () => { setMergeImport(null); setMergeSetId(null); };
+
+  const addCompany = (data: { ticker: string; label: string }) => {
+    const t = data.ticker.trim();
+    if (!COMPANY_TICKER_RE.test(t)) { setNotice('Ticker must be 1–10 letters/digits, e.g. TSM.'); return; }
+    const base = working ?? { ...EMPTY_GRAPH, nodes: [], edges: [], node_meta: {} };
+    setWorking(addCompanyNode(base, { ticker: t, label: data.label }));
+    setSelectedId(t.toUpperCase()); setDirty(true); setAddingCompany(false); setNotice(null);
+  };
 
   const addRelationship = (data: { target: string; type: RelationType; sentiment: EdgeSentiment; note: string }) => {
     if (!working || !addingFrom) return;
@@ -245,6 +254,7 @@ export default function Graph() {
           <GraphCanvas
             nodes={view.nodes} links={view.links} selectedId={selectedId} onSelect={selectNode}
             onAddRelationship={(id) => { setAddingFrom(id); setTab('explore'); }}
+            onAddCompany={() => { setAddingCompany(true); setTab('explore'); }}
             onDeleteNode={removeNode}
             onDeleteEdge={removeEdge}
           />
@@ -278,6 +288,10 @@ export default function Graph() {
         addingFrom={addingFrom}
         onSubmitRelationship={addRelationship}
         onCancelRelationship={() => setAddingFrom(null)}
+        addingCompany={addingCompany}
+        onSubmitCompany={addCompany}
+        onCancelCompany={() => setAddingCompany(false)}
+        onStartAddCompany={() => { setAddingCompany(true); setTab('explore'); }}
         onMergeImport={startMerge}
         promptDefault={selectedId || root || ''}
         ontologies={ontologies.data ?? []}

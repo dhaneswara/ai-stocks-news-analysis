@@ -90,7 +90,7 @@ describe('mergeGraph', () => {
 });
 
 import {
-  addManualEdge, addManualNode, deleteEdge, deleteNode, normalizeName, resolveManualTarget,
+  addCompanyNode, addManualEdge, addManualNode, deleteEdge, deleteNode, normalizeName, resolveManualTarget,
 } from './graphView';
 import type { GraphEdge } from '../types';
 
@@ -165,6 +165,22 @@ describe('manual graph mutations', () => {
   it('addManualNode is a no-op when the node already exists', () => {
     const g = addManualNode(EMPTY(), { id: 'man:x', label: 'X' });
     expect(addManualNode(g, { id: 'man:x', label: 'X again' })).toBe(g);
+  });
+});
+
+describe('addCompanyNode', () => {
+  it('adds an upper-cased ticker node with company meta', () => {
+    const g = addCompanyNode({ as_of: '', scope: 'explore', nodes: [], edges: [], built: 0, skipped: 0 },
+      { ticker: 'tsm', label: 'TSMC' });
+    expect(g.nodes).toEqual(['TSM']);
+    expect(g.node_meta?.TSM).toEqual({ label: 'TSMC', kind: 'company', source: 'manual' });
+  });
+
+  it('rejects bad tickers and duplicates', () => {
+    const base = { as_of: '', scope: 'explore', nodes: ['TSM'], edges: [], built: 0, skipped: 0 };
+    expect(addCompanyNode(base, { ticker: 'not a ticker!!' })).toBe(base);
+    expect(addCompanyNode(base, { ticker: 'TSM' })).toBe(base);
+    expect(addCompanyNode(base, { ticker: 'tsm' })).toBe(base);   // case-insensitive duplicate
   });
 });
 
