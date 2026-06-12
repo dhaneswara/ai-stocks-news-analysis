@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { SavedGraphVersion, Settings, Source } from '../types';
+import type { OntologyVersion, Settings, Source } from '../types';
 
 export function useStock(ticker: string, period = '5y') {
   return useQuery({
@@ -91,40 +91,56 @@ export function useEgoGraph() {
   return useMutation({ mutationFn: (ticker: string) => api.getCompanyGraph(ticker) });
 }
 
-export function useSavedGraphs() {
-  return useQuery({ queryKey: ['savedGraphs'], queryFn: api.listSavedGraphs });
+const ONTOLOGY_INVALIDATES = [['ontologies'], ['screen'], ['score'], ['signals']] as const;
+
+/** Mutating an ontology can re-bake the board server-side (when it's the ACTIVE one) — refresh
+ *  the ontology list and every score reader. */
+function invalidateOntologyWorld(qc: ReturnType<typeof useQueryClient>) {
+  for (const key of ONTOLOGY_INVALIDATES) qc.invalidateQueries({ queryKey: [...key] });
 }
 
-export function useSaveGraph() {
+export function useOntologies() {
+  return useQuery({ queryKey: ['ontologies'], queryFn: api.listOntologies });
+}
+
+export function useActiveOntology() {
+  return useQuery({ queryKey: ['ontologies', 'active'], queryFn: api.getActiveOntology });
+}
+
+export function useSaveOntology() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (v: SavedGraphVersion) => api.saveGraph(v),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['savedGraphs'] }),
+    mutationFn: (v: OntologyVersion) => api.saveOntology(v),
+    onSuccess: () => invalidateOntologyWorld(qc),
   });
 }
 
-export function useLoadSavedGraph() {
+export function useLoadOntology() {
   return useMutation({
-    mutationFn: ({ root, version }: { root: string; version?: string }) =>
-      api.loadSavedGraph(root, version),
+    mutationFn: ({ name, version }: { name: string; version?: string }) =>
+      api.loadOntology(name, version),
   });
 }
 
-export function useDeleteSavedGraph() {
+export function useDeleteOntology() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ root, version }: { root: string; version?: string }) =>
-      api.deleteSavedGraph(root, version),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['savedGraphs'] }),
+    mutationFn: ({ name, version }: { name: string; version?: string }) =>
+      api.deleteOntology(name, version),
+    onSuccess: () => invalidateOntologyWorld(qc),
+  });
+}
+
+export function useSetActiveOntology() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string | null) => api.setActiveOntology(name),
+    onSuccess: () => invalidateOntologyWorld(qc),
   });
 }
 
 export function useImports() {
   return useQuery({ queryKey: ['graphImports'], queryFn: api.listImports });
-}
-
-export function useOverlay() {
-  return useQuery({ queryKey: ['graph', 'imported'], queryFn: api.getOverlay });
 }
 
 export function useImportGraph() {

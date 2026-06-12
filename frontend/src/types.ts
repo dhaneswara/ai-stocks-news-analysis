@@ -259,8 +259,8 @@ export interface Settings {
 }
 export interface ProviderInfo { id: string; label: string; configured: boolean; default_model: string; }
 export interface TestResult { ok: boolean; message: string; }
-export interface SavedGraphVersion { root: string; saved_at: string; expanded: string[]; graph: KnowledgeGraph; }
-export interface SavedGraphSummary { root: string; versions: string[]; }
+export interface OntologyVersion { name: string; saved_at: string; expanded: string[]; graph: KnowledgeGraph; }
+export interface OntologySummary { name: string; versions: string[]; node_count: number; edge_count: number; active: boolean; }
 export interface ImportSetSummary {
   id: string; name: string; as_of: string; created_at: string; node_count: number; edge_count: number;
 }

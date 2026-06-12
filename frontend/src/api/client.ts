@@ -6,10 +6,10 @@ import type {
   ImportSetSummary,
   KnowledgeGraph,
   MarketMood,
+  OntologySummary,
+  OntologyVersion,
   ProviderInfo,
   RescanEvent,
-  SavedGraphSummary,
-  SavedGraphVersion,
   ScreenBoard,
   Settings,
   SignalsSummary,
@@ -72,24 +72,26 @@ export const api = {
   snapshotEvaluation: () => http<SnapshotResult>('/evaluation/snapshot', { method: 'POST' }),
   getCompanyGraph: (ticker: string) =>
     http<KnowledgeGraph>(`/graph/company/${encodeURIComponent(ticker)}`),
-  listSavedGraphs: () => http<SavedGraphSummary[]>('/graph/saved'),
-  saveGraph: (v: SavedGraphVersion) =>
-    http<SavedGraphVersion>('/graph/saved', { method: 'POST', body: JSON.stringify(v) }),
-  loadSavedGraph: (root: string, version?: string) =>
-    http<SavedGraphVersion>(
-      `/graph/saved/${encodeURIComponent(root)}${version ? `?version=${encodeURIComponent(version)}` : ''}`,
+  listOntologies: () => http<OntologySummary[]>('/graph/ontologies'),
+  saveOntology: (v: OntologyVersion) =>
+    http<OntologyVersion>('/graph/ontologies', { method: 'POST', body: JSON.stringify(v) }),
+  loadOntology: (name: string, version?: string) =>
+    http<OntologyVersion>(
+      `/graph/ontologies/${encodeURIComponent(name)}${version ? `?version=${encodeURIComponent(version)}` : ''}`,
     ),
-  deleteSavedGraph: (root: string, version?: string) =>
+  deleteOntology: (name: string, version?: string) =>
     http<{ deleted: boolean }>(
-      `/graph/saved/${encodeURIComponent(root)}${version ? `?version=${encodeURIComponent(version)}` : ''}`,
+      `/graph/ontologies/${encodeURIComponent(name)}${version ? `?version=${encodeURIComponent(version)}` : ''}`,
       { method: 'DELETE' },
     ),
+  getActiveOntology: () => http<{ name: string | null }>('/graph/active'),
+  setActiveOntology: (name: string | null) =>
+    http<{ name: string | null }>('/graph/active', { method: 'PUT', body: JSON.stringify({ name }) }),
   importGraph: (name: string, payload: unknown) =>
     http<ImportReport>('/graph/import', { method: 'POST', body: JSON.stringify({ name, payload }) }),
   listImports: () => http<ImportSetSummary[]>('/graph/imports'),
   deleteImport: (id: string) =>
     http<{ deleted: boolean }>(`/graph/imports?set_id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
-  getOverlay: () => http<KnowledgeGraph>('/graph?scope=imported'),
   getImportSet: (id: string) => http<KnowledgeGraph>(`/graph/imports/${encodeURIComponent(id)}`),
   refreshUniverse: () =>
     http<{ count: number; sectors: Record<string, number>; source: string }>('/universe/refresh', {

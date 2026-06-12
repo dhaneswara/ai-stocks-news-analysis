@@ -79,38 +79,36 @@ describe('api client', () => {
     expect(fetchMock.mock.calls[0][0] as string).toContain('/graph/company/AAPL');
   });
 
-  it('saveGraph POSTs /graph/saved with a body', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ root: 'AAPL', saved_at: 't', expanded: [], graph: {} }) });
+  it('saveOntology POSTs /graph/ontologies', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     vi.stubGlobal('fetch', fetchMock);
-    await api.saveGraph({ root: 'AAPL', saved_at: '', expanded: [], graph: { as_of: '', scope: 'x', nodes: [], edges: [], built: 0, skipped: 0 } });
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url as string).toContain('/graph/saved');
-    expect((init as RequestInit).method).toBe('POST');
+    await api.saveOntology({ name: 'Tech', saved_at: '', expanded: [], graph: { as_of: '', scope: 'x', nodes: [], edges: [], built: 0, skipped: 0 } });
+    expect(fetchMock.mock.calls[0][0] as string).toContain('/graph/ontologies');
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST');
   });
 
-  it('listSavedGraphs GETs /graph/saved', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
+  it('loadOntology encodes the name and carries the version', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     vi.stubGlobal('fetch', fetchMock);
-    await api.listSavedGraphs();
-    expect(fetchMock.mock.calls[0][0] as string).toMatch(/\/graph\/saved$/);
+    await api.loadOntology('Tech Map', 't1');
+    expect(fetchMock.mock.calls[0][0] as string).toContain('/graph/ontologies/Tech%20Map?version=t1');
   });
 
-  it('loadSavedGraph GETs a version when provided', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ root: 'AAPL', saved_at: 't', expanded: [], graph: {} }) });
+  it('setActiveOntology PUTs the name (null deactivates)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ name: null }) });
     vi.stubGlobal('fetch', fetchMock);
-    await api.loadSavedGraph('AAPL', 't1');
-    const url = fetchMock.mock.calls[0][0] as string;
-    expect(url).toContain('/graph/saved/AAPL');
-    expect(url).toContain('version=t1');
+    await api.setActiveOntology(null);
+    expect(fetchMock.mock.calls[0][0] as string).toContain('/graph/active');
+    expect(fetchMock.mock.calls[0][1].method).toBe('PUT');
+    expect(fetchMock.mock.calls[0][1].body).toBe('{"name":null}');
   });
 
-  it('deleteSavedGraph DELETEs /graph/saved/{root}', async () => {
+  it('deleteOntology DELETEs /graph/ontologies/{name}', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ deleted: true }) });
     vi.stubGlobal('fetch', fetchMock);
-    await api.deleteSavedGraph('AAPL');
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url as string).toContain('/graph/saved/AAPL');
-    expect((init as RequestInit).method).toBe('DELETE');
+    await api.deleteOntology('Tech');
+    expect(fetchMock.mock.calls[0][0] as string).toContain('/graph/ontologies/Tech');
+    expect(fetchMock.mock.calls[0][1].method).toBe('DELETE');
   });
 
   it('importGraph POSTs /graph/import with {name, payload}', async () => {
