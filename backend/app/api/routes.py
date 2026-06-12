@@ -540,6 +540,11 @@ def _valid_ontology_name(name: str) -> str:
     return name
 
 
+def _version_param(version: str | None) -> str | None:
+    """URL query params decode '+' as a space; ISO-8601 offsets use '+' — restore it."""
+    return version.replace(" ", "+") if version is not None else None
+
+
 def _rebake_board(settings: Settings, cache: Cache) -> None:
     """Re-blend the Discover snapshot against the active graph so NET scores flip
     immediately — no rescan needed."""
@@ -571,7 +576,7 @@ def post_ontology(
 @router.get("/graph/ontologies/{name}", response_model=OntologyVersion)
 def get_ontology(name: str, version: str | None = None,
                  cache: Cache = Depends(get_cache)) -> OntologyVersion:
-    found = load_ontology(name, cache, version)
+    found = load_ontology(name, cache, _version_param(version))
     if found is None:
         raise HTTPException(status_code=404, detail=f"No ontology '{name}'")
     return found
@@ -583,11 +588,8 @@ def delete_ontology_route(
     cache: Cache = Depends(get_cache),
     store: SettingsStore = Depends(get_settings_store),
 ) -> dict:
-    # URL query params decode '+' as a space; ISO-8601 timezone offsets use '+' — restore it.
-    if version is not None:
-        version = version.replace(" ", "+")
     was_active = get_active_ontology(cache)
-    deleted = delete_ontology(name, cache, version)
+    deleted = delete_ontology(name, cache, _version_param(version))
     # Any deletion that touched the ACTIVE ontology changes what scoring sees — whether the
     # pointer was cleared (whole ontology gone) or an older/newest revision was removed.
     if deleted and was_active is not None and was_active.lower() == name.strip().lower():
