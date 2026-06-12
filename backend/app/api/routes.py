@@ -16,11 +16,14 @@ from app.llm.base import LLMError
 from app.llm.factory import build_provider, resolve_config
 from app.models.schemas import (
     DEFAULT_MODELS,
+    ActiveOntology,
     AnalysisResult,
     EvaluationBoard,
     ImportReport,
     ImportSetSummary,
     KnowledgeGraph,
+    OntologySummary,
+    OntologyVersion,
     RescanEvent,
     SavedGraphSummary,
     SavedGraphVersion,
@@ -37,18 +40,25 @@ from app.analysis.network import apply_network
 from app.data import truth_social
 from app.network.service import build_company_graph, build_graph
 from app.network.store import (
+    active_graph,
     add_import_set,
     delete_import_set,
+    delete_ontology,
     delete_saved_graph,
     effective_graph,
+    get_active_ontology,
     list_import_sets,
+    list_ontologies,
     list_saved_graphs,
     load_company_graph,
     load_graph,
     load_import_graph,
+    load_ontology,
     load_overlay,
     save_company_graph,
     save_graph,
+    save_ontology,
+    set_active_ontology,
 )
 from app.evaluation.service import build_board, evaluate_pending, explain_prediction, record_prediction
 from app.evaluation.signals import build_signals, record_deterministic_pair, snapshot_watchlist
@@ -490,13 +500,9 @@ def screen_sectors() -> list[str]:
 
 
 @router.get("/graph", response_model=KnowledgeGraph)
-def get_graph(scope: str = "focus", cache: Cache = Depends(get_cache)) -> KnowledgeGraph:
-    if scope == "imported":
-        return load_overlay(cache)
-    if scope == "focus":  # overlay-merged; all other scopes return the raw snapshot
-        return effective_graph(cache, "focus")
-    graph = load_graph(cache, scope)
-    return graph if graph is not None else KnowledgeGraph(scope=scope)
+def get_graph(cache: Cache = Depends(get_cache)) -> KnowledgeGraph:
+    """The graph scoring currently uses: the active ontology's latest revision (empty when none)."""
+    return active_graph(cache)
 
 
 @router.post("/graph/rebuild", response_model=KnowledgeGraph)
@@ -521,6 +527,100 @@ def get_company_graph(
 ) -> KnowledgeGraph:
     """One-hop ego graph for a single ticker — powers both 'start from company' and 'expand'."""
     return build_company_graph(ticker, store.load(), cache)
+
+
+_ONTOLOGY_NAME_MAX = 40
+
+
+def _valid_ontology_name(name: str) -> str:
+    name = (name or "").strip()
+    if not name or len(name) > _ONTOLOGY_NAME_MAX or "/" in name:
+        raise HTTPException(status_code=422,
+                            detail="Ontology name must be 1-40 characters with no '/'.")
+    return name
+
+
+def _rebake_board(settings: Settings, cache: Cache) -> None:
+    """Re-blend the Discover snapshot against the active graph so NET scores flip
+    immediately — no rescan needed. When the active graph is empty (no edges) the
+    existing network signal is explicitly cleared — apply_network short-circuits on
+    an empty graph and would leave stale signals in place."""
+    board = load_snapshot(cache, "all")
+    if board is None:
+        return
+    graph = active_graph(cache)
+    if not graph.edges:
+        # Reset every item to its base values; no network influence to apply.
+        reset_items = [
+            item.model_copy(update={
+                "score": item.base_score or item.score,
+                "net": item.base_net,
+                "network": None,
+            })
+            for item in board.items
+        ]
+        save_snapshot(board.model_copy(update={"items": reset_items}), cache)
+    else:
+        save_snapshot(apply_network(board, graph, settings), cache)
+
+
+@router.get("/graph/ontologies", response_model=list[OntologySummary])
+def get_ontologies(cache: Cache = Depends(get_cache)) -> list[OntologySummary]:
+    return list_ontologies(cache)
+
+
+@router.post("/graph/ontologies", response_model=OntologyVersion)
+def post_ontology(
+    payload: OntologyVersion,
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+) -> OntologyVersion:
+    name = _valid_ontology_name(payload.name)
+    stamped = payload.model_copy(update={
+        "name": name, "saved_at": datetime.now(timezone.utc).isoformat()})
+    saved = save_ontology(stamped, cache)
+    if saved.name == (get_active_ontology(cache) or ""):
+        _rebake_board(store.load(), cache)  # saving the master changes what scoring sees
+    return saved
+
+
+@router.get("/graph/ontologies/{name}", response_model=OntologyVersion)
+def get_ontology(name: str, version: str | None = None,
+                 cache: Cache = Depends(get_cache)) -> OntologyVersion:
+    found = load_ontology(name, cache, version)
+    if found is None:
+        raise HTTPException(status_code=404, detail=f"No ontology '{name}'")
+    return found
+
+
+@router.delete("/graph/ontologies/{name}")
+def delete_ontology_route(
+    name: str, version: str | None = None,
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+) -> dict:
+    was_active = get_active_ontology(cache)
+    deleted = delete_ontology(name, cache, version)
+    if deleted and was_active is not None and get_active_ontology(cache) is None:
+        _rebake_board(store.load(), cache)  # active pointer was cleared -> signal off
+    return {"deleted": deleted}
+
+
+@router.get("/graph/active", response_model=ActiveOntology)
+def get_active(cache: Cache = Depends(get_cache)) -> ActiveOntology:
+    return ActiveOntology(name=get_active_ontology(cache))
+
+
+@router.put("/graph/active", response_model=ActiveOntology)
+def put_active(
+    payload: ActiveOntology,
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+) -> ActiveOntology:
+    if not set_active_ontology(payload.name, cache):
+        raise HTTPException(status_code=404, detail=f"No ontology '{payload.name}'")
+    _rebake_board(store.load(), cache)
+    return ActiveOntology(name=get_active_ontology(cache))
 
 
 @router.get("/graph/saved", response_model=list[SavedGraphSummary])
