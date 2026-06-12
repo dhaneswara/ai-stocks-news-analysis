@@ -72,20 +72,28 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   *Caveats:* decision support only — the board is a screen, not a recommendation system;
   ranking ≠ prediction; data is end-of-day (not intraday); a Trump mention boosts attention
   but never determines the buy/sell direction.
-- **Company knowledge graph / network signal** — an LLM extracts inter-company relationships
-  (supplier, customer, partner, competitor, owner, subsidiary) from each focus company's news;
-  a capped, **explainable network signal** then tilts the Discover board's buy/sell/hold by a
-  company's neighbours (e.g. a key supplier's bad news weighs on the customer). The **Graph**
-  tab visualises it and lets you **explore from any company** — a one-hop ego graph, on-demand
-  neighbour expansion, and save/load of explored subgraphs per company (with version history).
-  Only relationship extraction uses an LLM; propagation is pure and instant. Daily build:
-  `python -m app.network` (after the screener — see [backend/README.md](backend/README.md)).
-  You can also **import an external ontology model**: paste or upload a small JSON graph (e.g.
-  produced by ChatGPT — the Import tab ships a copy-paste prompt template), and it's merged into
-  the graph as a removable **overlay** that feeds the network signal like native edges. Entities
-  are resolved to your tickers where possible, others kept as labelled external nodes; merge
-  imported sets into a saved company graph (with conflict resolution + Discover linking), edit
-  nodes/relationships by right-click, and an on-canvas legend.
+- **Company knowledge graph / network signal** — a capped, **explainable network signal**
+  tilts the Discover board's buy/sell/hold by a company's neighbours (e.g. a key supplier's
+  bad news weighs on the customer). The graph that drives all analysis is a **named, versioned
+  ontology** you build and maintain on the **Graph** tab: start from a company (one-hop live
+  news extraction), expand neighbours on demand, right-click to add relationships or
+  **add custom companies** (ticker + optional name, fully expandable), delete nodes/edges, and
+  merge stored **import sets** via the conflict-resolution MergePreview. Save the canvas
+  under a user-chosen name (toolbar: name field + **Save / Save as / New**; up to 5 versions
+  kept per name). The **Ontologies** sidebar tab shows every saved ontology — **ACTIVE** badge
+  on the live one, **Set active** per row, a "None (network signal off)" row, and version
+  history (load an old version to inspect it; the canvas marks itself dirty until you save).
+  **Exactly one ontology is active** — it is the only graph Discover scoring, Dashboard score
+  chip, fast/deep LLM prompts' network section, and watchlist snapshots consume. **No active
+  ontology = no network signal anywhere.** Activating, saving over, or deleting any version of
+  the active ontology immediately **re-bakes** the Discover snapshot — no rescan needed. A hint
+  on the canvas shows which ontology analysis is currently using (or "no network signal") when
+  the canvas isn't the live active revision. Company nodes also expose **☆ Add / ★ Remove
+  watchlist** in the right-click menu and the node detail panel. Import sets (paste/upload a
+  ChatGPT-generated JSON graph via the Import sub-tab) are reusable building blocks to merge
+  into a canvas and save — they only feed scores once merged into the active ontology. Daily
+  re-bake: `python -m app.network` (after the screener — no LLM; see
+  [backend/README.md](backend/README.md)).
 - **Signal-source scoreboard (evaluation)** — every CALL the app produces is recorded and
   scored against what the price actually did at **1, 5, and 20 trading days** — not just LLM
   calls: **fast LLM**, **deep (agentic) LLM**, the deterministic **technical** screen, and the
@@ -109,7 +117,7 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   **live scan progress** the same way — a ticking `scanned/total` counter naming the in-flight
   ticker on the Discover bar, the Evaluation action bar and the masthead chip, plus a **Stop**
   button (stopping saves nothing; cached tickers make the redo fast).
-  The snapshot's network call blends the latest knowledge-graph and Discover-board snapshots,
+  The snapshot's network call blends the active ontology and the Discover-board snapshot,
   so it records the freshest state right after a rescan (which is why Discover chains it).
   The Evaluation and Discover bars show whether the **US market is open and the next close in
   your local timezone**, and the Dashboard warns while the market is open — run after the

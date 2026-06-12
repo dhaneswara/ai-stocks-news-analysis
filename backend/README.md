@@ -50,14 +50,17 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 - `GET  /api/screen/rescan/stream?sector=` — the same scan as SSE with live per-ticker progress (one `tick` per ticker, terminal `done`; the UI's rescan buttons use this)
 - `GET  /api/screen/sectors` — list available sectors from the universe file
 - `POST /api/universe/refresh` — rescrape the S&P 500 constituents from Wikipedia (validated, atomic)
-- `GET  /api/graph?scope=focus` — read the cached knowledge graph
-- `POST /api/graph/rebuild` — rebuild the focus graph via LLM + bake the network signal into the board
+- `GET  /api/graph` — the active ontology's graph (empty when no ontology is active)
 - `GET  /api/graph/company/{ticker}` — one-hop ego graph for a single company (explore / expand)
-- `GET`/`POST /api/graph/saved` · `GET`/`DELETE /api/graph/saved/{root}` — saved explored subgraphs
-- `POST /api/graph/import` — import an external ontology model (JSON `{name, payload}`) as a removable overlay set
+- `GET  /api/graph/ontologies` — list all saved ontologies (name, version count, active flag)
+- `POST /api/graph/ontologies` — save (create or add a revision to) a named ontology; re-bakes the board if it is the active one
+- `GET  /api/graph/ontologies/{name}?version=` — load one ontology (latest or a specific revision)
+- `DELETE /api/graph/ontologies/{name}?version=` — delete a whole ontology or one revision; re-bakes the board if active
+- `GET  /api/graph/active` — get the currently active ontology name (null = none)
+- `PUT  /api/graph/active` — set (or clear) the active ontology; re-bakes the board immediately
+- `POST /api/graph/import` — import an external ontology model (JSON `{name, payload}`) as a reusable import set
 - `GET  /api/graph/imports` · `DELETE /api/graph/imports?set_id=` — list / remove import sets
-- `GET  /api/graph/imports/{id}` — one import set's graph (for the merge-into-graph preview).
-- `GET  /api/graph?scope=imported` — read the imported overlay (and `?scope=focus` returns the snapshot **merged** with it)
+- `GET  /api/graph/imports/{id}` — one import set's graph (for the merge-into-canvas MergePreview)
 - `GET  /api/evaluation` — recommendation-accuracy board with per-source rollups (runs lazy scoring first)
 - `POST /api/evaluation/snapshot` — record today's technical/network calls for the whole watchlist (fired by Discover after a rescan; no body)
 - `DELETE /api/evaluation` — start over: delete every recorded call and score across all tickers (per-ticker variant: `DELETE /api/evaluation/{ticker}`)
@@ -144,42 +147,44 @@ minutes-long scan shows live per-ticker progress; `POST /api/screen/rescan` rema
 blocking variant); a sector rescan merges fresh rows back into the full board without
 clobbering other sectors.
 
-### Knowledge-graph daily build (network signal)
+### Network re-bake (active ontology)
 
-After the screener snapshot, build the AI company knowledge graph and bake its **network
-signal** into the board (an LLM extracts inter-company relationships from each focus company's
-news; a capped, explainable signal then tilts buy/sell/hold by neighbour condition):
+After the screener snapshot, re-blend the board against the **active ontology** to bake its
+network signal in:
 
 ```
-python -m app.network            # build graph (focus set) + apply network signal to the board
-python -m app.network --dry-run  # build + log built/skipped/edges, do not save
+python -m app.network            # re-bake the board against the active ontology
+python -m app.network --dry-run  # log the active ontology name + edge count; do not save
 ```
 
 **IMPORTANT — run this AFTER `python -m app.screener`.** The screener produces the base board;
 `app.network` then bakes network influence onto that fresh board. If the screener runs *after*
-the network job, the board reverts to base-only until the next network build. The interactive
-**Rescan** re-applies the cached graph instantly (pure, no LLM), so only the daily cron ordering
-needs care. Only `app.network` and `POST /api/graph/rebuild` make LLM calls; all read paths
-(board, deep-dive, `GET /api/graph`) are cache-only. Disable with `Settings.network.enabled = false`.
+the network job, the board reverts to base-only until the next network re-bake. **No LLM call
+is made** — the ontology is user-curated on the Graph page. Disable with
+`Settings.network.enabled = false`.
 
-The interactive **Graph** tab is a separate, read-only research view on the same data: type a
-company to get its one-hop ego graph, click a node to **expand** its neighbours on demand (free
-if already extracted today), and **save/load** explored subgraphs per company. The explorer
-never touches the daily board signal.
+The **interactive Graph tab** is where you build and manage the ontology: start from a company
+(one-hop live news extraction), click **Expand neighbours** on demand, right-click to add
+relationships or **Add company…** (a real ticker node, also expandable), delete nodes/edges, and
+merge stored **import sets** via the conflict-resolution MergePreview. Save the canvas under a
+user-chosen name (toolbar: name field + **Save / Save as / New**). The **Ontologies** sidebar
+tab lists every saved ontology, shows the **ACTIVE** badge, and lets you **Set active** per row
+(or select "None (network signal off)"). Activating, saving over, or deleting any version of the
+active ontology immediately **re-bakes** the Discover snapshot — no rescan or CLI run needed.
+Ontologies are versioned (up to 5 revisions per name); a stale revision can be loaded and
+inspected, and the canvas marks itself dirty until you save.
 
-#### Import external ontology models
+#### Import external ontology models (building blocks)
 
 The Graph tab's **Import** sub-tab accepts a small **app-defined JSON model** (paste or `.json`
 upload; a copy-paste **ChatGPT prompt template** is provided in the UI — this is *not* real
-OWL/RDF) and merges it into the graph as a removable, named **overlay set**
-(`graph_imported:<id>`, ~10y TTL). On import (`app/network/import_model.py`), each entity is
-resolved to a universe ticker where possible (else kept as a labelled `ext:` node with metadata),
-relation types map to the six canonical types or `other`, weight/confidence are clamped, and every
-edge is tagged `origin="imported"`. The overlay is unioned into the focus graph **at read time**
-via `effective_graph` — so imported edges feed the network signal (board rebuild/rescan, the daily
-`app.network` job, **and** the Dashboard's per-ticker score) like native edges, while the saved
-`graph_snapshot:focus` stays extracted-only (rebuilds stay idempotent; imports survive them).
-Manage sets via `POST`/`GET`/`DELETE /api/graph/imports`.
+OWL/RDF). On import (`app/network/import_model.py`), each entity is resolved to a universe
+ticker where possible (else kept as a labelled `ext:` node with metadata), relation types map to
+the six canonical types or `other`, weight/confidence are clamped, and every edge is tagged
+`origin="imported"`. The saved import set is a **reusable building block** — it does **not**
+feed the network signal until you merge it into the canvas and save it as the active ontology.
+Merge via the MergePreview (links imported companies to the Discover list, collapses clashing
+nodes, dedupes relationships). Manage sets via `POST`/`GET`/`DELETE /api/graph/imports`.
 
 #### Schedule it daily (Windows Task Scheduler)
 
@@ -190,8 +195,6 @@ Create a Basic Task -> Daily (e.g. **5:15 PM**, *after* the 5:00 PM screener tas
 - Start in: `D:\workspace\ai-stocks-news-analysis\backend`
 
 (macOS/Linux: add a cron entry that runs after the screener cron, from `backend/`.)
-
-The graph is stored in the existing SQLite `Cache` (key `graph_snapshot:focus`; 7-day TTL).
 
 ### Caveats
 
@@ -229,8 +232,8 @@ so the Evaluation tab can answer *"which signal should I trust?"* with data. The
 The watchlist snapshot reads `settings.watchlist` server-side and runs the same no-LLM scorer
 as the Discover board over a 1-year window of (cached) yfinance data; calls are keyed to the
 **last candle's** trading date, so a weekend run records under Friday and re-running on the
-same day just overwrites the same rows. The `network` call blends the latest focus-graph and
-Discover-board snapshots, so it is freshest right after a rescan — which is why Discover
+same day just overwrites the same rows. The `network` call blends the active ontology and
+the Discover-board snapshot, so it is freshest right after a rescan — which is why Discover
 chains the snapshot automatically.
 
 Each recorded call (recommendation, confidence, entry price + trading date) is scored against
