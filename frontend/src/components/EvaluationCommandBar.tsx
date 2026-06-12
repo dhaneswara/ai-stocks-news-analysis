@@ -20,7 +20,8 @@ export function EvaluationCommandBar() {
   const { run, snapshot, rescan, startRun, snapshotNow, rescanAndSnapshot } = useWatchlistRunContext();
 
   const running = run.phase === 'running';
-  const busy = snapshot.isPending || rescan.isPending || running;
+  const scanning = rescan.phase === 'running';
+  const busy = snapshot.isPending || scanning || running;
   const disabled = busy || watch.list.length === 0;
   const progressed = Object.values(run.statuses).filter((t) => t.status !== 'running').length;
 
@@ -50,7 +51,9 @@ export function EvaluationCommandBar() {
           title="Rebuilds the S&P 500 board (fresh neighbour data for the network call), then snapshots the watchlist — no separate Snapshot click needed."
           onClick={() => rescanAndSnapshot()}
         >
-          {rescan.isPending ? 'Scanning…' : 'Full Discover rescan'}
+          {scanning
+            ? rescan.total ? `Scanning… ${rescan.scanned}/${rescan.total}` : 'Scanning…'
+            : 'Full Discover rescan'}
         </button>
         <button
           disabled={disabled}
@@ -74,6 +77,7 @@ export function EvaluationCommandBar() {
           {running && run.mode === 'deep' ? 'Deep analyzing…' : 'Deep LLM analysis (slow)'}
         </button>
         {running && <button onClick={run.stop}>Stop</button>}
+        {scanning && <button onClick={rescan.stop}>Stop</button>}
       </div>
 
       {watch.list.length === 0 && (
@@ -115,7 +119,24 @@ export function EvaluationCommandBar() {
           </p>
         )}
         {snapshot.isError && <p className="error">Snapshot failed: {(snapshot.error as Error).message}</p>}
-        {rescan.isError && <p className="error">Rescan failed: {(rescan.error as Error).message}</p>}
+        {scanning && (
+          <p className="muted mono">
+            ⏳ {rescan.scanned}/{rescan.total || '?'} scanned
+            {rescan.skipped ? ` (${rescan.skipped} skipped)` : ''}
+            {rescan.ticker ? ` · fetching ${rescan.ticker}` : ''}
+          </p>
+        )}
+        {rescan.summary && !rescan.stopped && (
+          <p className="muted">
+            ✓ Board rescanned — {rescan.summary.scanned} scanned, {rescan.summary.skipped} skipped.
+          </p>
+        )}
+        {rescan.stopped && (
+          <p className="muted">Rescan stopped — nothing saved. Run again to redo (cached tickers go fast).</p>
+        )}
+        {rescan.phase === 'error' && rescan.message && (
+          <p className="error">Rescan failed: {rescan.message}</p>
+        )}
       </div>
     </div>
   );

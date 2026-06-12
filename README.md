@@ -105,7 +105,10 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   Every process **keeps running while you browse other pages** — the LLM batches, the rescan
   (including its chained snapshot) and the snapshot all live at app level, with a pulsing
   masthead chip showing live progress from anywhere (a browser refresh or closed tab still
-  ends an LLM batch after the in-flight ticker; rerun to resume from the gap).
+  ends an LLM batch after the in-flight ticker; rerun to resume from the gap). Rescans stream
+  **live scan progress** the same way — a ticking `scanned/total` counter naming the in-flight
+  ticker on the Discover bar, the Evaluation action bar and the masthead chip, plus a **Stop**
+  button (stopping saves nothing; cached tickers make the redo fast).
   The snapshot's network call blends the latest knowledge-graph and Discover-board snapshots,
   so it records the freshest state right after a rescan (which is why Discover chains it).
   The Evaluation and Discover bars show whether the **US market is open and the next close in

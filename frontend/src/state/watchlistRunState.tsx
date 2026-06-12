@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, type ReactNode } from 'react';
-import { useRescan, useSnapshotEvaluation } from '../hooks/queries';
+import { useSnapshotEvaluation } from '../hooks/queries';
+import { useRescanRun } from '../hooks/useRescanRun';
 import { useWatchlistRun } from '../hooks/useWatchlistRun';
 
 interface ProcessesValue {
@@ -7,8 +8,8 @@ interface ProcessesValue {
   run: ReturnType<typeof useWatchlistRun>;
   /** The watchlist technical/network snapshot mutation. */
   snapshot: ReturnType<typeof useSnapshotEvaluation>;
-  /** The Discover board rescan mutation. */
-  rescan: ReturnType<typeof useRescan>;
+  /** The Discover board rescan stream (live per-ticker progress). */
+  rescan: ReturnType<typeof useRescanRun>;
   /** Start a fast/deep batch, clearing the other processes' leftover status first. */
   startRun: (mode: 'fast' | 'deep') => void;
   /** Snapshot now, clearing the other processes' leftover status first. */
@@ -23,16 +24,16 @@ const RunContext = createContext<ProcessesValue | null>(null);
 /** Hosts every watchlist-wide evaluation process ABOVE the page router, so in-flight
  *  work survives navigating between pages: the fast/deep batch SSE stream (previously
  *  the Evaluation page owned it and unmounting stopped the run server-side), the
- *  snapshot/rescan mutations (their pending state, result lines and — critically — the
- *  rescan→snapshot chain used to die with the page), all shared by the Evaluation
+ *  snapshot mutation and the rescan SSE stream (their pending state, result lines and —
+ *  critically — the rescan→snapshot chain used to die with the page), all shared by the Evaluation
  *  command bar, the Discover bar and the masthead RunIndicator. A browser refresh /
  *  tab close still ends an LLM batch after the in-flight ticker; skip-already-done
  *  makes the next click resume from the gap. */
 export function WatchlistRunProvider({ children }: { children: ReactNode }) {
   const run = useWatchlistRun();
   const snapshot = useSnapshotEvaluation();
-  const rescan = useRescan();
-  const { mutate: rescanMutate, reset: rescanReset } = rescan;
+  const rescan = useRescanRun();
+  const { start: rescanStart, reset: rescanReset } = rescan;
   const { mutate: snapshotMutate, reset: snapshotReset } = snapshot;
   const { start: runStart, reset: runReset } = run;
 
@@ -53,8 +54,8 @@ export function WatchlistRunProvider({ children }: { children: ReactNode }) {
   const rescanAndSnapshot = useCallback((sector?: string) => {
     runReset();
     snapshotReset();
-    rescanMutate(sector, { onSuccess: () => snapshotMutate() });
-  }, [runReset, snapshotReset, rescanMutate, snapshotMutate]);
+    rescanStart(sector, () => snapshotMutate());
+  }, [runReset, snapshotReset, rescanStart, snapshotMutate]);
 
   return (
     <RunContext.Provider

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { api, streamDeepAnalysis, streamWatchlistRun } from './client';
+import { api, streamDeepAnalysis, streamRescan, streamWatchlistRun } from './client';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -280,5 +280,44 @@ describe('streamWatchlistRun', () => {
     streamWatchlistRun('fast', { onEvent: vi.fn(), onError });
     FakeEventSource.last!.emit('start', 'not json');
     expect(onError).toHaveBeenCalledWith('Malformed event from server');
+  });
+});
+
+describe('streamRescan', () => {
+  it('targets the rescan stream endpoint and forwards tick/done, closing after done', () => {
+    (globalThis as unknown as { EventSource: unknown }).EventSource = FakeEventSource;
+    const events: { type: string; ticker?: string }[] = [];
+    streamRescan(undefined, { onEvent: (e) => events.push(e), onError: vi.fn() });
+    const es = FakeEventSource.last!;
+    expect(es.url).toContain('/screen/rescan/stream');
+    expect(es.url).not.toContain('sector=');
+    es.emit('tick', JSON.stringify({ ticker: 'AAPL', scanned: 0, total: 2, skipped: 0 }));
+    es.emit('done', JSON.stringify({ scanned: 2, skipped: 0 }));
+    expect(events.map((e) => e.type)).toEqual(['tick', 'done']);
+    expect(es.closed).toBe(true); // closed after the terminal done
+  });
+
+  it('carries the sector in the URL', () => {
+    (globalThis as unknown as { EventSource: unknown }).EventSource = FakeEventSource;
+    streamRescan('Information Technology', { onEvent: vi.fn(), onError: vi.fn() });
+    expect(FakeEventSource.last!.url).toContain('?sector=Information%20Technology');
+  });
+
+  it('forwards a server-sent error event with data and closes', () => {
+    (globalThis as unknown as { EventSource: unknown }).EventSource = FakeEventSource;
+    const events: { type: string; message?: string }[] = [];
+    streamRescan(undefined, { onEvent: (e) => events.push(e), onError: vi.fn() });
+    FakeEventSource.last!.emit('error', JSON.stringify({ message: 'scan failed' }));
+    expect(events).toEqual([{ type: 'error', message: 'scan failed' }]);
+    expect(FakeEventSource.last!.closed).toBe(true);
+  });
+
+  it('reports a connection error when the native error event has no data', () => {
+    (globalThis as unknown as { EventSource: unknown }).EventSource = FakeEventSource;
+    const onError = vi.fn();
+    streamRescan(undefined, { onEvent: vi.fn(), onError });
+    FakeEventSource.last!.emit('error');
+    expect(onError).toHaveBeenCalledWith('Connection error');
+    expect(FakeEventSource.last!.closed).toBe(true);
   });
 });

@@ -170,6 +170,16 @@ export interface WatchlistRunEvent {
   tickers?: string[];
 }
 
+/** One SSE frame of a Discover board rescan (`tick` per ticker, terminal `done`/`error`). */
+export interface RescanEvent {
+  type: 'tick' | 'done' | 'error';
+  ticker?: string;
+  scanned?: number;
+  total?: number;
+  skipped?: number;
+  message?: string;
+}
+
 export interface HorizonResult {
   horizon: number;
   status: 'pending' | 'final';

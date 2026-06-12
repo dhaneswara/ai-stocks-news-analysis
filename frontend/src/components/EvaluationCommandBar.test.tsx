@@ -4,25 +4,30 @@ import { act } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { EvaluationCommandBar } from './EvaluationCommandBar';
 import { WatchlistRunProvider } from '../state/watchlistRunState';
-import type { WatchlistStreamHandlers } from '../api/client';
+import type { RescanStreamHandlers, WatchlistStreamHandlers } from '../api/client';
 
 const handlers: { current?: WatchlistStreamHandlers } = {};
+const rescanHandlers: { current?: RescanStreamHandlers } = {};
 const closer = vi.fn();
+const rescanCloser = vi.fn();
 
 vi.mock('../api/client', () => ({
   api: {
     getSettings: vi.fn(),
     saveSettings: vi.fn(),
     snapshotEvaluation: vi.fn(),
-    rescan: vi.fn(),
   },
   streamWatchlistRun: vi.fn((_mode: string, h: WatchlistStreamHandlers) => {
     handlers.current = h;
     return closer;
   }),
+  streamRescan: vi.fn((_sector: string | undefined, h: RescanStreamHandlers) => {
+    rescanHandlers.current = h;
+    return rescanCloser;
+  }),
 }));
 
-import { api, streamWatchlistRun } from '../api/client';
+import { api, streamRescan, streamWatchlistRun } from '../api/client';
 
 function renderBar() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -38,9 +43,9 @@ function renderBar() {
 beforeEach(() => {
   vi.clearAllMocks();
   handlers.current = undefined;
+  rescanHandlers.current = undefined;
   vi.mocked(api.getSettings).mockResolvedValue({ watchlist: ['AAPL', 'MSFT'] } as never);
   vi.mocked(api.snapshotEvaluation).mockResolvedValue({ recorded: 2, skipped: [] });
-  vi.mocked(api.rescan).mockResolvedValue({ items: [] } as never);
 });
 
 describe('EvaluationCommandBar', () => {
@@ -75,11 +80,39 @@ describe('EvaluationCommandBar', () => {
     expect(api.snapshotEvaluation).toHaveBeenCalledTimes(1);
   });
 
-  it('rescan chains a snapshot on success', async () => {
+  it('rescan shows live tick progress, then chains a snapshot on done', async () => {
     renderBar();
     fireEvent.click(await screen.findByRole('button', { name: /full discover rescan/i }));
-    await waitFor(() => expect(api.rescan).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(streamRescan)).toHaveBeenCalledWith(undefined, expect.anything());
+
+    act(() => rescanHandlers.current!.onEvent({ type: 'tick', ticker: 'AAPL', scanned: 0, total: 3, skipped: 0 }));
+    expect(screen.getByRole('button', { name: /scanning… 0\/3/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /fast llm analysis/i })).toBeDisabled();
+
+    act(() => rescanHandlers.current!.onEvent({ type: 'tick', ticker: 'MSFT', scanned: 2, total: 3, skipped: 1 }));
+    expect(screen.getByText(/2\/3 scanned \(1 skipped\) · fetching MSFT/)).toBeInTheDocument();
+    expect(api.snapshotEvaluation).not.toHaveBeenCalled();
+
+    act(() => rescanHandlers.current!.onEvent({ type: 'done', scanned: 3, skipped: 1 }));
+    expect(screen.getByText(/✓ board rescanned — 3 scanned, 1 skipped/i)).toBeInTheDocument();
     await waitFor(() => expect(api.snapshotEvaluation).toHaveBeenCalledTimes(1));
+  });
+
+  it('rescan can be stopped — stream closed, nothing-saved note, no snapshot', async () => {
+    renderBar();
+    fireEvent.click(await screen.findByRole('button', { name: /full discover rescan/i }));
+    act(() => rescanHandlers.current!.onEvent({ type: 'tick', ticker: 'AAPL', scanned: 0, total: 3, skipped: 0 }));
+    fireEvent.click(screen.getByRole('button', { name: /stop/i }));
+    expect(rescanCloser).toHaveBeenCalled();
+    expect(screen.getByText(/rescan stopped — nothing saved/i)).toBeInTheDocument();
+    expect(api.snapshotEvaluation).not.toHaveBeenCalled();
+  });
+
+  it('shows a rescan error line', async () => {
+    renderBar();
+    fireEvent.click(await screen.findByRole('button', { name: /full discover rescan/i }));
+    act(() => rescanHandlers.current!.onEvent({ type: 'error', message: 'universe file corrupt' }));
+    expect(screen.getByText(/rescan failed: universe file corrupt/i)).toBeInTheDocument();
   });
 
   it('runs a fast batch with live chips, disabling the other buttons', async () => {

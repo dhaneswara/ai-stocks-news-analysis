@@ -5,17 +5,21 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RunIndicator } from './RunIndicator';
 import { WatchlistRunProvider, useWatchlistRunContext } from '../state/watchlistRunState';
-import type { WatchlistStreamHandlers } from '../api/client';
+import type { RescanStreamHandlers, WatchlistStreamHandlers } from '../api/client';
 
 const handlers: { current?: WatchlistStreamHandlers } = {};
+const rescanHandlers: { current?: RescanStreamHandlers } = {};
 
 vi.mock('../api/client', () => ({
   api: {
-    rescan: vi.fn(),
     snapshotEvaluation: vi.fn(),
   },
   streamWatchlistRun: vi.fn((_mode: string, h: WatchlistStreamHandlers) => {
     handlers.current = h;
+    return () => {};
+  }),
+  streamRescan: vi.fn((_sector: string | undefined, h: RescanStreamHandlers) => {
+    rescanHandlers.current = h;
     return () => {};
   }),
 }));
@@ -49,6 +53,7 @@ function renderIndicator(initialPath = '/') {
 beforeEach(() => {
   vi.clearAllMocks();
   handlers.current = undefined;
+  rescanHandlers.current = undefined;
 });
 
 describe('RunIndicator', () => {
@@ -86,17 +91,23 @@ describe('RunIndicator', () => {
     expect(chip.closest('.run-indicator')).toHaveAttribute('title', expect.not.stringContaining('Click'));
   });
 
-  it('shows the rescan chip and the app-level chain still fires the snapshot', async () => {
-    let resolveRescan!: (v: unknown) => void;
-    vi.mocked(api.rescan).mockReturnValue(new Promise((r) => { resolveRescan = r; }) as never);
+  it('shows live rescan progress and the app-level chain still fires the snapshot', async () => {
     vi.mocked(api.snapshotEvaluation).mockResolvedValue({ recorded: 1, skipped: [] });
 
     renderIndicator();
     fireEvent.click(screen.getByText('go-rescan'));
-    expect(await screen.findByText(/rescanning/i)).toBeInTheDocument();
-    expect(screen.getByText(/rescanning/i).closest('a')).toHaveAttribute('href', '/discover');
+    expect(await screen.findByText(/rescanning/i)).toBeInTheDocument(); // before the first tick
 
-    await act(async () => { resolveRescan({ items: [] }); });
+    act(() => rescanHandlers.current!.onEvent({ type: 'tick', ticker: 'AAPL', scanned: 0, total: 3, skipped: 0 }));
+    const chip = screen.getByText(/rescan 0\/3/i).closest('a');
+    expect(chip).toHaveAttribute('href', '/discover');
+    expect(chip).toHaveAttribute('title', expect.stringContaining('fetching AAPL'));
+
+    act(() => rescanHandlers.current!.onEvent({ type: 'tick', ticker: 'MSFT', scanned: 2, total: 3, skipped: 0 }));
+    expect(screen.getByText(/rescan 2\/3/i)).toBeInTheDocument();
+
+    act(() => rescanHandlers.current!.onEvent({ type: 'done', scanned: 3, skipped: 0 }));
+    expect(screen.queryByText(/rescan \d+\/\d+/i)).not.toBeInTheDocument(); // chip gone
     // The chained snapshot is registered in the provider, not a page — it must fire
     // even with no page-level component mounted.
     await waitFor(() => expect(api.snapshotEvaluation).toHaveBeenCalledTimes(1));

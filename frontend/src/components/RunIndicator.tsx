@@ -37,13 +37,14 @@ export function RunIndicator() {
     );
   }
 
-  if (rescan.isPending) {
+  if (rescan.phase === 'running') {
+    const label = rescan.total ? `Rescan ${rescan.scanned}/${rescan.total}` : 'Rescanning…';
     return (
       <Chip
         to="/discover"
-        detail="Discover rescan running in the background — the watchlist snapshot follows automatically."
+        detail={`Discover rescan running in the background — ${rescan.scanned}/${rescan.total || '?'} scanned${rescan.ticker ? `, fetching ${rescan.ticker}` : ''}. The watchlist snapshot follows automatically.`}
       >
-        <span className="run-indicator-pulse">●</span> Rescanning…
+        <span className="run-indicator-pulse">●</span> {label}
       </Chip>
     );
   }

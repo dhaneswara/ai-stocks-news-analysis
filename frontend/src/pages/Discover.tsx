@@ -17,6 +17,7 @@ export default function Discover() {
 
   const data = board.data;
   const empty = data && data.items.length === 0 && data.as_of === '';
+  const scanning = rescan.phase === 'running';
 
   return (
     <>
@@ -55,16 +56,36 @@ export default function Discover() {
           <button className="secondary" onClick={() => refreshList.mutate()} disabled={refreshList.isPending}>
             {refreshList.isPending ? 'Updating…' : 'Update S&P 500 list'}
           </button>
-          <button onClick={() => rescanAndSnapshot(sector || undefined)} disabled={rescan.isPending}>
-            {rescan.isPending ? 'Scanning…' : sector ? `Rescan ${sector}` : 'Rescan all'}
+          <button onClick={() => rescanAndSnapshot(sector || undefined)} disabled={scanning}>
+            {scanning
+              ? rescan.total ? `Scanning… ${rescan.scanned}/${rescan.total}` : 'Scanning…'
+              : sector ? `Rescan ${sector}` : 'Rescan all'}
           </button>
+          {scanning && <button onClick={rescan.stop}>Stop</button>}
         </div>
         <MarketHint />
       </div>
 
       {board.isLoading && <p className="muted">Loading board…</p>}
       {board.isError && <p className="error">Could not load the board: {(board.error as Error).message}</p>}
-      {rescan.isError && <p className="error">Rescan failed: {(rescan.error as Error).message}</p>}
+      {scanning && (
+        <p className="muted mono">
+          ⏳ {rescan.scanned}/{rescan.total || '?'} scanned
+          {rescan.skipped ? ` (${rescan.skipped} skipped)` : ''}
+          {rescan.ticker ? ` · fetching ${rescan.ticker}` : ''}
+        </p>
+      )}
+      {rescan.summary && !rescan.stopped && (
+        <p className="muted">
+          ✓ Board rescanned — {rescan.summary.scanned} scanned, {rescan.summary.skipped} skipped.
+        </p>
+      )}
+      {rescan.stopped && (
+        <p className="muted">Rescan stopped — nothing saved. Run again to redo (cached tickers go fast).</p>
+      )}
+      {rescan.phase === 'error' && rescan.message && (
+        <p className="error">Rescan failed: {rescan.message}</p>
+      )}
       {snapshot.data && (
         <p className="muted">
           ✓ Recorded {snapshot.data.recorded} watchlist signal{snapshot.data.recorded === 1 ? '' : 's'} for

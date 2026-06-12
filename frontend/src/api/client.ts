@@ -7,6 +7,7 @@ import type {
   KnowledgeGraph,
   MarketMood,
   ProviderInfo,
+  RescanEvent,
   SavedGraphSummary,
   SavedGraphVersion,
   ScreenBoard,
@@ -65,10 +66,6 @@ export const api = {
     const qs = q.toString();
     return http<ScreenBoard>(`/screen${qs ? `?${qs}` : ''}`);
   },
-  rescan: (sector?: string) =>
-    http<ScreenBoard>(`/screen/rescan${sector ? `?sector=${encodeURIComponent(sector)}` : ''}`, {
-      method: 'POST',
-    }),
   getSectors: () => http<string[]>('/screen/sectors'),
   getScore: (ticker: string) => http<StockScore>(`/score/${encodeURIComponent(ticker)}`),
   getSignals: (ticker: string) => http<SignalsSummary>(`/signals/${encodeURIComponent(ticker)}`),
@@ -148,6 +145,40 @@ export function streamDeepAnalysis(
 export interface WatchlistStreamHandlers {
   onEvent: (event: WatchlistRunEvent) => void;
   onError: (message: string) => void;
+}
+
+export interface RescanStreamHandlers {
+  onEvent: (event: RescanEvent) => void;
+  onError: (message: string) => void;
+}
+
+/** Open the SSE stream for a Discover board rescan. Returns a closer the caller MUST keep
+ *  and invoke on unmount/stop — EventSource auto-reconnects otherwise, which would restart
+ *  the scan. Closing mid-scan aborts it server-side; nothing is saved. */
+export function streamRescan(
+  sector: string | undefined,
+  handlers: RescanStreamHandlers,
+): () => void {
+  const url = `${BASE}/screen/rescan/stream${sector ? `?sector=${encodeURIComponent(sector)}` : ''}`;
+  const es = new EventSource(url);
+  const forward = (type: RescanEvent['type']) => (e: MessageEvent) => {
+    try {
+      handlers.onEvent({ ...(JSON.parse(e.data) as RescanEvent), type });
+    } catch {
+      handlers.onError('Malformed event from server');
+    }
+  };
+  es.addEventListener('tick', forward('tick') as EventListener);
+  es.addEventListener('done', ((e: MessageEvent) => {
+    forward('done')(e);
+    es.close(); // terminal — close before EventSource auto-reconnects
+  }) as EventListener);
+  es.addEventListener('error', ((e: MessageEvent) => {
+    if (e.data) forward('error')(e);          // server-sent scan failure (has data)
+    else handlers.onError('Connection error'); // native connection failure (no data)
+    es.close();
+  }) as EventListener);
+  return () => es.close();
 }
 
 /** Open the SSE stream for a watchlist-wide LLM batch run. Returns a closer the caller

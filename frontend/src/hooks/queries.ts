@@ -79,14 +79,6 @@ export function useScore(ticker: string) {
   });
 }
 
-export function useRescan() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (sector?: string) => api.rescan(sector),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['screen'] }),
-  });
-}
-
 export function useRefreshUniverse() {
   const qc = useQueryClient();
   return useMutation({

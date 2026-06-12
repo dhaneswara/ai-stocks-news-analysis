@@ -18,11 +18,12 @@ vi.mock('../api/client', () => ({
     saveSettings: vi.fn(),
     listProviders: vi.fn(),
     getMood: vi.fn(),
-    rescan: vi.fn(),
     refreshUniverse: vi.fn(),
     getScore: vi.fn(),
     getSignals: vi.fn(),
   },
+  streamWatchlistRun: vi.fn(() => () => {}),
+  streamRescan: vi.fn(() => () => {}),
 }));
 
 import { api } from '../api/client';
