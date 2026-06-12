@@ -778,7 +778,7 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
   padding: 6px 10px; font-size: 11px; color: var(--gold); cursor: pointer;
 }
 .graph-search {
-  position: absolute; left: 10px; top: 10px; z-index: 10;
+  position: absolute; right: 10px; top: 10px; z-index: 10;
   display: flex; flex-direction: column; gap: 4px; width: 220px;
 }
 .graph-search input { background: rgba(13, 17, 23, 0.85); padding: 5px 8px; font-size: 12px; }
