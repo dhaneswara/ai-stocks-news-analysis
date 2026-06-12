@@ -21,7 +21,7 @@ from app.config.cache import Cache
 from app.data.market import fetch_info
 from app.data.news import search_news
 from app.models.schemas import AnalysisResult, NetworkSignal, Settings, StockData
-from app.network.store import effective_graph
+from app.network.store import active_graph
 from app.screener.service import score_one
 from app.screener.store import load_snapshot
 
@@ -218,7 +218,7 @@ def _network_signal_for(ticker: str, ctx: ToolContext) -> Optional[NetworkSignal
     if not ncfg.enabled:
         return None
     try:
-        graph = effective_graph(ctx.cache, "focus")
+        graph = active_graph(ctx.cache)
         board = load_snapshot(ctx.cache, "all")
         base_index = {s.ticker: s for s in (board.items if board else [])}
         edges = incident_edges(ticker, graph.edges, set(ncfg.symmetric_types))

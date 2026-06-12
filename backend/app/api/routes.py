@@ -440,7 +440,7 @@ def screen(
 
 def _persist_rescan(board: ScreenBoard, sector: str | None, settings: Settings, cache: Cache) -> None:
     """Network-blend a fresh scan and save it as the snapshot (sector scans merge into the full board)."""
-    graph = effective_graph(cache, "focus")
+    graph = active_graph(cache)
     if sector:
         full = load_snapshot(cache, "all")
         # No full board yet (first-ever scan is sector-scoped): promote the sector board to

@@ -12,7 +12,7 @@ from app.data import truth_social
 from app.data.universe import load_universe
 from app.analysis.network import blend_network_into_score, compute_network_signal, incident_edges
 from app.models.schemas import ScreenBoard, Settings, StockScore
-from app.network.store import effective_graph
+from app.network.store import active_graph
 from app.screener.store import load_snapshot
 from app.services.stock_service import get_stock_data
 
@@ -93,7 +93,7 @@ def score_one(ticker: str, settings: Settings, cache: Cache) -> StockScore:
 
     if settings.network.enabled:
         try:
-            graph = effective_graph(cache, "focus")
+            graph = active_graph(cache)
             board = load_snapshot(cache, "all")
             base_index = {s.ticker: s for s in (board.items if board else [])}
             edges = incident_edges(ticker, graph.edges, set(settings.network.symmetric_types))

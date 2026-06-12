@@ -123,8 +123,8 @@ def test_run_analysis_skips_signal_when_disabled(tmp_path, monkeypatch):
 def test_run_analysis_enriches_network(tmp_path, monkeypatch):
     import app.services.analysis_service as svc
     from app.config.cache import Cache
-    from app.models.schemas import GraphEdge, KnowledgeGraph, ScreenBoard, Settings, StockScore
-    from app.network.store import save_graph
+    from app.models.schemas import GraphEdge, KnowledgeGraph, OntologyVersion, ScreenBoard, Settings, StockScore
+    from app.network.store import save_ontology, set_active_ontology
     from app.screener.store import save_snapshot
     from tests.test_screener_service import _stock
 
@@ -132,9 +132,12 @@ def test_run_analysis_enriches_network(tmp_path, monkeypatch):
     save_snapshot(ScreenBoard(scope="all", items=[
         StockScore(ticker="TSM", name="Taiwan Semi", price=1, change_pct=0, score=40,
                    direction="sell", net=-0.9)]), cache)
-    save_graph(KnowledgeGraph(scope="focus", edges=[
-        GraphEdge(source="AAPL", target="TSM", type="supplier", sentiment="negative",
-                  weight=1.0, confidence=1.0)]), cache)
+    save_ontology(OntologyVersion(name="test", saved_at="t",
+                                  graph=KnowledgeGraph(scope="explore", edges=[
+                                      GraphEdge(source="AAPL", target="TSM", type="supplier",
+                                                sentiment="negative", weight=1.0, confidence=1.0)])),
+                  cache)
+    set_active_ontology("test", cache)
 
     monkeypatch.setattr(svc, "get_stock_data", lambda *a, **k: _stock("AAPL"))
     monkeypatch.setattr(svc, "build_provider", lambda s: object())
@@ -153,32 +156,27 @@ def test_run_analysis_enriches_network(tmp_path, monkeypatch):
     assert captured["network"] is not None and captured["network"].influences[0].neighbour == "TSM"
 
 
-def test_run_analysis_uses_overlay_when_no_focus_snapshot(tmp_path, monkeypatch):
-    """Imported overlay edges must feed the network signal even with no focus snapshot saved."""
+def test_run_analysis_uses_active_ontology_edges(tmp_path, monkeypatch):
+    """Active-ontology edges must feed the network signal via gather_stock_context."""
     import app.services.analysis_service as svc
-    from app.models.schemas import GraphEdge, KnowledgeGraph, ScreenBoard, Settings, StockScore
-    from app.network.store import add_import_set
+    from app.models.schemas import GraphEdge, KnowledgeGraph, OntologyVersion, ScreenBoard, Settings, StockScore
+    from app.network.store import save_ontology, set_active_ontology
     from app.screener.store import save_snapshot
     from tests.test_screener_service import _stock
 
-    cache = Cache(str(tmp_path / "overlay.db"))
+    cache = Cache(str(tmp_path / "active_ont.db"))
     # Save a board so the neighbour TSM has a base score.
     save_snapshot(ScreenBoard(scope="all", items=[
         StockScore(ticker="TSM", name="Taiwan Semi", price=1, change_pct=0, score=40,
                    direction="sell", net=-0.9)]), cache)
-    # Add an overlay import set with an AAPL->TSM partner edge — NO focus snapshot saved.
-    add_import_set(
-        "test-overlay",
-        KnowledgeGraph(
-            scope="imported",
-            nodes=["AAPL", "TSM"],
-            edges=[GraphEdge(source="AAPL", target="TSM", type="partner",
-                             sentiment="positive", weight=1.0, confidence=1.0,
-                             origin="imported")],
-        ),
-        cache,
-        created_at="2026-06-07T00:00:00+00:00",
-    )
+    # Seed an active ontology with an AAPL->TSM partner edge.
+    save_ontology(OntologyVersion(name="test", saved_at="t",
+                                  graph=KnowledgeGraph(scope="explore", nodes=["AAPL", "TSM"],
+                                                       edges=[GraphEdge(source="AAPL", target="TSM",
+                                                                        type="partner", sentiment="positive",
+                                                                        weight=1.0, confidence=1.0)])),
+                  cache)
+    set_active_ontology("test", cache)
 
     monkeypatch.setattr(svc, "get_stock_data", lambda *a, **k: _stock("AAPL"))
     monkeypatch.setattr(svc, "build_provider", lambda s: object())
@@ -195,7 +193,7 @@ def test_run_analysis_uses_overlay_when_no_focus_snapshot(tmp_path, monkeypatch)
     settings = Settings()
     settings.providers["anthropic"].api_key = "x"
     svc.run_analysis("AAPL", "1y", settings, cache)
-    assert captured["network"] is not None, "network signal must be set from overlay edge"
+    assert captured["network"] is not None, "network signal must be set from active ontology edge"
     neighbours = [inf.neighbour for inf in captured["network"].influences]
     assert "TSM" in neighbours, f"TSM not found in influences: {neighbours}"
 
@@ -203,8 +201,8 @@ def test_run_analysis_uses_overlay_when_no_focus_snapshot(tmp_path, monkeypatch)
 def test_run_analysis_enriches_network_reverse_symmetric(tmp_path, monkeypatch):
     # Edge TSM -> AAPL (partner). Analysing AAPL must enrich its network via the reverse edge.
     import app.services.analysis_service as svc
-    from app.models.schemas import GraphEdge, KnowledgeGraph, ScreenBoard, Settings, StockScore
-    from app.network.store import save_graph
+    from app.models.schemas import GraphEdge, KnowledgeGraph, OntologyVersion, ScreenBoard, Settings, StockScore
+    from app.network.store import save_ontology, set_active_ontology
     from app.screener.store import save_snapshot
     from tests.test_screener_service import _stock
 
@@ -212,9 +210,12 @@ def test_run_analysis_enriches_network_reverse_symmetric(tmp_path, monkeypatch):
     save_snapshot(ScreenBoard(scope="all", items=[
         StockScore(ticker="TSM", name="Taiwan Semi", price=1, change_pct=0, score=40,
                    direction="sell", net=-0.9)]), cache)
-    save_graph(KnowledgeGraph(scope="focus", edges=[
-        GraphEdge(source="TSM", target="AAPL", type="partner", sentiment="positive",
-                  weight=1.0, confidence=1.0)]), cache)
+    save_ontology(OntologyVersion(name="test", saved_at="t",
+                                  graph=KnowledgeGraph(scope="explore", edges=[
+                                      GraphEdge(source="TSM", target="AAPL", type="partner",
+                                                sentiment="positive", weight=1.0, confidence=1.0)])),
+                  cache)
+    set_active_ontology("test", cache)
 
     monkeypatch.setattr(svc, "get_stock_data", lambda *a, **k: _stock("AAPL"))
     monkeypatch.setattr(svc, "build_provider", lambda s: object())

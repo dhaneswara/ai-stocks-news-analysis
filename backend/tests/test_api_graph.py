@@ -5,8 +5,8 @@ import app.api.routes as routes
 from app.config.cache import Cache
 from app.deps import get_cache
 from app.main import app
-from app.models.schemas import GraphEdge, KnowledgeGraph, ScreenBoard, StockScore
-from app.network.store import load_graph
+from app.models.schemas import GraphEdge, KnowledgeGraph, OntologyVersion, ScreenBoard, StockScore
+from app.network.store import load_graph, save_ontology, set_active_ontology
 from app.screener.store import load_snapshot, save_snapshot
 
 
@@ -48,10 +48,12 @@ def test_rebuild_builds_and_bakes(client, monkeypatch):
 
 def test_rescan_applies_cached_graph(client, monkeypatch):
     tc, cache = client
-    from app.network.store import save_graph
-    save_graph(KnowledgeGraph(scope="focus", edges=[
-        GraphEdge(source="AAPL", target="TSM", type="supplier", sentiment="negative",
-                  weight=1.0, confidence=1.0)]), cache)
+    save_ontology(OntologyVersion(name="test", saved_at="t",
+                                  graph=KnowledgeGraph(scope="explore", edges=[
+                                      GraphEdge(source="AAPL", target="TSM", type="supplier",
+                                                sentiment="negative", weight=1.0, confidence=1.0)])),
+                  cache)
+    set_active_ontology("test", cache)
     fresh = ScreenBoard(scope="all", items=[
         StockScore(ticker="AAPL", name="Apple", price=1, change_pct=0, score=50, direction="hold", net=0.0),
         StockScore(ticker="TSM", name="Taiwan Semi", price=1, change_pct=0, score=40, direction="sell", net=-0.9),

@@ -14,7 +14,7 @@ from app.evaluation.store import SOURCE_LLM_FAST, PredictionStore
 from app.llm.base import LLMError
 from app.llm.factory import build_provider, resolve_config
 from app.models.schemas import AnalysisResult, Settings, StockData
-from app.network.store import effective_graph
+from app.network.store import active_graph
 from app.screener.store import load_snapshot
 from app.services.stock_service import get_stock_data
 
@@ -32,7 +32,7 @@ def gather_stock_context(ticker, period, settings, cache, provider,
 
     ncfg = settings.network
     if ncfg.enabled:
-        graph = effective_graph(cache, "focus")
+        graph = active_graph(cache)
         if graph.edges:
             board = load_snapshot(cache, "all")
             base_index = {s.ticker: s for s in (board.items if board else [])}
