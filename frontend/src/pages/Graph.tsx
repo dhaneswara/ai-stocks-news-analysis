@@ -6,7 +6,7 @@ import {
   useActiveOntology, useDeleteImport, useDeleteOntology, useEgoGraph, useImportGraph, useImports,
   useLoadOntology, useOntologies, useSaveOntology, useScreen, useSetActiveOntology, useWatchlist,
 } from '../hooks/queries';
-import { addCompanyNode, addManualEdge, addManualNode, applyFilters, COMPANY_TICKER_RE, deleteEdge, deleteNode, mergeGraph, mergeNodes, resolveManualTarget, toLinks, type ViewNode } from '../lib/graphView';
+import { addCompanyNode, addManualEdge, addManualNode, applyFilters, COMPANY_TICKER_RE, deleteEdge, deleteNode, mergeGraph, mergeNodes, renameNode, resolveManualTarget, toLinks, type ViewNode } from '../lib/graphView';
 import { loadExplorerState, saveExplorerState } from '../lib/explorerStore';
 import type { EdgeSentiment, GraphEdge, ImportReport, KnowledgeGraph, RelationType } from '../types';
 import { api } from '../api/client';
@@ -62,6 +62,7 @@ export default function Graph() {
 
   const [addingFrom, setAddingFrom] = useState<string | null>(null);
   const [addingCompany, setAddingCompany] = useState(false);
+  const [renaming, setRenaming] = useState<string | null>(null);
   const [mergeSetId, setMergeSetId] = useState<string | null>(null);
   const [mergeImport, setMergeImport] = useState<KnowledgeGraph | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -75,7 +76,9 @@ export default function Graph() {
 
   // The one way in: empty-state CTA, the Explore-tab button and the canvas
   // right-click all open the same add-company form.
-  const startAddCompany = () => { setAddingCompany(true); setAddingFrom(null); setTab('explore'); };
+  const startAddCompany = () => { setAddingCompany(true); setAddingFrom(null); setRenaming(null); setTab('explore'); };
+
+  const startRename = (id: string) => { setRenaming(id); setAddingCompany(false); setAddingFrom(null); setTab('explore'); };
 
   const expand = async (ticker: string) => {
     setNotice(null);
@@ -104,7 +107,8 @@ export default function Graph() {
 
   const doNew = () => {
     setWorking(null); setOntologyName(''); setExpanded(new Set());
-    setSelectedId(null); setNotice(null); setDirty(false); setAddingCompany(false);
+    setSelectedId(null); setNotice(null); setDirty(false);
+    setAddingCompany(false); setAddingFrom(null); setRenaming(null);
   };
 
   const doLoadOntology = async (name: string, version?: string) => {
@@ -168,6 +172,21 @@ export default function Graph() {
     setSelectedId(t.toUpperCase()); setDirty(true); setAddingCompany(false); setNotice(null);
   };
 
+  const doRename = (data: { ticker: string; label: string }) => {
+    if (!renaming || !working) return;
+    const t = data.ticker.trim();
+    if (!COMPANY_TICKER_RE.test(t)) { setNotice('Ticker must be 1–10 letters/digits, e.g. TSM.'); return; }
+    const res = renameNode(working, renaming, { ticker: t, label: data.label });
+    if (!res) { setNotice(`${t.toUpperCase()} is already on the canvas.`); return; }
+    setWorking(res.graph);
+    if (res.id !== renaming) {
+      // a re-identified node has not been expanded under its new ticker
+      setExpanded((s) => { const n = new Set(s); n.delete(renaming); return n; });
+      if (selectedId === renaming) setSelectedId(res.id);
+    }
+    setRenaming(null); setDirty(true); setNotice(null);
+  };
+
   const addRelationship = (data: { target: string; type: RelationType; sentiment: EdgeSentiment; note: string }) => {
     if (!working || !addingFrom) return;
     const t = resolveManualTarget(data.target, working, board.data?.items ?? []);
@@ -203,6 +222,11 @@ export default function Graph() {
   const selected = useMemo<ViewNode | null>(
     () => view.nodes.find((n) => n.id === selectedId) ?? null,
     [view.nodes, selectedId],
+  );
+
+  const renamingNode = useMemo(
+    () => view.nodes.find((n) => n.id === renaming) ?? null,
+    [view.nodes, renaming],
   );
 
   const busy = ego.isPending;
@@ -254,8 +278,9 @@ export default function Graph() {
         {!empty && (
           <GraphCanvas
             nodes={view.nodes} links={view.links} selectedId={selectedId} onSelect={selectNode}
-            onAddRelationship={(id) => { setAddingFrom(id); setAddingCompany(false); setTab('explore'); }}
+            onAddRelationship={(id) => { setAddingFrom(id); setAddingCompany(false); setRenaming(null); setTab('explore'); }}
             onAddCompany={startAddCompany}
+            onRenameNode={startRename}
             onDeleteNode={removeNode}
             onDeleteEdge={removeEdge}
             watchlist={watch.list}
@@ -294,6 +319,10 @@ export default function Graph() {
         onSubmitCompany={addCompany}
         onCancelCompany={() => setAddingCompany(false)}
         onStartAddCompany={startAddCompany}
+        renaming={renamingNode}
+        onSubmitRename={doRename}
+        onCancelRename={() => setRenaming(null)}
+        onStartRename={startRename}
         onMergeImport={startMerge}
         promptDefault={selectedId ?? ''}
         ontologies={ontologies.data ?? []}

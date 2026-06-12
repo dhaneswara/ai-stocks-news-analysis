@@ -32,6 +32,10 @@ function base() {
     onSubmitCompany: vi.fn(),
     onCancelCompany: vi.fn(),
     onStartAddCompany: vi.fn(),
+    renaming: null as { id: string; label: string } | null,
+    onSubmitRename: vi.fn(),
+    onCancelRename: vi.fn(),
+    onStartRename: vi.fn(),
     onMergeImport: vi.fn(),
     promptDefault: 'AAPL',
     ontologies: [] as OntologySummary[],
@@ -58,6 +62,23 @@ it('expands the selected node', () => {
   wrap(<GraphSidebar {...props} selected={SELECTED} />);
   fireEvent.click(screen.getByRole('button', { name: /expand neighbours/i }));
   expect(props.onExpand).toHaveBeenCalledWith('AAPL');
+});
+
+it('rename form prefills from the node and submits ticker + name', () => {
+  const props = base();
+  wrap(<GraphSidebar {...props} selected={null} renaming={{ id: 'ext:tsmc', label: 'TSMC' }} />);
+  expect(screen.getByLabelText('rename ticker')).toHaveValue('');     // ext: id → no ticker prefill
+  expect(screen.getByLabelText('rename name')).toHaveValue('TSMC');
+  fireEvent.change(screen.getByLabelText('rename ticker'), { target: { value: 'TSM' } });
+  fireEvent.click(screen.getByRole('button', { name: /^rename$/i }));
+  expect(props.onSubmitRename).toHaveBeenCalledWith({ ticker: 'TSM', label: 'TSMC' });
+});
+
+it('detail-panel Rename… starts a rename for the selected node', () => {
+  const props = base();
+  wrap(<GraphSidebar {...props} selected={SELECTED} />);
+  fireEvent.click(screen.getByRole('button', { name: /rename…/i }));
+  expect(props.onStartRename).toHaveBeenCalledWith('AAPL');
 });
 
 it('shows the selected node detail and a Dashboard link', () => {

@@ -265,6 +265,31 @@ it('adding a company over a loaded ontology keeps the name and marks it dirty', 
   expect(await screen.findByText(/unsaved changes here/i)).toBeInTheDocument();
 });
 
+it('renames the selected node and re-selects it under the new ticker', async () => {
+  renderGraph();
+  await addCompany('AAPL');
+  // AAPL is auto-selected — open the rename form from the detail panel
+  fireEvent.click(screen.getByRole('button', { name: /rename…/i }));
+  fireEvent.change(screen.getByLabelText('rename ticker'), { target: { value: 'MSFT' } });
+  fireEvent.click(screen.getByRole('button', { name: /^rename$/i }));
+  expect(await screen.findByRole('button', { name: 'sel-MSFT' })).toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'sel-AAPL' })).not.toBeInTheDocument();
+});
+
+it('rejects a rename onto an existing node with a notice', async () => {
+  vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
+  renderGraph();
+  await addCompany('AAPL');
+  fireEvent.click(await screen.findByRole('button', { name: /expand neighbours/i }));
+  await waitFor(() => expect(screen.getByText(/2 nodes/)).toBeInTheDocument());
+  fireEvent.click(screen.getByRole('button', { name: 'sel-TSM' }));
+  fireEvent.click(screen.getByRole('button', { name: /rename…/i }));
+  fireEvent.change(screen.getByLabelText('rename ticker'), { target: { value: 'aapl' } });
+  fireEvent.click(screen.getByRole('button', { name: /^rename$/i }));
+  expect(await screen.findByText(/already on the canvas/i)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'sel-TSM' })).toBeInTheDocument(); // unchanged
+});
+
 it('adds AAPL to watchlist via the sidebar detail panel watchlist button', async () => {
   renderGraph();
   await addCompany('AAPL');

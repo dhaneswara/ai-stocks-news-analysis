@@ -12,6 +12,7 @@ export interface GraphCanvasProps {
   onSelect: (id: string) => void;
   onAddRelationship: (sourceId: string) => void;
   onAddCompany: () => void;
+  onRenameNode: (id: string) => void;
   onDeleteNode: (id: string) => void;
   onDeleteEdge: (ref: { source: string; target: string; type: RelationType }) => void;
   watchlist: string[];
@@ -21,7 +22,7 @@ export interface GraphCanvasProps {
 interface Menu { x: number; y: number; items: MenuItem[] }
 
 export function GraphCanvas({
-  nodes, links, selectedId, onSelect, onAddRelationship, onAddCompany, onDeleteNode, onDeleteEdge,
+  nodes, links, selectedId, onSelect, onAddRelationship, onAddCompany, onRenameNode, onDeleteNode, onDeleteEdge,
   watchlist, onToggleWatch,
 }: GraphCanvasProps) {
   const wrap = useRef<HTMLDivElement>(null);
@@ -155,6 +156,7 @@ export function GraphCanvas({
           const items: MenuItem[] = [
             { label: 'Add company…', onClick: onAddCompany },
             { label: 'Add relationship', onClick: () => onAddRelationship(n.id) },
+            { label: 'Rename node…', onClick: () => onRenameNode(n.id) },
           ];
           if (!String(n.id).includes(':')) {
             items.push(watchlist.includes(n.id)

@@ -6,6 +6,33 @@ import { chatGptPrompt } from '../lib/importPrompt';
 
 const EDGE_TYPES: RelationType[] = ['supplier', 'customer', 'partner', 'competitor', 'owner', 'subsidiary', 'other'];
 
+/** Re-identify a node as a ticker (and/or fix its display name). Remounted per node via key. */
+function RenameForm({ node, onSubmit, onCancel }: {
+  node: { id: string; label: string };
+  onSubmit: (d: { ticker: string; label: string }) => void;
+  onCancel: () => void;
+}) {
+  const isTicker = !node.id.includes(':');
+  const [ticker, setTicker] = useState(isTicker ? node.id : '');
+  const [label, setLabel] = useState(node.label !== node.id ? node.label : '');
+  const submit = () => { if (ticker.trim()) onSubmit({ ticker: ticker.trim(), label: label.trim() }); };
+  return (
+    <div className="graph-section rel-form">
+      <span className="label">Rename <b>{node.label}</b></span>
+      <input
+        placeholder="Ticker (e.g. TSM)" aria-label="rename ticker" value={ticker}
+        onChange={(e) => setTicker(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+      />
+      <input placeholder="Name (optional)" aria-label="rename name" value={label} onChange={(e) => setLabel(e.target.value)} />
+      <div className="graph-actions">
+        <button onClick={submit}>Rename</button>
+        <button className="secondary" onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 export interface GraphSidebarProps {
   tab: 'explore' | 'saved' | 'import';
   onTab: (t: 'explore' | 'saved' | 'import') => void;
@@ -29,6 +56,10 @@ export interface GraphSidebarProps {
   onSubmitCompany: (d: { ticker: string; label: string }) => void;
   onCancelCompany: () => void;
   onStartAddCompany: () => void;
+  renaming: { id: string; label: string } | null;
+  onSubmitRename: (d: { ticker: string; label: string }) => void;
+  onCancelRename: () => void;
+  onStartRename: (id: string) => void;
   onMergeImport: (id: string) => void;
   promptDefault: string;
   watchlist: string[];
@@ -47,6 +78,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
     imports, onImport, onDeleteImport, importing, importReport, importError,
     addingFrom, onSubmitRelationship, onCancelRelationship,
     addingCompany, onSubmitCompany, onCancelCompany, onStartAddCompany,
+    renaming, onSubmitRename, onCancelRename, onStartRename,
     onMergeImport,
     promptDefault,
     ontologies, activeName, onLoadOntology, onDeleteOntology, onActivate,
@@ -124,6 +156,9 @@ export function GraphSidebar(props: GraphSidebarProps) {
               </div>
             </div>
           )}
+          {renaming && (
+            <RenameForm key={renaming.id} node={renaming} onSubmit={onSubmitRename} onCancel={onCancelRename} />
+          )}
           {addingFrom && (
             <div className="graph-section rel-form">
               <span className="label">Add relationship from <b>{addingFrom}</b></span>
@@ -174,6 +209,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
               </h4>
               {selected.onBoard && <p className="muted">score {selected.score.toFixed(0)}</p>}
               <button disabled={loading} onClick={() => onExpand(selected.id)}>Expand neighbours</button>
+              <button className="secondary" onClick={() => onStartRename(selected.id)}>Rename…</button>
               {!selected.id.includes(':') && (
                 <button className="secondary" onClick={() => onToggleWatch(selected.id)}>
                   {watchlist.includes(selected.id) ? '★ Remove from watchlist' : '☆ Add to watchlist'}

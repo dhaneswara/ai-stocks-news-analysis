@@ -128,6 +128,38 @@ export function addCompanyNode(graph: KnowledgeGraph, c: { ticker: string; label
   return { ...graph, nodes: [...graph.nodes, id], node_meta };
 }
 
+/** Re-identify a node as the given ticker, rewriting its edges and meta — once the new id is a
+ *  Discover-board ticker the view joins it to the board (direction/score). A same-id call only
+ *  updates the display label (empty label falls back to the ticker). Returns null on a bad
+ *  ticker, an unknown node, or when the ticker already names another node. */
+export function renameNode(
+  graph: KnowledgeGraph,
+  oldId: string,
+  c: { ticker: string; label?: string },
+): { graph: KnowledgeGraph; id: string } | null {
+  const id = c.ticker.trim().toUpperCase();
+  if (!COMPANY_TICKER_RE.test(c.ticker.trim()) || !graph.nodes.includes(oldId)) return null;
+  if (id !== oldId && graph.nodes.includes(id)) return null;
+  const node_meta = { ...(graph.node_meta ?? {}) };
+  const prev = node_meta[oldId];
+  delete node_meta[oldId];
+  node_meta[id] = { label: (c.label ?? '').trim() || id, kind: 'company', source: prev?.source ?? 'manual' };
+  if (id === oldId) return { graph: { ...graph, node_meta }, id };
+  return {
+    graph: {
+      ...graph,
+      nodes: graph.nodes.map((n) => (n === oldId ? id : n)),
+      edges: graph.edges.map((e) => ({
+        ...e,
+        source: e.source === oldId ? id : e.source,
+        target: e.target === oldId ? id : e.target,
+      })),
+      node_meta,
+    },
+    id,
+  };
+}
+
 /** Add a node; concept/external ids (`man:`/`ext:`) get a `manual`/existing meta entry. No-op if present. */
 export function addManualNode(graph: KnowledgeGraph, meta: { id: string; label: string; kind?: string }): KnowledgeGraph {
   if (graph.nodes.includes(meta.id)) return graph;

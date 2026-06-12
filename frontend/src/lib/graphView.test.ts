@@ -92,7 +92,7 @@ describe('mergeGraph', () => {
 });
 
 import {
-  addCompanyNode, addManualEdge, addManualNode, deleteEdge, deleteNode, normalizeName, resolveManualTarget,
+  addCompanyNode, addManualEdge, addManualNode, deleteEdge, deleteNode, normalizeName, renameNode, resolveManualTarget,
 } from './graphView';
 import type { GraphEdge } from '../types';
 
@@ -183,6 +183,39 @@ describe('addCompanyNode', () => {
     expect(addCompanyNode(base, { ticker: 'not a ticker!!' })).toBe(base);
     expect(addCompanyNode(base, { ticker: 'TSM' })).toBe(base);
     expect(addCompanyNode(base, { ticker: 'tsm' })).toBe(base);   // case-insensitive duplicate
+  });
+});
+
+describe('renameNode', () => {
+  const G: KnowledgeGraph = {
+    as_of: 't', scope: 'explore', built: 0, skipped: 0,
+    nodes: ['ext:tsmc', 'AAPL'],
+    edges: [{ source: 'AAPL', target: 'ext:tsmc', type: 'supplier', sentiment: 'negative', weight: 1, confidence: 1, evidence: '', url: '', as_of: '' }],
+    node_meta: { 'ext:tsmc': { label: 'TSMC', kind: 'private_company', source: 'imported' } },
+  };
+
+  it('re-identifies a node, rewriting edges and meta (provenance kept)', () => {
+    const res = renameNode(G, 'ext:tsmc', { ticker: 'tsm', label: 'TSMC' });
+    expect(res?.id).toBe('TSM');
+    expect(res?.graph.nodes).toEqual(['TSM', 'AAPL']);
+    expect(res?.graph.edges[0].target).toBe('TSM');
+    expect(res?.graph.node_meta?.TSM).toEqual({ label: 'TSMC', kind: 'company', source: 'imported' });
+    expect(res?.graph.node_meta?.['ext:tsmc']).toBeUndefined();
+  });
+
+  it('a same-id call only updates the label; empty label falls back to the ticker', () => {
+    const res = renameNode(G, 'AAPL', { ticker: 'AAPL', label: 'Apple Inc' });
+    expect(res?.graph.nodes).toEqual(G.nodes);
+    expect(res?.graph.edges).toBe(G.edges);
+    expect(res?.graph.node_meta?.AAPL).toEqual({ label: 'Apple Inc', kind: 'company', source: 'manual' });
+    const cleared = renameNode(res!.graph, 'AAPL', { ticker: 'aapl' });
+    expect(cleared?.graph.node_meta?.AAPL?.label).toBe('AAPL');
+  });
+
+  it('returns null on collisions, bad tickers and unknown nodes', () => {
+    expect(renameNode(G, 'ext:tsmc', { ticker: 'AAPL' })).toBeNull();   // would collide
+    expect(renameNode(G, 'ext:tsmc', { ticker: 'not a ticker!!' })).toBeNull();
+    expect(renameNode(G, 'GONE', { ticker: 'TSM' })).toBeNull();
   });
 });
 
