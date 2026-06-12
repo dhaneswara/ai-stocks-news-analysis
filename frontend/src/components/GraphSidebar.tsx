@@ -216,13 +216,13 @@ export function GraphSidebar(props: GraphSidebarProps) {
                   {selected.direction.toUpperCase()}
                 </span>
               </h4>
-              {selected.onBoard && <p className="muted">score {selected.score.toFixed(0)}</p>}
-              <button disabled={loading} onClick={() => onExpand(selected.id)}>Expand neighbours</button>
               {!selected.id.includes(':') && (
                 <button className="secondary" onClick={() => onToggleWatch(selected.id)}>
                   {watchlist.includes(selected.id) ? '★ Remove from watchlist' : '☆ Add to watchlist'}
                 </button>
               )}
+              {selected.onBoard && <p className="muted">score {selected.score.toFixed(0)}</p>}
+              <button disabled={loading} onClick={() => onExpand(selected.id)}>Expand neighbours</button>
               {selected.network && selected.network.influences.length > 0 ? (
                 <ul className="factor-list">
                   {selected.network.influences.map((inf, i) => {
