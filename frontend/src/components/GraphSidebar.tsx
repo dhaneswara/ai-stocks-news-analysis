@@ -186,7 +186,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
           <div className="graph-actions">
             <button onClick={onStartAddCompany}>Add company…</button>
             <button
-              className="secondary" disabled={!selected}
+              disabled={!selected}
               title={selected ? `Rename ${selected.label}` : 'Select a node first'}
               onClick={() => selected && onStartRename(selected.id)}
             >
