@@ -4,7 +4,7 @@ import { GraphSidebar } from '../components/GraphSidebar';
 import { MergePreview } from '../components/MergePreview';
 import {
   useActiveOntology, useDeleteImport, useDeleteOntology, useEgoGraph, useImportGraph, useImports,
-  useLoadOntology, useOntologies, useSaveOntology, useScreen, useSetActiveOntology,
+  useLoadOntology, useOntologies, useSaveOntology, useScreen, useSetActiveOntology, useWatchlist,
 } from '../hooks/queries';
 import { addCompanyNode, addManualEdge, addManualNode, applyFilters, COMPANY_TICKER_RE, deleteEdge, deleteNode, mergeGraph, mergeNodes, resolveManualTarget, toLinks, type ViewNode } from '../lib/graphView';
 import { loadExplorerState, saveExplorerState } from '../lib/explorerStore';
@@ -24,6 +24,9 @@ export default function Graph() {
   const loadOntology = useLoadOntology();
   const deleteOntology = useDeleteOntology();
   const setActiveOnto = useSetActiveOntology();
+
+  const watch = useWatchlist();
+  const toggleWatch = (id: string) => (watch.list.includes(id) ? watch.remove(id) : watch.add(id));
 
   const imports = useImports();
   const importGraph = useImportGraph();
@@ -253,10 +256,12 @@ export default function Graph() {
         {!empty && (
           <GraphCanvas
             nodes={view.nodes} links={view.links} selectedId={selectedId} onSelect={selectNode}
-            onAddRelationship={(id) => { setAddingFrom(id); setTab('explore'); }}
-            onAddCompany={() => { setAddingCompany(true); setTab('explore'); }}
+            onAddRelationship={(id) => { setAddingFrom(id); setAddingCompany(false); setTab('explore'); }}
+            onAddCompany={() => { setAddingCompany(true); setAddingFrom(null); setTab('explore'); }}
             onDeleteNode={removeNode}
             onDeleteEdge={removeEdge}
+            watchlist={watch.list}
+            onToggleWatch={toggleWatch}
           />
         )}
         {mergeImport && (
@@ -291,7 +296,7 @@ export default function Graph() {
         addingCompany={addingCompany}
         onSubmitCompany={addCompany}
         onCancelCompany={() => setAddingCompany(false)}
-        onStartAddCompany={() => { setAddingCompany(true); setTab('explore'); }}
+        onStartAddCompany={() => { setAddingCompany(true); setAddingFrom(null); setTab('explore'); }}
         onMergeImport={startMerge}
         promptDefault={selectedId || root || ''}
         ontologies={ontologies.data ?? []}
@@ -299,6 +304,8 @@ export default function Graph() {
         onLoadOntology={doLoadOntology}
         onDeleteOntology={doDeleteOntology}
         onActivate={doActivate}
+        watchlist={watch.list}
+        onToggleWatch={toggleWatch}
       />
     </div>
   );

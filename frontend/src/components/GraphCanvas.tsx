@@ -14,12 +14,15 @@ export interface GraphCanvasProps {
   onAddCompany: () => void;
   onDeleteNode: (id: string) => void;
   onDeleteEdge: (ref: { source: string; target: string; type: RelationType }) => void;
+  watchlist: string[];
+  onToggleWatch: (id: string) => void;
 }
 
 interface Menu { x: number; y: number; items: MenuItem[] }
 
 export function GraphCanvas({
   nodes, links, selectedId, onSelect, onAddRelationship, onAddCompany, onDeleteNode, onDeleteEdge,
+  watchlist, onToggleWatch,
 }: GraphCanvasProps) {
   const wrap = useRef<HTMLDivElement>(null);
   const fgRef = useRef<any>(null);
@@ -149,14 +152,17 @@ export function GraphCanvas({
         onNodeClick={(n: any) => onSelect(n.id)}
         onNodeRightClick={(n: any, e: MouseEvent) => {
           e.preventDefault();
-          setMenu({
-            ...localXY(e),
-            items: [
-              { label: 'Add company…', onClick: onAddCompany },
-              { label: 'Add relationship', onClick: () => onAddRelationship(n.id) },
-              { label: 'Delete node', danger: true, onClick: () => onDeleteNode(n.id) },
-            ],
-          });
+          const items: MenuItem[] = [
+            { label: 'Add company…', onClick: onAddCompany },
+            { label: 'Add relationship', onClick: () => onAddRelationship(n.id) },
+          ];
+          if (!String(n.id).includes(':')) {
+            items.push(watchlist.includes(n.id)
+              ? { label: `★ Remove ${n.id} from watchlist`, onClick: () => onToggleWatch(n.id) }
+              : { label: `☆ Add ${n.id} to watchlist`, onClick: () => onToggleWatch(n.id) });
+          }
+          items.push({ label: 'Delete node', danger: true, onClick: () => onDeleteNode(n.id) });
+          setMenu({ ...localXY(e), items });
         }}
         onBackgroundRightClick={(e: MouseEvent) => {
           e.preventDefault();

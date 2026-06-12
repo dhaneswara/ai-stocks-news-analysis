@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
 import Graph from './Graph';
-import type { KnowledgeGraph, ScreenBoard } from '../types';
+import type { KnowledgeGraph, ScreenBoard, Settings } from '../types';
 
 // Canvas can't render in jsdom — mock it; render a select button per node so tests can select.
 vi.mock('../components/GraphCanvas', () => ({
@@ -11,6 +11,7 @@ vi.mock('../components/GraphCanvas', () => ({
     nodes: { id: string }[]; onSelect: (id: string) => void;
     onDeleteNode: (id: string) => void; onAddRelationship: (id: string) => void;
     onAddCompany: () => void;
+    watchlist: string[]; onToggleWatch: (id: string) => void;
   }) => (
     <div data-testid="graph-canvas">
       {nodes.map((n) => <button key={n.id} onClick={() => onSelect(n.id)}>{`sel-${n.id}`}</button>)}
@@ -34,11 +35,22 @@ vi.mock('../api/client', () => ({
     deleteOntology: vi.fn(),
     getActiveOntology: vi.fn(),
     setActiveOntology: vi.fn(),
+    getSettings: vi.fn(),
+    saveSettings: vi.fn(),
   },
 }));
 import { api } from '../api/client';
 
 const BOARD: ScreenBoard = { as_of: 't', scope: 'all', scanned: 0, skipped: 0, items: [] };
+const SETTINGS: Settings = {
+  active_provider: 'anthropic', providers: {}, watchlist: [],
+  indicator_params: { sma_windows: [50, 200], rsi_length: 14 },
+  alerts: { enabled: false, channel: 'log', telegram_bot_token: '', telegram_chat_id: '', rsi_low: 30, rsi_high: 70 },
+  truth_signal: { enabled: true, source_url: '', lookback_hours: 48 },
+  screener: { enabled: true, top_n: 25, default_sector: null, rsi_low: 30, rsi_high: 70, weights: {} },
+  network: { enabled: true, focus_top_n: 30, max_edges_per_company: 8, min_confidence: 0.4, weight: 0.5, alpha_event: 0.6, beta_state: 0.4, symmetric_types: ['competitor', 'partner', 'other'] },
+  evaluation: { enabled: true, horizons: [1, 5, 20], hold_band_pct: 2.0, score_scale_pct: 5.0 },
+};
 const AAPL_GRAPH: KnowledgeGraph = {
   as_of: 't', scope: 'company:AAPL', built: 1, skipped: 0, nodes: ['AAPL', 'TSM'],
   edges: [{ source: 'AAPL', target: 'TSM', type: 'supplier', sentiment: 'negative', weight: 1, confidence: 1, evidence: '', url: '', as_of: '' }],
@@ -63,6 +75,8 @@ beforeEach(() => {
   vi.mocked(api.listImports).mockResolvedValue([]);
   vi.mocked(api.listOntologies).mockResolvedValue([]);
   vi.mocked(api.getActiveOntology).mockResolvedValue({ name: null });
+  vi.mocked(api.getSettings).mockResolvedValue(SETTINGS as never);
+  vi.mocked(api.saveSettings).mockImplementation(async (s) => s as never);
 });
 
 it('shows the empty prompt before anything is loaded', async () => {
@@ -242,4 +256,22 @@ it('loading an old version marks the canvas dirty so the hint is visible', async
   fireEvent.change(versionSelect, { target: { value: 't1' } });
   // dirty=true because 't1' !== 't2' (latest) → hint must show "unsaved changes here".
   expect(await screen.findByText(/unsaved changes here/i)).toBeInTheDocument();
+});
+
+it('adds AAPL to watchlist via the sidebar detail panel watchlist button', async () => {
+  vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
+  renderGraph();
+  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
+  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
+  await screen.findByTestId('graph-canvas');
+  // Select the AAPL node via the canvas mock button
+  fireEvent.click(screen.getByRole('button', { name: 'sel-AAPL' }));
+  // The sidebar detail panel should show the watchlist button
+  const addBtn = await screen.findByRole('button', { name: /☆ Add to watchlist/i });
+  fireEvent.click(addBtn);
+  await waitFor(() =>
+    expect(api.saveSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ watchlist: expect.arrayContaining(['AAPL']) }),
+    ),
+  );
 });

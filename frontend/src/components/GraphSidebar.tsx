@@ -32,6 +32,8 @@ export interface GraphSidebarProps {
   onStartAddCompany: () => void;
   onMergeImport: (id: string) => void;
   promptDefault: string;
+  watchlist: string[];
+  onToggleWatch: (id: string) => void;
   ontologies: OntologySummary[];
   activeName: string | null;
   onLoadOntology: (name: string, version?: string) => void;
@@ -49,6 +51,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
     onMergeImport,
     promptDefault,
     ontologies, activeName, onLoadOntology, onDeleteOntology, onActivate,
+    watchlist, onToggleWatch,
   } = props;
   const [rootInput, setRootInput] = useState('');
   const [jsonText, setJsonText] = useState('');
@@ -119,7 +122,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
               <input placeholder="Name (optional)" value={coLabel} onChange={(e) => setCoLabel(e.target.value)} />
               <div className="graph-actions">
                 <button onClick={submitCompany}>Add</button>
-                <button className="secondary" onClick={onCancelCompany}>Cancel</button>
+                <button className="secondary" onClick={() => { setCoTicker(''); setCoLabel(''); onCancelCompany(); }}>Cancel</button>
               </div>
             </div>
           )}
@@ -143,7 +146,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
               <input placeholder="Note (optional)" value={relNote} onChange={(e) => setRelNote(e.target.value)} />
               <div className="graph-actions">
                 <button onClick={submitRel}>Add</button>
-                <button className="secondary" onClick={onCancelRelationship}>Cancel</button>
+                <button className="secondary" onClick={() => { setRelTarget(''); setRelType('supplier'); setRelEffect('positive'); setRelNote(''); onCancelRelationship(); }}>Cancel</button>
               </div>
             </div>
           )}
@@ -182,6 +185,11 @@ export function GraphSidebar(props: GraphSidebarProps) {
               </h4>
               {selected.onBoard && <p className="muted">score {selected.score.toFixed(0)}</p>}
               <button disabled={loading} onClick={() => onExpand(selected.id)}>Expand neighbours</button>
+              {!selected.id.includes(':') && (
+                <button className="secondary" onClick={() => onToggleWatch(selected.id)}>
+                  {watchlist.includes(selected.id) ? '★ Remove from watchlist' : '☆ Add to watchlist'}
+                </button>
+              )}
               {selected.network && selected.network.influences.length > 0 ? (
                 <ul className="factor-list">
                   {selected.network.influences.map((inf, i) => {

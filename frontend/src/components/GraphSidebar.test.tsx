@@ -39,6 +39,8 @@ function base() {
     onLoadOntology: vi.fn(),
     onDeleteOntology: vi.fn(),
     onActivate: vi.fn(),
+    watchlist: [] as string[],
+    onToggleWatch: vi.fn(),
   };
 }
 
@@ -197,4 +199,31 @@ it('Ontologies tab: lists ontologies, active badge, Set active, load, delete', (
   // None row: activeName is 'B' (not null), so "None" row shows "Set active" not ACTIVE
   fireEvent.click(setActiveButtons[0]);
   expect(props.onActivate).toHaveBeenCalledWith(null);
+});
+
+it('shows ☆ Add to watchlist when company node selected and not in watchlist', () => {
+  const props = { ...base(), watchlist: [] as string[], onToggleWatch: vi.fn() };
+  wrap(<GraphSidebar {...props} selected={SELECTED} />);
+  const btn = screen.getByRole('button', { name: /☆ Add to watchlist/i });
+  expect(btn).toBeInTheDocument();
+  fireEvent.click(btn);
+  expect(props.onToggleWatch).toHaveBeenCalledWith('AAPL');
+});
+
+it('shows ★ Remove from watchlist when company node is already in watchlist', () => {
+  const props = { ...base(), watchlist: ['AAPL'], onToggleWatch: vi.fn() };
+  wrap(<GraphSidebar {...props} selected={SELECTED} />);
+  const btn = screen.getByRole('button', { name: /★ Remove from watchlist/i });
+  expect(btn).toBeInTheDocument();
+  fireEvent.click(btn);
+  expect(props.onToggleWatch).toHaveBeenCalledWith('AAPL');
+});
+
+it('shows no watchlist button when a concept node (man: prefix) is selected', () => {
+  const conceptNode: ViewNode = {
+    ...SELECTED, id: 'man:ai-chip', label: 'AI Chip',
+  };
+  const props = { ...base(), watchlist: [] as string[], onToggleWatch: vi.fn() };
+  wrap(<GraphSidebar {...props} selected={conceptNode} />);
+  expect(screen.queryByText(/watchlist/i)).not.toBeInTheDocument();
 });
