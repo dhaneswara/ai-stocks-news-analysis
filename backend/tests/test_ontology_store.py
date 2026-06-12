@@ -1,3 +1,5 @@
+import pytest
+
 from app.config.cache import Cache
 from app.models.schemas import GraphEdge, KnowledgeGraph, OntologyVersion
 from app.network.store import (
@@ -99,3 +101,10 @@ def test_set_active_none_clears(tmp_path):
     set_active_ontology("A", cache)
     assert set_active_ontology(None, cache) is True
     assert get_active_ontology(cache) is None
+
+
+def test_save_blank_name_is_refused(tmp_path):
+    cache = _cache(tmp_path)
+    with pytest.raises(ValueError):
+        save_ontology(_version("   "), cache)
+    assert list_ontologies(cache) == []

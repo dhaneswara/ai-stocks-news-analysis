@@ -5,6 +5,8 @@ Namespaces:
 - `graph_user_saved:<ROOT>`  — user-saved explored subgraphs (≈10y TTL, history capped to 5).
 - `graph_imported:<id>`      — imported external-ontology overlay sets (≈10y TTL, keyed by created_at).
 - `graph_imported:__index__` — the overlay index (list of set ids).
+- `ontology:<name>`          — versioned user-curated ontologies (≈10y TTL, history capped to 5).
+- `ontology:__index__`       — ontology name index; `ontology:__active__` — the scoring pointer.
 """
 from __future__ import annotations
 
@@ -269,6 +271,8 @@ def _store_ontology_versions(name: str, versions: list[OntologyVersion], cache: 
 
 def save_ontology(version: OntologyVersion, cache: Cache) -> OntologyVersion:
     """Create-or-update under a case-insensitively unique name; newest first, capped at 5."""
+    if not version.name.strip():
+        raise ValueError("Ontology name must not be blank")
     name = canonical_ontology_name(version.name, cache) or version.name.strip()
     version = version.model_copy(update={"name": name})
     versions = ([version] + _load_ontology_versions(name, cache))[:_MAX_VERSIONS]
