@@ -9,7 +9,6 @@ const EDGE_TYPES: RelationType[] = ['supplier', 'customer', 'partner', 'competit
 export interface GraphSidebarProps {
   tab: 'explore' | 'saved' | 'import';
   onTab: (t: 'explore' | 'saved' | 'import') => void;
-  onLoadRoot: (ticker: string) => void;
   onExpand: (ticker: string) => void;
   loading: boolean;
   nodeCount: number;
@@ -43,7 +42,7 @@ export interface GraphSidebarProps {
 
 export function GraphSidebar(props: GraphSidebarProps) {
   const {
-    tab, onTab, onLoadRoot, onExpand, loading,
+    tab, onTab, onExpand, loading,
     nodeCount, linkCount, enabledTypes, onToggleType, selected,
     imports, onImport, onDeleteImport, importing, importReport, importError,
     addingFrom, onSubmitRelationship, onCancelRelationship,
@@ -53,7 +52,6 @@ export function GraphSidebar(props: GraphSidebarProps) {
     ontologies, activeName, onLoadOntology, onDeleteOntology, onActivate,
     watchlist, onToggleWatch,
   } = props;
-  const [rootInput, setRootInput] = useState('');
   const [jsonText, setJsonText] = useState('');
   const [setName, setSetName] = useState('');
   const [parseError, setParseError] = useState<string | null>(null);
@@ -150,16 +148,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
               </div>
             </div>
           )}
-          <label>Start from a company
-            <input
-              placeholder="Ticker (e.g. AAPL)"
-              value={rootInput}
-              onChange={(e) => setRootInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && rootInput.trim()) onLoadRoot(rootInput.trim()); }}
-            />
-          </label>
-          <button disabled={loading || !rootInput.trim()} onClick={() => onLoadRoot(rootInput.trim())}>Start</button>
-          <button className="secondary" onClick={onStartAddCompany}>Add company…</button>
+          <button onClick={onStartAddCompany}>Add company…</button>
 
           <div className="graph-section">
             <p className="muted">{nodeCount} nodes · {linkCount} edges</p>

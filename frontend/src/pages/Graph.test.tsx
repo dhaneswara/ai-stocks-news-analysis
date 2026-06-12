@@ -69,6 +69,14 @@ function renderGraph() {
   );
 }
 
+/** Seed the canvas the way users do now: the add-company form (sidebar button works canvas or no canvas). */
+async function addCompany(ticker: string) {
+  fireEvent.click(await screen.findByRole('button', { name: /^add company…$/i }));
+  fireEvent.change(screen.getByPlaceholderText(/ticker.*tsm/i), { target: { value: ticker } });
+  fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
+  await screen.findByTestId('graph-canvas');
+}
+
 beforeEach(() => {
   sessionStorage.clear();
   vi.mocked(api.getScreen).mockResolvedValue(BOARD);
@@ -79,37 +87,35 @@ beforeEach(() => {
   vi.mocked(api.saveSettings).mockImplementation(async (s) => s as never);
 });
 
-it('shows the empty prompt before anything is loaded', async () => {
+it('shows the empty-state CTA and opens the add-company form', async () => {
   renderGraph();
-  expect(await screen.findByText(/type a company ticker/i)).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole('button', { name: /add a company/i }));
+  expect(screen.getByPlaceholderText(/ticker.*tsm/i)).toBeInTheDocument();
 });
 
-it('loads a root and renders the canvas', async () => {
-  vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
+it('adds the first company and renders the canvas', async () => {
   renderGraph();
-  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
-  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
-  expect(await screen.findByTestId('graph-canvas')).toBeInTheDocument();
-  expect(screen.getByText(/2 nodes/)).toBeInTheDocument();
+  await addCompany('AAPL');
+  expect(screen.getByTestId('graph-canvas')).toBeInTheDocument();
+  expect(screen.getByText(/1 nodes/)).toBeInTheDocument();
 });
 
 it('expands a selected node and grows the graph', async () => {
   vi.mocked(api.getCompanyGraph).mockResolvedValueOnce(AAPL_GRAPH).mockResolvedValueOnce(TSM_GRAPH);
   renderGraph();
-  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
-  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
-  fireEvent.click(await screen.findByRole('button', { name: 'sel-TSM' }));
+  await addCompany('AAPL');
+  // the new node is auto-selected — Expand neighbours runs the news extraction
+  fireEvent.click(await screen.findByRole('button', { name: /expand neighbours/i }));
+  await waitFor(() => expect(screen.getByText(/2 nodes/)).toBeInTheDocument());
+  fireEvent.click(screen.getByRole('button', { name: 'sel-TSM' }));
   fireEvent.click(screen.getByRole('button', { name: /expand neighbours/i }));
   await waitFor(() => expect(screen.getByText(/3 nodes/)).toBeInTheDocument());
 });
 
 it('saves the working graph as a named ontology', async () => {
-  vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
   vi.mocked(api.saveOntology).mockResolvedValue({ name: 'Tech', saved_at: 't', expanded: [], graph: AAPL_GRAPH });
   renderGraph();
-  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
-  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
-  await screen.findByTestId('graph-canvas');
+  await addCompany('AAPL');
   fireEvent.change(screen.getByRole('textbox', { name: /ontology name/i }), { target: { value: 'Tech' } });
   fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
   await waitFor(() => expect(api.saveOntology).toHaveBeenCalledWith(expect.objectContaining({ name: 'Tech' })));
@@ -118,17 +124,16 @@ it('saves the working graph as a named ontology', async () => {
 it('surfaces a load error when extraction fails', async () => {
   vi.mocked(api.getCompanyGraph).mockRejectedValue(new Error('boom'));
   renderGraph();
-  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
-  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
+  await addCompany('AAPL');
+  fireEvent.click(await screen.findByRole('button', { name: /expand neighbours/i }));
   expect(await screen.findByText(/couldn't load: boom/i)).toBeInTheDocument();
 });
 
 it('restores the explored graph after remount (persistence)', async () => {
   vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
   const first = renderGraph();
-  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
-  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
-  await screen.findByTestId('graph-canvas');
+  await addCompany('AAPL');
+  fireEvent.click(await screen.findByRole('button', { name: /expand neighbours/i }));
   await waitFor(() => expect(screen.getByText(/2 nodes/)).toBeInTheDocument());
   first.unmount();
   vi.mocked(api.getCompanyGraph).mockClear();
@@ -139,11 +144,8 @@ it('restores the explored graph after remount (persistence)', async () => {
 });
 
 it('switches back to the Explore tab when a node is selected', async () => {
-  vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
   renderGraph();
-  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
-  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
-  await screen.findByTestId('graph-canvas');
+  await addCompany('AAPL');
   fireEvent.click(screen.getByRole('button', { name: /^ontologies/i })); // go to Ontologies tab
   expect(screen.queryByRole('button', { name: /expand neighbours/i })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'sel-AAPL' })); // select a node on the canvas
@@ -154,24 +156,20 @@ it('deletes a node from the working graph', async () => {
   vi.spyOn(window, 'confirm').mockReturnValue(true);
   vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
   renderGraph();
-  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
-  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
-  await screen.findByTestId('graph-canvas');
+  await addCompany('AAPL');
+  fireEvent.click(await screen.findByRole('button', { name: /expand neighbours/i }));
   await waitFor(() => expect(screen.getByText(/2 nodes/)).toBeInTheDocument());
   fireEvent.click(screen.getByRole('button', { name: 'del-TSM' }));
   await waitFor(() => expect(screen.getByText(/1 nodes/)).toBeInTheDocument());
 });
 
 it('adds a manual relationship via the form', async () => {
-  vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
   renderGraph();
-  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
-  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
-  await screen.findByTestId('graph-canvas');
+  await addCompany('AAPL');
   fireEvent.click(screen.getByRole('button', { name: 'add-AAPL' }));
   fireEvent.change(await screen.findByPlaceholderText(/ticker or company/i), { target: { value: 'BIDU' } });
   fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
-  await waitFor(() => expect(screen.getByText(/3 nodes/)).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/2 nodes/)).toBeInTheDocument());
 });
 
 it('boots into the active ontology when nothing restored', async () => {
@@ -190,11 +188,8 @@ it('hint names the active ontology when canvas is empty and no active set', asyn
 });
 
 it('empty-name Save shows the notice and does not call saveOntology', async () => {
-  vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
   renderGraph();
-  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
-  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
-  await screen.findByTestId('graph-canvas');
+  await addCompany('AAPL');
   // Explicitly clear the ontology name input so the test is not sensitive to sessionStorage
   // residue from a prior test run in the same environment.
   const nameInput = screen.getByRole('textbox', { name: /ontology name/i });
@@ -258,32 +253,22 @@ it('loading an old version marks the canvas dirty so the hint is visible', async
   expect(await screen.findByText(/unsaved changes here/i)).toBeInTheDocument();
 });
 
-it('loadRoot clears the ontology name so the hint stays visible', async () => {
+it('adding a company over a loaded ontology keeps the name and marks it dirty', async () => {
   vi.mocked(api.getActiveOntology).mockResolvedValue({ name: 'Tech' });
   vi.mocked(api.loadOntology).mockResolvedValue({ name: 'Tech', saved_at: 't', expanded: [], graph: AAPL_GRAPH });
-  vi.mocked(api.getCompanyGraph).mockResolvedValue(TSM_GRAPH);
   renderGraph();
   // Wait for boot load to complete — ontology name should be 'Tech'
   await screen.findByDisplayValue('Tech');
-  // Start a fresh exploration from a different ticker — should clear the name field
-  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'TSM' } });
-  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
-  await screen.findByTestId('graph-canvas');
-  // Name field must be cleared
-  expect(screen.getByLabelText('ontology name')).toHaveValue('');
-  // hint should now be visible: canvas no longer matches any saved ontology
-  expect(await screen.findByText(/analysis currently uses "?tech"?/i)).toBeInTheDocument();
+  await addCompany('NVDA');
+  // The canvas is now an unsaved edit of Tech: the name stays and the hint flags the divergence.
+  expect(screen.getByLabelText('ontology name')).toHaveValue('Tech');
+  expect(await screen.findByText(/unsaved changes here/i)).toBeInTheDocument();
 });
 
 it('adds AAPL to watchlist via the sidebar detail panel watchlist button', async () => {
-  vi.mocked(api.getCompanyGraph).mockResolvedValue(AAPL_GRAPH);
   renderGraph();
-  fireEvent.change(await screen.findByPlaceholderText(/ticker/i), { target: { value: 'AAPL' } });
-  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
-  await screen.findByTestId('graph-canvas');
-  // Select the AAPL node via the canvas mock button
-  fireEvent.click(screen.getByRole('button', { name: 'sel-AAPL' }));
-  // The sidebar detail panel should show the watchlist button
+  await addCompany('AAPL');
+  // The new node is auto-selected — the sidebar detail panel shows the watchlist button
   const addBtn = await screen.findByRole('button', { name: /☆ Add to watchlist/i });
   fireEvent.click(addBtn);
   await waitFor(() =>

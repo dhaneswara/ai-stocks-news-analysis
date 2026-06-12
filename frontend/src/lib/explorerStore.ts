@@ -2,7 +2,6 @@ import type { KnowledgeGraph } from '../types';
 
 export interface ExplorerState {
   working: KnowledgeGraph | null;
-  root: string;
   expanded: string[];
   selectedId: string | null;
   ontologyName: string;

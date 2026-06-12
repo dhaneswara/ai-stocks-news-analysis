@@ -54,7 +54,6 @@ export default function Graph() {
 
   const [tab, setTab] = useState<'explore' | 'saved' | 'import'>('explore');
   const [working, setWorking] = useState<KnowledgeGraph | null>(restored?.working ?? null);
-  const [root, setRoot] = useState(restored?.root ?? '');
   const [expanded, setExpanded] = useState<Set<string>>(new Set(restored?.expanded ?? []));
   const [selectedId, setSelectedId] = useState<string | null>(restored?.selectedId ?? null);
   const [enabledTypes, setEnabledTypes] = useState<Set<RelationType>>(new Set(ALL_TYPES));
@@ -69,22 +68,14 @@ export default function Graph() {
 
   // Persist the exploration so switching menus / reloading restores it.
   useEffect(() => {
-    saveExplorerState({ working, root, expanded: [...expanded], selectedId, ontologyName });
-  }, [working, root, expanded, selectedId, ontologyName]);
+    saveExplorerState({ working, expanded: [...expanded], selectedId, ontologyName });
+  }, [working, expanded, selectedId, ontologyName]);
 
   const selectNode = (id: string) => { setSelectedId(id); setTab('explore'); };
 
-  const loadRoot = async (ticker: string) => {
-    const t = ticker.trim().toUpperCase();
-    if (!t) return;
-    setNotice(null);
-    try {
-      const frag = await ego.mutateAsync(t);
-      setWorking(frag); setRoot(t); setExpanded(new Set()); setSelectedId(t); setTab('explore');
-      setOntologyName(''); setDirty(false);
-      if (frag.edges.length === 0) setNotice(`No relationships found for ${t}.`);
-    } catch { /* surfaced via the load-error banner */ }
-  };
+  // The one way in: empty-state CTA, the Explore-tab button and the canvas
+  // right-click all open the same add-company form.
+  const startAddCompany = () => { setAddingCompany(true); setAddingFrom(null); setTab('explore'); };
 
   const expand = async (ticker: string) => {
     setNotice(null);
@@ -112,7 +103,7 @@ export default function Graph() {
   };
 
   const doNew = () => {
-    setWorking(null); setOntologyName(''); setRoot(''); setExpanded(new Set());
+    setWorking(null); setOntologyName(''); setExpanded(new Set());
     setSelectedId(null); setNotice(null); setDirty(false); setAddingCompany(false);
   };
 
@@ -121,7 +112,7 @@ export default function Graph() {
     try {
       const v = await loadOntology.mutateAsync({ name, version });
       setWorking(v.graph); setOntologyName(v.name); setExpanded(new Set(v.expanded));
-      setRoot(''); setSelectedId(null); setTab('explore');
+      setSelectedId(null); setTab('explore');
       // A historical revision is NOT the live one: dirty until re-saved (Save = restore).
       const latest = ontologies.data?.find((o) => o.name === v.name)?.versions[0];
       setDirty(!!version && version !== latest);
@@ -251,14 +242,20 @@ export default function Graph() {
         </div>
         {empty && !busy && (
           <div className="graph-empty">
-            <p className="muted">Type a company ticker in the panel to start exploring.</p>
+            <div className="graph-empty-cta">
+              <button onClick={startAddCompany}>+ Add a company</button>
+              <p className="muted">
+                Build the ontology company by company: grow it with Expand neighbours or an
+                import, then save it and set it active so analysis uses it.
+              </p>
+            </div>
           </div>
         )}
         {!empty && (
           <GraphCanvas
             nodes={view.nodes} links={view.links} selectedId={selectedId} onSelect={selectNode}
             onAddRelationship={(id) => { setAddingFrom(id); setAddingCompany(false); setTab('explore'); }}
-            onAddCompany={() => { setAddingCompany(true); setAddingFrom(null); setTab('explore'); }}
+            onAddCompany={startAddCompany}
             onDeleteNode={removeNode}
             onDeleteEdge={removeEdge}
             watchlist={watch.list}
@@ -277,7 +274,6 @@ export default function Graph() {
       <GraphSidebar
         tab={tab}
         onTab={setTab}
-        onLoadRoot={loadRoot}
         onExpand={expand}
         loading={busy}
         nodeCount={view.nodes.length}
@@ -297,9 +293,9 @@ export default function Graph() {
         addingCompany={addingCompany}
         onSubmitCompany={addCompany}
         onCancelCompany={() => setAddingCompany(false)}
-        onStartAddCompany={() => { setAddingCompany(true); setAddingFrom(null); setTab('explore'); }}
+        onStartAddCompany={startAddCompany}
         onMergeImport={startMerge}
-        promptDefault={selectedId || root || ''}
+        promptDefault={selectedId ?? ''}
         ontologies={ontologies.data ?? []}
         activeName={activeName}
         onLoadOntology={doLoadOntology}

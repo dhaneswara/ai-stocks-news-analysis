@@ -16,7 +16,7 @@ const SELECTED: ViewNode = {
 function base() {
   return {
     tab: 'explore' as const, onTab: vi.fn(),
-    onLoadRoot: vi.fn(), onExpand: vi.fn(), loading: false,
+    onExpand: vi.fn(), loading: false,
     nodeCount: 2, linkCount: 1,
     enabledTypes: new Set<RelationType>(['supplier']), onToggleType: vi.fn(),
     imports: [] as ImportSetSummary[],
@@ -47,14 +47,6 @@ function base() {
 function wrap(ui: ReactNode) {
   return render(<MemoryRouter>{ui}</MemoryRouter>);
 }
-
-it('starts a root from the input (Explore tab)', () => {
-  const props = base();
-  wrap(<GraphSidebar {...props} selected={null} />);
-  fireEvent.change(screen.getByPlaceholderText(/ticker/i), { target: { value: 'tsla' } });
-  fireEvent.click(screen.getByRole('button', { name: /^start$/i }));
-  expect(props.onLoadRoot).toHaveBeenCalledWith('tsla');
-});
 
 it('shows the legend hint when nothing is selected', () => {
   wrap(<GraphSidebar {...base()} selected={null} />);

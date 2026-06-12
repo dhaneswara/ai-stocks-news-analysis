@@ -779,6 +779,7 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 }
 .graph-relayout:hover { background: var(--gold-tint); border-color: var(--gold); }
 .graph-empty { display: flex; flex: 1 1 auto; align-items: center; justify-content: center; padding: 24px; text-align: center; }
+.graph-empty-cta { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 400px; }
 .graph-sidebar { flex: 0 0 320px; display: flex; flex-direction: column; gap: 10px; overflow: auto; }
 .graph-types { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip-toggle { font-size: 12px; display: inline-flex; align-items: center; gap: 4px; }
