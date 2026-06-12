@@ -117,7 +117,7 @@ export function GraphCanvas({
         graphData={data}
         nodeRelSize={1}
         nodeVal={(n: any) => nodeRadius(n.score) ** 2}
-        nodeColor={(n: any) => (n.external ? '#6e7681' : directionColor(n.direction))}
+        nodeColor={(n: any) => (n.external ? '#ab9df2' : directionColor(n.direction))}
         nodeCanvasObjectMode={() => 'after'}
         nodeCanvasObject={(n: any, ctx: CanvasRenderingContext2D, scale: number) => {
           const r = nodeRadius(n.score);

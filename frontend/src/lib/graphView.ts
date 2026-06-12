@@ -67,7 +67,8 @@ export function applyFilters(
 }
 
 export function directionColor(d: NodeDirection): string {
-  return d === 'buy' ? '#3fb950' : d === 'sell' ? '#f85149' : d === 'hold' ? '#8b949e' : '#484f58';
+  // hold mirrors --gold, the app-wide HOLD colour (badges/verdicts)
+  return d === 'buy' ? '#3fb950' : d === 'sell' ? '#f85149' : d === 'hold' ? '#e8c87e' : '#484f58';
 }
 
 export function sentimentColor(s: ViewLink['sentiment']): string {

@@ -14,9 +14,9 @@ export function GraphLegend() {
             <span className="legend-title">Company</span>
             <span><i className="dot" style={{ background: '#3fb950' }} />buy</span>
             <span><i className="dot" style={{ background: '#f85149' }} />sell</span>
-            <span><i className="dot" style={{ background: '#8b949e' }} />hold</span>
+            <span><i className="dot" style={{ background: '#e8c87e' }} />hold</span>
             <span><i className="dot" style={{ background: '#484f58' }} />unknown</span>
-            <span><i className="dot" style={{ background: '#6e7681' }} />external</span>
+            <span><i className="dot" style={{ background: '#ab9df2' }} />external</span>
             <span><i className="dot" style={{ background: 'transparent', border: '2px solid #e8c87e', boxSizing: 'border-box' }} />selected</span>
             <span className="legend-note">size = score</span>
           </div>
