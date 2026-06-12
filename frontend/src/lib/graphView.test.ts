@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyFilters, directionColor, mergeGraph, mergeNodes, nodeRadius, sentimentColor, toLinks } from './graphView';
+import { applyFilters, directionColor, mergeGraph, mergeNodes, nodeRadius, searchNodes, sentimentColor, toLinks, type ViewNode } from './graphView';
 import type { KnowledgeGraph, ScreenBoard, RelationType } from '../types';
 
 const GRAPH: KnowledgeGraph = {
@@ -61,6 +61,31 @@ describe('encoders', () => {
     expect(directionColor('unknown')).toBe('#484f58');
     expect(sentimentColor('negative')).toBe('#f85149');
     expect(nodeRadius(0)).toBeLessThan(nodeRadius(100));
+  });
+});
+
+const vn = (id: string, label = id): ViewNode => ({
+  id, label, direction: 'unknown', score: 0, sector: '', onBoard: false, external: false, kind: '',
+});
+
+describe('searchNodes', () => {
+  const NODES = [vn('TSM', 'TSMC'), vn('AAPL', 'Apple'), vn('MSFT', 'Microsoft'), vn('ext:applied', 'Applied Materials')];
+
+  it('matches ticker or name, id-prefix hits ranked before name hits', () => {
+    expect(searchNodes(NODES, 'tsm').map((n) => n.id)).toEqual(['TSM']);          // exact ticker
+    expect(searchNodes(NODES, 'a').map((n) => n.id)).toEqual(['AAPL', 'ext:applied']); // id prefix > label prefix
+    expect(searchNodes(NODES, 'app').map((n) => n.id)).toEqual(['AAPL', 'ext:applied']); // label prefixes, tie by label
+    expect(searchNodes(NODES, 'soft').map((n) => n.id)).toEqual(['MSFT']);        // label substring
+  });
+
+  it('is case-insensitive and empty for a blank query', () => {
+    expect(searchNodes(NODES, 'APPLE').map((n) => n.id)).toEqual(['AAPL']);
+    expect(searchNodes(NODES, '   ')).toEqual([]);
+  });
+
+  it('caps results at the limit', () => {
+    const many = Array.from({ length: 12 }, (_, i) => vn(`T${i}`));
+    expect(searchNodes(many, 't')).toHaveLength(8);
   });
 });
 

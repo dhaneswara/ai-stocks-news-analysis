@@ -66,6 +66,27 @@ export function applyFilters(
   return { nodes: ns, links: ls };
 }
 
+/** Rank canvas nodes for the find box: exact ticker > ticker prefix > name prefix > substring. */
+export function searchNodes(nodes: ViewNode[], query: string, limit = 8): ViewNode[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const rank = (n: ViewNode): number => {
+    const id = n.id.toLowerCase();
+    const label = n.label.toLowerCase();
+    if (id === q) return 0;
+    if (id.startsWith(q)) return 1;
+    if (label.startsWith(q)) return 2;
+    if (id.includes(q) || label.includes(q)) return 3;
+    return -1;
+  };
+  return nodes
+    .map((n) => ({ n, r: rank(n) }))
+    .filter((x) => x.r >= 0)
+    .sort((a, b) => a.r - b.r || a.n.label.localeCompare(b.n.label))
+    .slice(0, limit)
+    .map((x) => x.n);
+}
+
 export function directionColor(d: NodeDirection): string {
   // hold mirrors --gold, the app-wide HOLD colour (badges/verdicts)
   return d === 'buy' ? '#3fb950' : d === 'sell' ? '#f85149' : d === 'hold' ? '#e8c87e' : '#484f58';

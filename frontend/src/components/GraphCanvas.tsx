@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import ForceGraph2D from 'react-force-graph-2d';
 import { directionColor, nodeRadius, sentimentColor, type ViewLink, type ViewNode } from '../lib/graphView';
 import { GraphLegend } from './GraphLegend';
+import { GraphSearch } from './GraphSearch';
 import { GraphContextMenu, type MenuItem } from './GraphContextMenu';
 import type { RelationType } from '../types';
 
@@ -109,6 +110,17 @@ export function GraphCanvas({
     return { x: e.clientX - (r?.left ?? 0), y: e.clientY - (r?.top ?? 0) };
   };
 
+  // Select a searched node and bring it into view (positions live on the force-sim's
+  // node copies; skip the pan until the sim has assigned them).
+  const focusNode = (id: string) => {
+    onSelect(id);
+    const fg = fgRef.current;
+    const n = (data.nodes as Array<{ id: string; x?: number; y?: number }>).find((x) => x.id === id);
+    if (!fg || !n || typeof n.x !== 'number' || typeof n.y !== 'number') return;
+    fg.centerAt(n.x, n.y, 600);
+    if (fg.zoom() < 2) fg.zoom(2, 600);
+  };
+
   return (
     <div ref={wrap} className="graph-canvas" onContextMenu={(e) => e.preventDefault()}>
       <ForceGraph2D
@@ -176,6 +188,7 @@ export function GraphCanvas({
           setMenu({ ...localXY(e), items: [{ label: 'Delete relationship', danger: true, onClick: () => onDeleteEdge(ref) }] });
         }}
       />
+      <GraphSearch nodes={nodes} onPick={focusNode} />
       <GraphLegend />
       <button
         type="button"

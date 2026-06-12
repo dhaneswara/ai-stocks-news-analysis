@@ -777,6 +777,26 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
   background: rgba(13, 17, 23, 0.85); border: 1px solid var(--gold-line); border-radius: 6px;
   padding: 6px 10px; font-size: 11px; color: var(--gold); cursor: pointer;
 }
+.graph-search {
+  position: absolute; left: 10px; top: 10px; z-index: 10;
+  display: flex; flex-direction: column; gap: 4px; width: 220px;
+}
+.graph-search input { background: rgba(13, 17, 23, 0.85); padding: 5px 8px; font-size: 12px; }
+.graph-search > .muted {
+  background: rgba(13, 17, 23, 0.85); border: 1px solid #30363d; border-radius: 6px;
+  margin: 0; padding: 4px 8px; font-size: 11px;
+}
+.graph-search-results {
+  list-style: none; margin: 0; padding: 4px;
+  background: rgba(13, 17, 23, 0.92); border: 1px solid #30363d; border-radius: 6px;
+  max-height: 230px; overflow: auto;
+}
+.graph-search-results button {
+  display: block; width: 100%; text-align: left; background: none; border: 0;
+  color: var(--ink); padding: 4px 6px; border-radius: 4px; cursor: pointer; font-size: 12px;
+}
+.graph-search-results button:hover { background: var(--gold-tint); }
+.graph-search-results .muted { font-family: var(--mono); font-size: 10.5px; }
 .graph-relayout:hover { background: var(--gold-tint); border-color: var(--gold); }
 .graph-empty { display: flex; flex: 1 1 auto; align-items: center; justify-content: center; padding: 24px; text-align: center; }
 .graph-empty-cta { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 400px; }
