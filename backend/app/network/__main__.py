@@ -7,15 +7,15 @@ import sys
 
 from app.deps import DATA_DIR, get_cache, get_settings_store
 from app.network.runner import run
-from app.network.service import build_graph
+from app.network.store import active_graph, get_active_ontology
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="python -m app.network",
-        description="Build the company knowledge graph and bake its signal into the board.",
+        description="Re-bake the active ontology's network signal into the board snapshot.",
     )
-    parser.add_argument("--dry-run", action="store_true", help="Build and log, but do not save.")
+    parser.add_argument("--dry-run", action="store_true", help="Log what would bake, no save.")
     args = parser.parse_args(argv)
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -24,8 +24,8 @@ def main(argv: list[str] | None = None) -> int:
     cache = get_cache()
     log = logging.getLogger("network")
     if args.dry_run:
-        g = build_graph(None, settings, cache)
-        log.info("Dry run: built=%d skipped=%d edges=%d", g.built, g.skipped, len(g.edges))
+        g = active_graph(cache)
+        log.info("Dry run: active=%s edges=%d", get_active_ontology(cache) or "(none)", len(g.edges))
         return 0
     log.info("Done: %s", run(settings, cache))
     return 0

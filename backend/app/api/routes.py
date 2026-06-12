@@ -25,8 +25,6 @@ from app.models.schemas import (
     OntologySummary,
     OntologyVersion,
     RescanEvent,
-    SavedGraphSummary,
-    SavedGraphVersion,
     ScreenBoard,
     Settings,
     SignalsSummary,
@@ -38,25 +36,17 @@ from app.models.schemas import (
 from app.analysis import political
 from app.analysis.network import apply_network
 from app.data import truth_social
-from app.network.service import build_company_graph, build_graph
+from app.network.service import build_company_graph
 from app.network.store import (
     active_graph,
     add_import_set,
     delete_import_set,
     delete_ontology,
-    delete_saved_graph,
-    effective_graph,
     get_active_ontology,
     list_import_sets,
     list_ontologies,
-    list_saved_graphs,
-    load_company_graph,
-    load_graph,
     load_import_graph,
     load_ontology,
-    load_overlay,
-    save_company_graph,
-    save_graph,
     save_ontology,
     set_active_ontology,
 )
@@ -505,20 +495,6 @@ def get_graph(cache: Cache = Depends(get_cache)) -> KnowledgeGraph:
     return active_graph(cache)
 
 
-@router.post("/graph/rebuild", response_model=KnowledgeGraph)
-def rebuild_graph(
-    cache: Cache = Depends(get_cache),
-    store: SettingsStore = Depends(get_settings_store),
-) -> KnowledgeGraph:
-    settings = store.load()
-    graph = build_graph(None, settings, cache)
-    save_graph(graph, cache)
-    board = load_snapshot(cache, "all")
-    if board is not None:
-        save_snapshot(apply_network(board, effective_graph(cache, "focus"), settings), cache)
-    return graph
-
-
 @router.get("/graph/company/{ticker}", response_model=KnowledgeGraph)
 def get_company_graph(
     ticker: str,
@@ -612,32 +588,6 @@ def put_active(
         raise HTTPException(status_code=404, detail=f"No ontology '{payload.name}'")
     _rebake_board(store.load(), cache)
     return ActiveOntology(name=get_active_ontology(cache))
-
-
-@router.get("/graph/saved", response_model=list[SavedGraphSummary])
-def list_saved(cache: Cache = Depends(get_cache)) -> list[SavedGraphSummary]:
-    return list_saved_graphs(cache)
-
-
-@router.post("/graph/saved", response_model=SavedGraphVersion)
-def save_saved(payload: SavedGraphVersion, cache: Cache = Depends(get_cache)) -> SavedGraphVersion:
-    stamped = payload.model_copy(update={"saved_at": datetime.now(timezone.utc).isoformat()})
-    return save_company_graph(stamped, cache)
-
-
-@router.get("/graph/saved/{root}", response_model=SavedGraphVersion)
-def get_saved(
-    root: str, version: str | None = None, cache: Cache = Depends(get_cache)
-) -> SavedGraphVersion:
-    found = load_company_graph(root, cache, version)
-    if found is None:
-        raise HTTPException(status_code=404, detail=f"No saved graph for '{root}'")
-    return found
-
-
-@router.delete("/graph/saved/{root}")
-def delete_saved(root: str, version: str | None = None, cache: Cache = Depends(get_cache)) -> dict:
-    return {"deleted": delete_saved_graph(root, cache, version)}
 
 
 @router.post("/graph/import", response_model=ImportReport)

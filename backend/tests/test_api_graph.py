@@ -6,7 +6,7 @@ from app.config.cache import Cache
 from app.deps import get_cache
 from app.main import app
 from app.models.schemas import GraphEdge, KnowledgeGraph, OntologyVersion, ScreenBoard, StockScore
-from app.network.store import load_graph, save_ontology, set_active_ontology
+from app.network.store import save_ontology, set_active_ontology
 from app.screener.store import load_snapshot, save_snapshot
 
 
@@ -22,28 +22,10 @@ def client(tmp_path):
         app.dependency_overrides.pop(get_cache, None)
 
 
-def test_get_graph_empty_when_none(client):
+def test_get_graph_empty_when_no_active(client):
     tc, _ = client
-    r = tc.get("/api/graph?scope=does-not-exist")
+    r = tc.get("/api/graph")
     assert r.status_code == 200 and r.json()["edges"] == []
-
-
-def test_rebuild_builds_and_bakes(client, monkeypatch):
-    tc, cache = client
-    save_snapshot(ScreenBoard(scope="all", items=[
-        StockScore(ticker="AAPL", name="Apple", price=1, change_pct=0, score=50, direction="hold", net=0.0),
-        StockScore(ticker="TSM", name="Taiwan Semi", price=1, change_pct=0, score=40, direction="sell", net=-0.9),
-    ]), cache)
-    graph = KnowledgeGraph(scope="focus", nodes=["AAPL", "TSM"], edges=[
-        GraphEdge(source="AAPL", target="TSM", type="supplier", sentiment="negative",
-                  weight=1.0, confidence=1.0)], built=1)
-    monkeypatch.setattr(routes, "build_graph", lambda scope, settings, cache: graph)
-
-    r = tc.post("/api/graph/rebuild")
-    assert r.status_code == 200 and r.json()["built"] == 1
-    assert load_graph(cache, "focus") is not None
-    aapl = next(i for i in load_snapshot(cache, "all").items if i.ticker == "AAPL")
-    assert aapl.network is not None
 
 
 def test_rescan_applies_cached_graph(client, monkeypatch):
@@ -76,31 +58,6 @@ def test_company_graph_endpoint(client, monkeypatch):
     assert r.json()["scope"] == "company:AAPL" and r.json()["nodes"] == ["AAPL", "TSM"]
 
 
-def test_saved_graph_crud(client):
-    tc, _ = client
-    payload = {
-        "root": "AAPL", "expanded": ["AAPL"],
-        "graph": {"as_of": "", "scope": "company:AAPL", "nodes": ["AAPL", "TSM"],
-                  "edges": [], "built": 1, "skipped": 0},
-    }
-    r = tc.post("/api/graph/saved", json=payload)
-    assert r.status_code == 200
-    v = r.json()
-    assert v["root"] == "AAPL" and v["saved_at"]  # server-stamped
-
-    r = tc.get("/api/graph/saved")
-    assert r.status_code == 200
-    summ = r.json()
-    assert summ[0]["root"] == "AAPL" and len(summ[0]["versions"]) == 1
-
-    r = tc.get("/api/graph/saved/AAPL")
-    assert r.status_code == 200 and r.json()["graph"]["nodes"] == ["AAPL", "TSM"]
-
-    r = tc.delete("/api/graph/saved/AAPL")
-    assert r.status_code == 200 and r.json()["deleted"] is True
-    assert tc.get("/api/graph/saved/AAPL").status_code == 404
-
-
 from app.models.schemas import UniverseEntry
 
 
@@ -125,23 +82,6 @@ def test_import_creates_a_set(client, monkeypatch):
     assert len(sets) == 1 and sets[0]["edge_count"] == 1
 
 
-def test_import_feeds_scoring_after_rebuild(client, monkeypatch):
-    tc, cache = client
-    _stub_universe(monkeypatch)
-    save_snapshot(ScreenBoard(scope="all", items=[
-        StockScore(ticker="AAPL", name="Apple", price=1, change_pct=0, score=50,
-                   direction="hold", net=0.0, base_score=50, base_net=0.0)]), cache)
-    monkeypatch.setattr(routes, "build_graph",
-                        lambda scope, settings, cache: KnowledgeGraph(scope="focus"))
-    tc.post("/api/graph/import", json={"name": "d", "payload": {"edges": [
-        {"source": "AAPL", "target": "MSFT", "type": "partner",
-         "sentiment": "positive", "weight": 1.0, "confidence": 1.0}]}})
-    r = tc.post("/api/graph/rebuild")
-    assert r.status_code == 200
-    aapl = next(i for i in load_snapshot(cache, "all").items if i.ticker == "AAPL")
-    assert aapl.network is not None and aapl.network.signed > 0  # imported edge moved the signal
-
-
 def test_list_and_delete_import(client, monkeypatch):
     tc, _ = client
     _stub_universe(monkeypatch)
@@ -153,7 +93,6 @@ def test_list_and_delete_import(client, monkeypatch):
     r = tc.delete("/api/graph/imports", params={"set_id": sid})
     assert r.status_code == 200 and r.json()["deleted"] is True
     assert tc.get("/api/graph/imports").json() == []
-
 
 
 def test_get_single_import_set(client, monkeypatch):

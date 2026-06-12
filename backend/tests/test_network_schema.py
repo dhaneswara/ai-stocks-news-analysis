@@ -39,16 +39,3 @@ def test_settings_has_network_defaults():
     assert n.alpha_event == 0.6 and n.beta_state == 0.4
 
 
-def test_saved_graph_version_round_trip():
-    from app.models.schemas import SavedGraphSummary, SavedGraphVersion
-
-    v = SavedGraphVersion(
-        root="AAPL", saved_at="2026-06-06T00:00:00+00:00", expanded=["AAPL", "TSM"],
-        graph=KnowledgeGraph(scope="company:AAPL", nodes=["AAPL", "TSM"], edges=[
-            GraphEdge(source="AAPL", target="TSM", type="supplier")], built=1),
-    )
-    again = SavedGraphVersion.model_validate_json(v.model_dump_json())
-    assert again.root == "AAPL" and again.expanded == ["AAPL", "TSM"]
-    assert again.graph.edges[0].target == "TSM"
-    s = SavedGraphSummary(root="AAPL", versions=["2026-06-06T00:00:00+00:00"])
-    assert s.root == "AAPL" and s.versions == ["2026-06-06T00:00:00+00:00"]
