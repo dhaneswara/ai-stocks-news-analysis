@@ -8,13 +8,13 @@ import type { KnowledgeGraph, ScreenBoard, Settings } from '../types';
 // Canvas can't render in jsdom — mock it; render a select button per node so tests can select.
 vi.mock('../components/GraphCanvas', () => ({
   GraphCanvas: ({ nodes, onSelect, onDeleteNode, onAddRelationship, onAddCompany }: {
-    nodes: { id: string }[]; onSelect: (id: string) => void;
+    nodes: { id: string; score?: number }[]; onSelect: (id: string) => void;
     onDeleteNode: (id: string) => void; onAddRelationship: (id: string) => void;
     onAddCompany: () => void;
     watchlist: string[]; onToggleWatch: (id: string) => void;
   }) => (
     <div data-testid="graph-canvas">
-      {nodes.map((n) => <button key={n.id} onClick={() => onSelect(n.id)}>{`sel-${n.id}`}</button>)}
+      {nodes.map((n) => <button key={n.id} data-score={n.score} onClick={() => onSelect(n.id)}>{`sel-${n.id}`}</button>)}
       {nodes.map((n) => <button key={`del-${n.id}`} onClick={() => onDeleteNode(n.id)}>{`del-${n.id}`}</button>)}
       {nodes.map((n) => <button key={`add-${n.id}`} onClick={() => onAddRelationship(n.id)}>{`add-${n.id}`}</button>)}
       <button onClick={onAddCompany}>canvas-add-company</button>
@@ -312,4 +312,27 @@ it('adds AAPL to watchlist via the sidebar detail panel watchlist button', async
       expect.objectContaining({ watchlist: expect.arrayContaining(['AAPL']) }),
     ),
   );
+});
+
+it('node colour prefers portfolio board over all board for the same ticker', async () => {
+  const pfAapl = {
+    ticker: 'AAPL', score: 90, direction: 'buy' as const, in_sp500: true,
+    name: 'Apple', sector: 'Tech', exchange: 'NASDAQ', price: 1, change_pct: 0, net: 0.6,
+    reasons: [], components: {}, as_of: 't',
+  };
+  const allAapl = {
+    ticker: 'AAPL', score: 10, direction: 'sell' as const, in_sp500: true,
+    name: 'Apple', sector: 'Tech', exchange: 'NASDAQ', price: 1, change_pct: 0, net: -0.6,
+    reasons: [], components: {}, as_of: 't',
+  };
+  vi.mocked(api.getScreen).mockImplementation((_s, _d, _l, scope) =>
+    scope === 'portfolio'
+      ? Promise.resolve({ as_of: 't', scope: 'portfolio', scanned: 1, skipped: 0, items: [pfAapl] })
+      : Promise.resolve({ as_of: 't', scope: 'all', scanned: 1, skipped: 0, items: [allAapl] }),
+  );
+  renderGraph();
+  await addCompany('AAPL');
+  const aaplBtn = await screen.findByRole('button', { name: 'sel-AAPL' });
+  // Portfolio board (score 90) must win over all-board (score 10)
+  expect(aaplBtn).toHaveAttribute('data-score', '90');
 });

@@ -9,7 +9,7 @@ import {
 } from '../hooks/queries';
 import { addCompanyNode, addManualEdge, addManualNode, applyFilters, COMPANY_TICKER_RE, deleteEdge, deleteNode, mergeGraph, mergeNodes, renameNode, resolveManualTarget, toLinks, type ViewNode } from '../lib/graphView';
 import { loadExplorerState, saveExplorerState } from '../lib/explorerStore';
-import type { EdgeSentiment, GraphEdge, ImportReport, KnowledgeGraph, RelationType } from '../types';
+import type { EdgeSentiment, GraphEdge, ImportReport, KnowledgeGraph, RelationType, ScreenBoard } from '../types';
 import { api } from '../api/client';
 
 const ALL_TYPES: RelationType[] = ['supplier', 'customer', 'partner', 'competitor', 'owner', 'subsidiary', 'other'];
@@ -17,7 +17,13 @@ const EMPTY_GRAPH: KnowledgeGraph = { as_of: '', scope: 'explore', nodes: [], ed
 
 export default function Graph() {
   const restored = useMemo(() => loadExplorerState(), []);
-  const board = useScreen(undefined, undefined, 0); // full uncapped board for node colour/size
+  const allBoard = useScreen(undefined, undefined, 0); // full uncapped board for node colour/size
+  const pfBoard = useScreen(undefined, undefined, 0, 'portfolio'); // portfolio board wins on conflict
+  const boardItems = useMemo(() => {
+    const m = new Map((allBoard.data?.items ?? []).map((s) => [s.ticker, s]));
+    for (const s of pfBoard.data?.items ?? []) m.set(s.ticker, s); // portfolio wins on conflict
+    return [...m.values()];
+  }, [allBoard.data, pfBoard.data]);
   const ego = useEgoGraph();
   const ontologies = useOntologies();
   const activeOnto = useActiveOntology();
@@ -194,7 +200,7 @@ export default function Graph() {
 
   const addRelationship = (data: { target: string; type: RelationType; sentiment: EdgeSentiment; note: string }) => {
     if (!working || !addingFrom) return;
-    const t = resolveManualTarget(data.target, working, board.data?.items ?? []);
+    const t = resolveManualTarget(data.target, working, boardItems);
     const edge: GraphEdge = {
       source: addingFrom, target: t.id, type: data.type, sentiment: data.sentiment,
       weight: 0.5, confidence: 0.9, evidence: data.note, url: '', as_of: new Date().toISOString(), origin: 'manual',
@@ -221,8 +227,8 @@ export default function Graph() {
 
   const view = useMemo(() => {
     const g = working ?? EMPTY_GRAPH;
-    return applyFilters(mergeNodes(g, board.data), toLinks(g), null, enabledTypes);
-  }, [working, board.data, enabledTypes]);
+    return applyFilters(mergeNodes(g, { items: boardItems } as ScreenBoard), toLinks(g), null, enabledTypes);
+  }, [working, boardItems, enabledTypes]);
 
   const selected = useMemo<ViewNode | null>(
     () => view.nodes.find((n) => n.id === selectedId) ?? null,
@@ -297,7 +303,7 @@ export default function Graph() {
         {mergeImport && (
           <MergePreview
             key={mergeSetId ?? 'merge'}
-            working={working ?? EMPTY_GRAPH} importSet={mergeImport} board={board.data?.items ?? []}
+            working={working ?? EMPTY_GRAPH} importSet={mergeImport} board={boardItems}
             onApply={applyMergeResult} onCancel={cancelMerge}
           />
         )}
