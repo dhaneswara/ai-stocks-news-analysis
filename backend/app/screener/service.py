@@ -59,10 +59,10 @@ def _resolve_entries(scope: str | None, settings: Settings, cache: Cache) -> lis
     scan); a sector name / None defers to load_universe. Custom companies are merged in by a
     later phase."""
     if scope == "portfolio":
-        known = {e.ticker: e for e in load_universe()}
+        known = {e.ticker: e for e in load_universe(cache=cache)}
         return [known.get(t, UniverseEntry(ticker=t, name=t, sector=""))
                 for t in portfolio_universe(settings, cache)]
-    return load_universe(scope)
+    return load_universe(scope, cache=cache)   # merge custom companies into the broad scan
 
 
 def iter_scan(scope: str | None, settings: Settings, cache: Cache) -> Iterator[ScanProgress | ScreenBoard]:

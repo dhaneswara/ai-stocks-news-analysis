@@ -30,7 +30,7 @@ def _stock(ticker, rsi_last=50.0, week52_low=50.0):
 
 
 def test_run_scan_ranks_and_tags_sector(tmp_path, monkeypatch):
-    monkeypatch.setattr(service, "load_universe", lambda scope=None: [
+    monkeypatch.setattr(service, "load_universe", lambda scope=None, cache=None: [
         UniverseEntry(ticker="AAA", name="A", sector="Tech"),
         UniverseEntry(ticker="BBB", name="B", sector="Tech"),
     ])
@@ -48,7 +48,7 @@ def test_run_scan_ranks_and_tags_sector(tmp_path, monkeypatch):
 
 
 def test_run_scan_skips_failures(tmp_path, monkeypatch):
-    monkeypatch.setattr(service, "load_universe", lambda scope=None: [
+    monkeypatch.setattr(service, "load_universe", lambda scope=None, cache=None: [
         UniverseEntry(ticker="OK", name="O", sector="Tech"),
         UniverseEntry(ticker="BAD", name="X", sector="Tech"),
     ])
@@ -65,7 +65,7 @@ def test_run_scan_skips_failures(tmp_path, monkeypatch):
 
 
 def test_iter_scan_yields_progress_then_board(tmp_path, monkeypatch):
-    monkeypatch.setattr(service, "load_universe", lambda scope=None: [
+    monkeypatch.setattr(service, "load_universe", lambda scope=None, cache=None: [
         UniverseEntry(ticker="OK", name="O", sector="Tech"),
         UniverseEntry(ticker="BAD", name="X", sector="Tech"),
         UniverseEntry(ticker="OK2", name="O2", sector="Tech"),
@@ -159,6 +159,24 @@ def test_scan_portfolio_scope_synthesizes_entries_and_tags(monkeypatch):
     assert by["AAPL"].in_sp500 is True and by["PRIV"].in_sp500 is False
     assert by["PRIV"].exchange == "NASDAQ"           # from fetched StockData
     assert by["PRIV"].sector == "Tech"               # synth entry had no sector -> fall back to stock
+
+
+def test_scan_all_includes_custom_companies(tmp_path, monkeypatch):
+    from app.data import universe
+    cache = Cache(str(tmp_path / "c.db"))
+    universe.add_custom(UniverseEntry(ticker="PRIV", name="Priv", sector="Tech", exchange="NYSE"), cache)
+
+    # Tiny committed list + the custom merge, so the scan stays fast and deterministic.
+    monkeypatch.setattr(
+        service, "load_universe",
+        lambda sector=None, cache=None: ([UniverseEntry(ticker="AAA", name="A", sector="Tech")]
+                                         + (universe.list_custom(cache) if cache else [])))
+    monkeypatch.setattr(service, "get_stock_data", lambda t, *a, **k: _stock(t))
+
+    board = service.run_scan(None, Settings(), cache)
+    tickers = {i.ticker for i in board.items}
+    assert "PRIV" in tickers and "AAA" in tickers
+    assert next(i for i in board.items if i.ticker == "PRIV").in_sp500 is False
 
 
 def test_combined_base_index_portfolio_overrides_all(tmp_path):
