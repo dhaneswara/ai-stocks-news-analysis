@@ -67,6 +67,7 @@ class UniverseEntry(BaseModel):
     ticker: str
     name: str
     sector: str
+    exchange: str = ""
 
 
 class TruthPost(BaseModel):
@@ -216,6 +217,8 @@ class StockData(BaseModel):
     ticker: str
     company_name: str
     as_of: str
+    exchange: str = ""
+    sector: str = ""
     price: PriceSummary
     candles: list[Candle]
     fundamentals: Fundamentals
@@ -408,6 +411,8 @@ class StockScore(BaseModel):
     ticker: str
     name: str
     sector: str = ""
+    exchange: str = ""
+    in_sp500: bool = True
     price: float
     change_pct: float
     score: float                       # 0–100 opportunity
