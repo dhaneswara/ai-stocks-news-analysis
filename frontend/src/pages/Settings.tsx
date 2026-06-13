@@ -1,7 +1,13 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useListModels, useProviders, useSaveSettings, useSettings } from '../hooks/queries';
-import type { AlertConfig, ProviderId, Settings as SettingsT, TestResult, TruthSignalConfig } from '../types';
+import type { AlertConfig, NewsConfig, ProviderId, Settings as SettingsT, TestResult, TruthSignalConfig } from '../types';
+
+const DEFAULT_NEWS: NewsConfig = {
+  active_provider: 'google',
+  providers: { google: {api_key:'',mcp_url:''}, tavily: {api_key:'',mcp_url:''}, exa: {api_key:'',mcp_url:''}, you: {api_key:'',mcp_url:''} },
+  news_recency_days: 90,
+};
 
 export default function Settings() {
   const settingsQuery = useSettings();
@@ -10,6 +16,7 @@ export default function Settings() {
   const [form, setForm] = useState<SettingsT | null>(null);
   const [test, setTest] = useState<TestResult | null>(null);
   const [alertTest, setAlertTest] = useState<TestResult | null>(null);
+  const [newsTest, setNewsTest] = useState<TestResult | null>(null);
   const [saved, setSaved] = useState(false);
   const listModels = useListModels();
   const [models, setModels] = useState<Record<string, string[]>>({});
@@ -40,6 +47,11 @@ export default function Settings() {
   const updateAlerts = (patch: Partial<AlertConfig>) => update({ alerts: { ...form.alerts, ...patch } });
   const updateTruth = (patch: Partial<TruthSignalConfig>) => update({ truth_signal: { ...form.truth_signal, ...patch } });
 
+  const news = form.news ?? DEFAULT_NEWS;
+  const updateNews = (patch: Partial<NewsConfig>) => update({ news: { ...news, ...patch } });
+  const updateNewsKey = (key: string) =>
+    updateNews({ providers: { ...news.providers, [news.active_provider]: { ...news.providers[news.active_provider], api_key: key } } });
+
   const onSave = () => save.mutate(form, { onSuccess: () => setSaved(true) });
   const onTest = async () => {
     setTest(null);
@@ -50,6 +62,11 @@ export default function Settings() {
     setAlertTest(null);
     await save.mutateAsync(form);
     setAlertTest(await api.testAlert());
+  };
+  const onTestNews = async () => {
+    setNewsTest(null);
+    await save.mutateAsync(form);
+    setNewsTest(await api.testNews(news.active_provider));
   };
   const onFetchModels = async () => {
     setModelsMsg(null);
@@ -183,6 +200,36 @@ export default function Settings() {
           />
         </div>
       )}
+
+      <h3>News source</h3>
+      <div className="field">
+        <label htmlFor="news-source">News source</label>
+        <select id="news-source" value={news.active_provider}
+                onChange={(e) => updateNews({ active_provider: e.target.value as NewsConfig['active_provider'] })}>
+          <option value="google">Google News (default)</option>
+          <option value="tavily">Tavily (MCP)</option>
+          <option value="exa">Exa (MCP)</option>
+          <option value="you">you.com (MCP)</option>
+        </select>
+        <p className="muted">Where Expand neighbours reads news to build the ontology.</p>
+      </div>
+      {news.active_provider !== 'google' && (
+        <>
+          <div className="field">
+            <label htmlFor="news-key">News API key</label>
+            <input id="news-key" type="password"
+                   value={news.providers[news.active_provider].api_key}
+                   onChange={(e) => updateNewsKey(e.target.value)} placeholder="****" />
+          </div>
+          <button className="secondary" onClick={onTestNews} disabled={save.isPending}>Test connection</button>
+          {newsTest && <span className={`note ${newsTest.ok ? 'muted' : 'error'}`} style={{ marginLeft: 8 }}>{newsTest.ok ? '✓ ' : '✗ '}{newsTest.message}</span>}
+        </>
+      )}
+      <div className="field">
+        <label htmlFor="news-recency">News recency (days)</label>
+        <input id="news-recency" type="number" value={news.news_recency_days}
+               onChange={(e) => updateNews({ news_recency_days: Number(e.target.value) })} />
+      </div>
 
       <div className="settings-actions">
         <button onClick={onSave} disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save'}</button>

@@ -13,6 +13,8 @@ vi.mock('../api/client', () => ({
     testProvider: vi.fn(),
     testAlert: vi.fn(),
     getMood: vi.fn(),
+    testNews: vi.fn(),
+    getNewsProviders: vi.fn(),
   },
 }));
 
@@ -31,6 +33,11 @@ const SETTINGS: SettingsT = {
   screener: { enabled: true, top_n: 25, default_sector: null, rsi_low: 30, rsi_high: 70, weights: {} },
   network: { enabled: true, focus_top_n: 30, max_edges_per_company: 8, min_confidence: 0.4, weight: 0.5, alpha_event: 0.6, beta_state: 0.4, symmetric_types: ['competitor', 'partner', 'other'] },
   evaluation: { enabled: true, horizons: [1, 5, 20], hold_band_pct: 2.0, score_scale_pct: 5.0 },
+  news: {
+    active_provider: 'google',
+    providers: { google: {api_key:'',mcp_url:''}, tavily: {api_key:'',mcp_url:''}, exa: {api_key:'',mcp_url:''}, you: {api_key:'',mcp_url:''} },
+    news_recency_days: 90,
+  },
 };
 
 const PROVIDERS: ProviderInfo[] = [
@@ -53,6 +60,18 @@ function renderSettings() {
     </QueryClientProvider>,
   );
 }
+
+describe('Settings news source', () => {
+  it('switches news provider and shows the API key field + recency', async () => {
+    renderSettings();
+    const select = await screen.findByLabelText(/news source/i);
+    fireEvent.change(select, { target: { value: 'tavily' } });
+    expect(screen.getByLabelText(/news api key/i)).toBeInTheDocument();
+    const recency = screen.getByLabelText(/news recency/i);
+    fireEvent.change(recency, { target: { value: '30' } });
+    expect((recency as HTMLInputElement).value).toBe('30');
+  });
+});
 
 describe('Settings fetch models', () => {
   it('fetches and renders the model dropdown', async () => {
