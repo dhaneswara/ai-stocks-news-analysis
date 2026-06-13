@@ -256,6 +256,14 @@ class AnalysisResult(BaseModel):
     network: Optional[NetworkSignal] = None
 
 
+class LastAnalysis(BaseModel):
+    """The most recent persisted analysis for a ticker, restored read-only on the Dashboard."""
+    result: AnalysisResult
+    source: str
+    call_date: str
+    created_at: float
+
+
 # All CALL sources tracked by the evaluation engine (mirrors app/evaluation/store.py).
 Source = Literal["llm_fast", "llm_deep", "technical", "network"]
 

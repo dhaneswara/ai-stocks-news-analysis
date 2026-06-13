@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
@@ -11,7 +11,13 @@ from fastapi.responses import StreamingResponse
 from app.alerts.notifier import build_notifier
 from app.config.cache import Cache
 from app.config.settings_store import SettingsStore, mask_settings, merge_settings
-from app.deps import get_cache, get_prediction_store, get_settings_store, get_trace_store
+from app.deps import (
+    get_analysis_snapshot_store,
+    get_cache,
+    get_prediction_store,
+    get_settings_store,
+    get_trace_store,
+)
 from app.llm.base import LLMError
 from app.llm.factory import build_provider, resolve_config
 from app.models.schemas import (
@@ -22,6 +28,7 @@ from app.models.schemas import (
     ImportReport,
     ImportSetSummary,
     KnowledgeGraph,
+    LastAnalysis,
     OntologySummary,
     OntologyVersion,
     RescanEvent,
@@ -57,6 +64,7 @@ from app.evaluation.store import SOURCE_LLM_DEEP, SOURCE_LLM_FAST, PredictionSto
 from app.analysis.agent import AgentEvent, AgentTrace, ReActAgent, ToolContext
 from app.analysis.trace_store import AgentTraceStore
 from app.services.analysis_service import gather_stock_context, run_analysis
+from app.services.analysis_snapshot_store import AnalysisSnapshotStore
 from app.services.stock_service import get_stock_data
 from app.analysis.relationships import TickerResolver
 from app.network.import_model import normalize_import
@@ -130,6 +138,26 @@ def analyze_ticker(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except LLMError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+@router.get("/analysis/{ticker}", response_model=Optional[LastAnalysis])
+def get_last_analysis(
+    ticker: str,
+    snapshot_store: AnalysisSnapshotStore = Depends(get_analysis_snapshot_store),
+) -> Optional[LastAnalysis]:
+    """The most recent persisted analysis for a ticker — read-only Dashboard restore. Pure read:
+    no compute, no recording, no evaluation impact. Returns null when none exists or the stored
+    JSON is unreadable (never a 500)."""
+    row = snapshot_store.latest(ticker)
+    if row is None:
+        return None
+    try:
+        result = AnalysisResult.model_validate_json(row.result_json)
+    except Exception:  # noqa: BLE001 — a corrupt snapshot is "no snapshot", not an error
+        logger.warning("corrupt analysis snapshot for %s", ticker)
+        return None
+    return LastAnalysis(result=result, source=row.source, call_date=row.call_date,
+                        created_at=row.created_at)
 
 
 def _sse(event: AgentEvent | WatchlistRunEvent | RescanEvent) -> str:
