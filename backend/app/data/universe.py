@@ -42,6 +42,16 @@ def list_sectors() -> list[str]:
     return sorted({e.sector for e in _all_entries()})
 
 
+@lru_cache
+def _sp500_tickers() -> frozenset[str]:
+    return frozenset(e.ticker for e in _all_entries())
+
+
+def is_sp500_member(ticker: str) -> bool:
+    """True iff the ticker is in the committed S&P 500 list (never includes custom companies)."""
+    return ticker.upper().strip() in _sp500_tickers()
+
+
 def _fetch_sp500_html(url: str = WIKI_SP500_URL) -> str:
     """Isolated network I/O (swappable in tests). Wikipedia 403s the default UA."""
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (sp500-universe-refresh)"})
