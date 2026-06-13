@@ -8,9 +8,11 @@ from app.config.cache import Cache
 from app.data.universe import load_universe
 from app.llm.factory import build_provider
 from app.models.schemas import KnowledgeGraph, Settings
+from app.news.factory import build_news_provider
 from app.services.stock_service import get_stock_data
 
 NETWORK_PERIOD = "1y"
+NEWS_LIMIT = 10
 
 
 def build_company_graph(
@@ -39,8 +41,12 @@ def build_company_graph(
 
     try:
         stock = get_stock_data(t, NETWORK_PERIOD, settings.indicator_params, cache)
+        query = f"{stock.company_name} ({t}) stock"
+        stock.news = build_news_provider(settings).search(
+            query, limit=NEWS_LIMIT, recency_days=settings.news.news_recency_days
+        )
         edges = extract_relationships(stock, resolver, provider, model, provider_id, cache, ncfg, now=now)
-    except Exception:  # noqa: BLE001 — no data / extraction error -> lone node
+    except Exception:  # noqa: BLE001 — no data / provider / extraction error -> lone node
         return KnowledgeGraph(as_of=now.isoformat(), scope=scope, nodes=[t])
 
     nodes = {t}

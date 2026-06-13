@@ -51,3 +51,27 @@ def test_company_graph_disabled_returns_lone_node(tmp_path, monkeypatch):
     settings = Settings(); settings.network.enabled = False
     g = service.build_company_graph("AAPL", settings, Cache(str(tmp_path / "c.db")))
     assert g.nodes == ["AAPL"] and g.edges == [] and g.built == 0
+
+
+def test_build_company_graph_uses_news_provider(monkeypatch, tmp_path):
+    from app.config.cache import Cache
+    from app.models.schemas import NewsConfig, NewsItem, Settings
+    from app.network import service
+
+    captured = {}
+    class FakeProvider:
+        def search(self, query, *, limit, recency_days):
+            captured.update(query=query, recency_days=recency_days)
+            return [NewsItem(title="deal", source="", published_at="", url="http://x", summary="")]
+
+    class FakeStock:
+        ticker, company_name, news = "AAPL", "Apple Inc.", []
+
+    monkeypatch.setattr(service, "build_news_provider", lambda s: FakeProvider())
+    monkeypatch.setattr(service, "get_stock_data", lambda *a, **k: FakeStock())
+    monkeypatch.setattr(service, "extract_relationships",
+                        lambda stock, *a, **k: list(getattr(stock, "news", [])) and [])
+    s = Settings(news=NewsConfig(news_recency_days=45))
+    service.build_company_graph("AAPL", s, Cache(str(tmp_path / "c.db")))
+    assert captured["query"] == "Apple Inc. (AAPL) stock"
+    assert captured["recency_days"] == 45
