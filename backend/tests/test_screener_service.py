@@ -140,3 +140,22 @@ def test_portfolio_universe_unions_watchlist_and_ontology_tickers(monkeypatch):
     out = service.portfolio_universe(s, cache=None)
     # watchlist first (deduped, upper-cased), then ontology TICKER nodes (ext:/man: skipped)
     assert out == ["AAPL", "MSFT", "NVDA"]
+
+
+def test_scan_portfolio_scope_synthesizes_entries_and_tags(monkeypatch):
+    s = Settings()
+    s.watchlist = ["AAPL", "PRIV"]   # PRIV is NOT in sp500.json
+    monkeypatch.setattr(service, "active_graph", lambda cache: KnowledgeGraph(nodes=[]))
+
+    def fake_get(ticker, *a, **k):
+        st = _stock(ticker)
+        return st.model_copy(update={"exchange": "NASDAQ", "sector": "Tech"})
+
+    monkeypatch.setattr(service, "get_stock_data", fake_get)
+    board = service.run_scan("portfolio", s, Cache(str(__import__("tempfile").mkdtemp() + "/c.db")))
+
+    assert board.scope == "portfolio"
+    by = {i.ticker: i for i in board.items}
+    assert by["AAPL"].in_sp500 is True and by["PRIV"].in_sp500 is False
+    assert by["PRIV"].exchange == "NASDAQ"           # from fetched StockData
+    assert by["PRIV"].sector == "Tech"               # synth entry had no sector -> fall back to stock

@@ -53,11 +53,23 @@ def portfolio_universe(settings: Settings, cache: Cache) -> list[str]:
     return order
 
 
+def _resolve_entries(scope: str | None, settings: Settings, cache: Cache) -> list[UniverseEntry]:
+    """Map a scan scope to its universe entries. `"portfolio"` synthesizes an entry per
+    portfolio ticker (name/sector from the universe when known, else filled live during the
+    scan); a sector name / None defers to load_universe. Custom companies are merged in by a
+    later phase."""
+    if scope == "portfolio":
+        known = {e.ticker: e for e in load_universe()}
+        return [known.get(t, UniverseEntry(ticker=t, name=t, sector=""))
+                for t in portfolio_universe(settings, cache)]
+    return load_universe(scope)
+
+
 def iter_scan(scope: str | None, settings: Settings, cache: Cache) -> Iterator[ScanProgress | ScreenBoard]:
     """Scan the universe, yielding a ScanProgress per ticker and the finished board last.
 
     Progress is emitted BEFORE each fetch so a stalled ticker is identifiable by name."""
-    entries = load_universe(scope)
+    entries = _resolve_entries(scope, settings, cache)
     ts = settings.truth_signal
     posts = (
         truth_social.fetch_recent_posts_cached(ts.lookback_hours, ts.source_url, cache)
@@ -74,7 +86,9 @@ def iter_scan(scope: str | None, settings: Settings, cache: Cache) -> Iterator[S
             stock = get_stock_data(entry.ticker, SCAN_PERIOD, settings.indicator_params, cache)
             mentions = political.find_mentions(posts, entry.ticker, stock.company_name)
             score = score_stock(stock, mentions, settings.screener)
-            score.sector = entry.sector
+            score.sector = entry.sector or stock.sector
+            score.exchange = stock.exchange
+            score.in_sp500 = is_sp500_member(entry.ticker)
             items.append(score)
         except Exception:  # noqa: BLE001 — a bad ticker must never abort the whole scan
             skipped += 1
