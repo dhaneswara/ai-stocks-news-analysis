@@ -125,6 +125,7 @@ it('saves the working graph as a named ontology', async () => {
 
 it('exports the working graph as JSON via the Export button', async () => {
   renderGraph();
+  expect(await screen.findByRole('button', { name: /^export$/i })).toBeDisabled(); // empty canvas
   await addCompany('AAPL');
   fireEvent.change(screen.getByRole('textbox', { name: /ontology name/i }), { target: { value: 'Tech' } });
   fireEvent.click(screen.getByRole('button', { name: /^export$/i }));
