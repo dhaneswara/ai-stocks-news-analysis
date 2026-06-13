@@ -97,3 +97,38 @@ def test_score_one_skips_reverse_directional_edge(tmp_path, monkeypatch):
     s.truth_signal.enabled = False
     out = score_one("AAPL", s, cache)
     assert out.network is None
+
+
+def test_score_one_prefers_portfolio_neighbour_state(tmp_path, monkeypatch):
+    # MSFT appears in BOTH boards with different base_net; the portfolio value must win.
+    cache = Cache(str(tmp_path / "c.db"))
+    monkeypatch.setattr(service, "get_stock_data", lambda *a, **k: _stock())
+    save_ontology(OntologyVersion(name="t", saved_at="t",
+                                  graph=KnowledgeGraph(scope="explore", nodes=["AAPL", "MSFT"], edges=[
+                                      GraphEdge(source="AAPL", target="MSFT", type="partner",
+                                                sentiment="neutral", weight=1.0, confidence=1.0)])),
+                  cache)
+    set_active_ontology("t", cache)
+    save_snapshot(ScreenBoard(scope="all", items=[
+        StockScore(ticker="MSFT", name="MS", price=1, change_pct=0, score=50, direction="hold",
+                   net=-0.5, base_score=50, base_net=-0.5)]), cache)
+    save_snapshot(ScreenBoard(scope="portfolio", items=[
+        StockScore(ticker="MSFT", name="MS", price=1, change_pct=0, score=80, direction="buy",
+                   net=0.7, base_score=80, base_net=0.7)]), cache)
+    s = Settings()
+    s.truth_signal.enabled = False
+    out = score_one("AAPL", s, cache)
+    # partner + positive neighbour state (portfolio base_net=+0.7) -> bullish tilt, not bearish.
+    assert out.network is not None and out.network.signed > 0
+
+
+def test_score_one_tags_exchange_and_membership(tmp_path, monkeypatch):
+    cache = Cache(str(tmp_path / "c.db"))
+    monkeypatch.setattr(service, "get_stock_data",
+                        lambda *a, **k: _stock().model_copy(update={"exchange": "NASDAQ"}))
+    s = Settings()
+    s.network.enabled = False
+    s.truth_signal.enabled = False
+    assert score_one("AAPL", s, cache).exchange == "NASDAQ"
+    assert score_one("AAPL", s, cache).in_sp500 is True
+    assert score_one("PRIV", s, cache).in_sp500 is False    # not in committed S&P list

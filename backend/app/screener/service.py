@@ -13,7 +13,7 @@ from app.data.universe import is_sp500_member, load_universe
 from app.analysis.network import blend_network_into_score, compute_network_signal, incident_edges
 from app.models.schemas import ScreenBoard, Settings, StockScore, UniverseEntry
 from app.network.store import active_graph
-from app.screener.store import load_snapshot
+from app.screener.store import combined_base_index, load_snapshot
 from app.services.stock_service import get_stock_data
 
 SCAN_PERIOD = "1y"  # enough history for SMA200, RSI, 1-month momentum, 52-wk extremes
@@ -129,12 +129,13 @@ def score_one(ticker: str, settings: Settings, cache: Cache) -> StockScore:
     mentions = political.find_mentions(posts, ticker, stock.company_name)
     score = score_stock(stock, mentions, settings.screener)
     score.sector = next((e.sector for e in load_universe() if e.ticker == ticker), "")
+    score.exchange = stock.exchange
+    score.in_sp500 = is_sp500_member(ticker)
 
     if settings.network.enabled:
         try:
             graph = active_graph(cache)
-            board = load_snapshot(cache, "all")
-            base_index = {s.ticker: s for s in (board.items if board else [])}
+            base_index = combined_base_index(cache)
             edges = incident_edges(ticker, graph.edges, set(settings.network.symmetric_types))
             if edges:
                 sig = compute_network_signal(ticker, edges, base_index, settings.network)
