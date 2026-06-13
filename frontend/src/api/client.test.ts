@@ -162,6 +162,14 @@ describe('api client', () => {
     expect(url).toContain('/graph/imports/');
     expect(url).toContain('%3A'); // colon encoded
   });
+
+  it('addCustomCompany POSTs the ticker', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ entry: { ticker: 'PRIV', name: 'Priv', sector: 'Tech', exchange: 'NYSE' }, price: 42.5 }), { status: 200 }));
+    await api.addCustomCompany('PRIV');
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('/universe/custom'),
+      expect.objectContaining({ method: 'POST' }));
+  });
 });
 
 describe('signals / snapshot / explainPrediction with source', () => {

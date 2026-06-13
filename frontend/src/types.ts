@@ -71,6 +71,16 @@ export interface StockScore {
   as_of: string;
   network?: NetworkSignal | null;
 }
+export interface CustomCompany {
+  ticker: string;
+  name: string;
+  sector: string;
+  exchange: string;
+}
+export interface AddCustomResult {
+  entry: CustomCompany;
+  price: number;
+}
 export interface ScreenBoard {
   as_of: string;
   scope: string;

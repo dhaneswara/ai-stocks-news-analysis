@@ -1,6 +1,8 @@
 import type {
+  AddCustomResult,
   AgentEvent,
   AnalysisResult,
+  CustomCompany,
   EvaluationBoard,
   ImportReport,
   ImportSetSummary,
@@ -95,6 +97,11 @@ export const api = {
   deleteImport: (id: string) =>
     http<{ deleted: boolean }>(`/graph/imports?set_id=${encodeURIComponent(id)}`, { method: 'DELETE' }),
   getImportSet: (id: string) => http<KnowledgeGraph>(`/graph/imports/${encodeURIComponent(id)}`),
+  listCustomCompanies: () => http<CustomCompany[]>('/universe/custom'),
+  addCustomCompany: (ticker: string) =>
+    http<AddCustomResult>('/universe/custom', { method: 'POST', body: JSON.stringify({ ticker }) }),
+  deleteCustomCompany: (ticker: string) =>
+    http<{ deleted: boolean }>(`/universe/custom/${encodeURIComponent(ticker)}`, { method: 'DELETE' }),
   refreshUniverse: () =>
     http<{ count: number; sectors: Record<string, number>; source: string }>('/universe/refresh', {
       method: 'POST',

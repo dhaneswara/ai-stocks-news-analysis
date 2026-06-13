@@ -91,6 +91,29 @@ export function useRefreshUniverse() {
   });
 }
 
+export function useCustomCompanies() {
+  return useQuery({ queryKey: ['customCompanies'], queryFn: api.listCustomCompanies });
+}
+
+export function useAddCustomCompany() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ticker: string) => api.addCustomCompany(ticker),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['customCompanies'] });
+      qc.invalidateQueries({ queryKey: ['sectors'] });
+    },
+  });
+}
+
+export function useDeleteCustomCompany() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ticker: string) => api.deleteCustomCompany(ticker),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['customCompanies'] }),
+  });
+}
+
 export function useEgoGraph() {
   return useMutation({ mutationFn: (ticker: string) => api.getCompanyGraph(ticker) });
 }
