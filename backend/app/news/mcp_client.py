@@ -10,11 +10,24 @@ import asyncio
 from app.news.base import NewsError
 
 
+def _import_mcp():
+    """Import the MCP client lazily (isolated for testability + clear failure wrapping)."""
+    from mcp import ClientSession
+    from mcp.client.streamable_http import streamablehttp_client
+
+    return ClientSession, streamablehttp_client
+
+
 def call_tool_text(
     url: str, tool: str, arguments: dict, *, headers: dict | None = None, timeout: float = 20.0
 ) -> str:
-    from mcp import ClientSession
-    from mcp.client.streamable_http import streamablehttp_client
+    try:
+        ClientSession, streamablehttp_client = _import_mcp()
+    except Exception as e:  # noqa: BLE001 — SDK/native-dep import failure -> actionable error
+        raise NewsError(
+            f"MCP client unavailable: {e}. On Windows the mcp SDK requires pywin32 (installed "
+            "with the backend deps) — reinstall the backend and fully restart the server."
+        ) from e
 
     async def _run() -> str:
         async with streamablehttp_client(url, headers=headers or {}) as (read, write, _):
