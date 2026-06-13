@@ -58,14 +58,16 @@ export const api = {
     http<{ models: string[]; error: string }>(`/providers/${encodeURIComponent(id)}/models`),
   testAlert: () => http<TestResult>('/alerts/test', { method: 'POST' }),
   getMood: () => http<{ enabled: boolean; post_count: number; mood: MarketMood | null }>('/truth/mood'),
-  getScreen: (sector?: string, direction?: string, limit?: number) => {
+  getScreen: (sector?: string, direction?: string, limit?: number, scope?: string) => {
     const q = new URLSearchParams();
+    if (scope) q.set('scope', scope);
     if (sector) q.set('sector', sector);
     if (direction) q.set('direction', direction);
     if (limit != null) q.set('limit', String(limit));
     const qs = q.toString();
     return http<ScreenBoard>(`/screen${qs ? `?${qs}` : ''}`);
   },
+  getPortfolioTickers: () => http<{ tickers: string[] }>('/portfolio/tickers'),
   getSectors: () => http<string[]>('/screen/sectors'),
   getScore: (ticker: string) => http<StockScore>(`/score/${encodeURIComponent(ticker)}`),
   getSignals: (ticker: string) => http<SignalsSummary>(`/signals/${encodeURIComponent(ticker)}`),
@@ -158,10 +160,10 @@ export interface RescanStreamHandlers {
  *  and invoke on unmount/stop — EventSource auto-reconnects otherwise, which would restart
  *  the scan. Closing mid-scan aborts it server-side; nothing is saved. */
 export function streamRescan(
-  sector: string | undefined,
+  scope: string | undefined,
   handlers: RescanStreamHandlers,
 ): () => void {
-  const url = `${BASE}/screen/rescan/stream${sector ? `?sector=${encodeURIComponent(sector)}` : ''}`;
+  const url = `${BASE}/screen/rescan/stream${scope ? `?scope=${encodeURIComponent(scope)}` : ''}`;
   const es = new EventSource(url);
   const forward = (type: RescanEvent['type']) => (e: MessageEvent) => {
     try {

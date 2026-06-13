@@ -16,7 +16,7 @@ interface ProcessesValue {
   snapshotNow: () => void;
   /** Rescan with the watchlist snapshot chained — the chain lives HERE so it survives
    *  page navigation (a call-site onSuccess dies with the page that registered it). */
-  rescanAndSnapshot: (sector?: string) => void;
+  rescanAndSnapshot: (scope?: string) => void;
 }
 
 const RunContext = createContext<ProcessesValue | null>(null);
@@ -51,10 +51,10 @@ export function WatchlistRunProvider({ children }: { children: ReactNode }) {
     snapshotMutate();
   }, [runReset, rescanReset, snapshotMutate]);
 
-  const rescanAndSnapshot = useCallback((sector?: string) => {
+  const rescanAndSnapshot = useCallback((scope?: string) => {
     runReset();
     snapshotReset();
-    rescanStart(sector, () => snapshotMutate());
+    rescanStart(scope, () => snapshotMutate());
   }, [runReset, snapshotReset, rescanStart, snapshotMutate]);
 
   return (

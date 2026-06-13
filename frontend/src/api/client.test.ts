@@ -72,6 +72,15 @@ describe('api client', () => {
     expect(fetchMock.mock.calls[0][0] as string).toContain('limit=0');
   });
 
+  it('getScreen passes scope=portfolio', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(JSON.stringify({ as_of: '', scope: 'portfolio', scanned: 0, skipped: 0, items: [] }),
+        { status: 200 }),
+    );
+    await api.getScreen(undefined, undefined, 0, 'portfolio');
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining('scope=portfolio'), expect.anything());
+  });
+
   it('getCompanyGraph GETs /graph/company/{ticker}', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ nodes: ['AAPL'], edges: [] }) });
     vi.stubGlobal('fetch', fetchMock);
@@ -295,10 +304,10 @@ describe('streamRescan', () => {
     expect(es.closed).toBe(true); // closed after the terminal done
   });
 
-  it('carries the sector in the URL', () => {
+  it('carries the scope in the URL', () => {
     (globalThis as unknown as { EventSource: unknown }).EventSource = FakeEventSource;
     streamRescan('Information Technology', { onEvent: vi.fn(), onError: vi.fn() });
-    expect(FakeEventSource.last!.url).toContain('?sector=Information%20Technology');
+    expect(FakeEventSource.last!.url).toContain('?scope=Information%20Technology');
   });
 
   it('forwards a server-sent error event with data and closes', () => {

@@ -63,11 +63,15 @@ export function useSectors() {
   return useQuery({ queryKey: ['sectors'], queryFn: api.getSectors });
 }
 
-export function useScreen(sector?: string, direction?: string, limit?: number) {
+export function useScreen(sector?: string, direction?: string, limit?: number, scope?: string) {
   return useQuery({
-    queryKey: ['screen', sector ?? '', direction ?? '', limit ?? ''],
-    queryFn: () => api.getScreen(sector, direction, limit),
+    queryKey: ['screen', sector ?? '', direction ?? '', limit ?? '', scope ?? ''],
+    queryFn: () => api.getScreen(sector, direction, limit, scope),
   });
+}
+
+export function usePortfolioTickers() {
+  return useQuery({ queryKey: ['portfolio', 'tickers'], queryFn: api.getPortfolioTickers });
 }
 
 export function useScore(ticker: string) {

@@ -31,13 +31,13 @@ export function useRescanRun() {
   const runningRef = useRef(false);
   const onDoneRef = useRef<(() => void) | undefined>(undefined);
 
-  const start = useCallback((sector?: string, onDone?: () => void) => {
+  const start = useCallback((scope?: string, onDone?: () => void) => {
     if (runningRef.current) return;
     runningRef.current = true;
     onDoneRef.current = onDone;
     closeRef.current?.(); // a prior errored run may have left its stream open
     setState({ ...IDLE, phase: 'running' });
-    closeRef.current = streamRescan(sector, {
+    closeRef.current = streamRescan(scope, {
       onEvent: (e) => {
         if (e.type === 'tick') {
           setState((s) => ({
