@@ -12,9 +12,7 @@ interface ProcessesValue {
   rescan: ReturnType<typeof useRescanRun>;
   /** Start a fast/deep batch, clearing the other processes' leftover status first. */
   startRun: (mode: 'fast' | 'deep') => void;
-  /** Snapshot now, clearing the other processes' leftover status first. */
-  snapshotNow: () => void;
-  /** Rescan with the watchlist snapshot chained — the chain lives HERE so it survives
+  /** Rescan with the snapshot chained — the chain lives HERE so it survives
    *  page navigation (a call-site onSuccess dies with the page that registered it). */
   rescanAndSnapshot: (scope?: string) => void;
 }
@@ -45,12 +43,6 @@ export function WatchlistRunProvider({ children }: { children: ReactNode }) {
     runStart(mode);
   }, [snapshotReset, rescanReset, runStart]);
 
-  const snapshotNow = useCallback(() => {
-    runReset();
-    rescanReset();
-    snapshotMutate();
-  }, [runReset, rescanReset, snapshotMutate]);
-
   const rescanAndSnapshot = useCallback((scope?: string) => {
     runReset();
     snapshotReset();
@@ -59,7 +51,7 @@ export function WatchlistRunProvider({ children }: { children: ReactNode }) {
 
   return (
     <RunContext.Provider
-      value={{ run, snapshot, rescan, startRun, snapshotNow, rescanAndSnapshot }}
+      value={{ run, snapshot, rescan, startRun, rescanAndSnapshot }}
     >
       {children}
     </RunContext.Provider>

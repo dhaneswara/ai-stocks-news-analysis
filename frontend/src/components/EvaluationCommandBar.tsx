@@ -7,18 +7,17 @@ const CHIP_ICON: Record<TickerRunStatus, string> = {
   running: '⏳', done: '✓', skipped: '−', failed: '✗',
 };
 
-/** One button per watchlist-wide process, ordered as a left-to-right pipeline: full
- *  Discover rescan (refreshes the board the network call blends against, then chains the
- *  snapshot itself), snapshot technical/network calls (the cheap alternative when the
- *  board is fresh), and the fast/deep LLM batches (live per-ticker progress + Stop). One
- *  process at a time. */
+/** One button per portfolio-wide process, ordered as a left-to-right pipeline: the
+ *  portfolio rescan (re-scores watchlist + ontology, then chains the technical/network
+ *  snapshot itself — so no separate snapshot button is needed now the scan is fast), and
+ *  the fast/deep LLM batches (live per-ticker progress + Stop). One process at a time. */
 export function EvaluationCommandBar() {
   const settings = useSettings();
   const portfolio = usePortfolioTickers();
   const count = portfolio.data?.tickers.length ?? 0;
   // All four processes live at app level — they survive page navigation, and each
   // wrapped action clears the previous process's status so the bar tells one story.
-  const { run, snapshot, rescan, startRun, snapshotNow, rescanAndSnapshot } = useWatchlistRunContext();
+  const { run, snapshot, rescan, startRun, rescanAndSnapshot } = useWatchlistRunContext();
 
   const running = run.phase === 'running';
   const scanning = rescan.phase === 'running';
@@ -55,13 +54,6 @@ export function EvaluationCommandBar() {
           {scanning
             ? rescan.total ? `Scanning… ${rescan.scanned}/${rescan.total}` : 'Scanning…'
             : 'Rescan portfolio'}
-        </button>
-        <button
-          disabled={disabled}
-          title="Records today's technical/network calls from the latest board data — rescan first if the board is stale."
-          onClick={() => snapshotNow()}
-        >
-          {snapshot.isPending ? 'Snapshotting…' : 'Snapshot technical/network'}
         </button>
         <button
           disabled={disabled}
@@ -115,7 +107,7 @@ export function EvaluationCommandBar() {
         {run.phase === 'error' && run.message && <p className="error">Run failed: {run.message}</p>}
         {snapshot.data && (
           <p className="muted">
-            ✓ Recorded {snapshot.data.recorded} watchlist signal{snapshot.data.recorded === 1 ? '' : 's'} for
+            ✓ Recorded {snapshot.data.recorded} portfolio signal{snapshot.data.recorded === 1 ? '' : 's'} for
             evaluation{snapshot.data.skipped.length ? ` (${snapshot.data.skipped.length} skipped)` : ''}.
           </p>
         )}

@@ -151,7 +151,6 @@ describe('Evaluation page', () => {
     renderPage();
     expect(await screen.findByRole('button', { name: /fast llm analysis/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /deep llm analysis/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /snapshot technical\/network/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /rescan portfolio/i })).toBeInTheDocument();
   });
 });

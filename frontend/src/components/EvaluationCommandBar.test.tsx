@@ -59,17 +59,16 @@ beforeEach(() => {
 });
 
 describe('EvaluationCommandBar', () => {
-  it('renders the four process buttons once the portfolio loads', async () => {
+  it('renders the three process buttons once the portfolio loads', async () => {
     renderBar();
     expect(await screen.findByText(/run on your portfolio \(2 tickers/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /snapshot technical\/network/i })).toBeEnabled();
     expect(screen.getByRole('button', { name: /fast llm analysis/i })).toBeEnabled();
     expect(screen.getByRole('button', { name: /deep llm analysis/i })).toBeEnabled();
     expect(screen.getByRole('button', { name: /rescan portfolio/i })).toBeEnabled();
-    // Pipeline order: the rescan (which chains the snapshot) leads, as the freshest first step.
+    // Pipeline order: the rescan (which chains the snapshot) leads, then the LLM batches.
     const names = screen.getAllByRole('button').map((b) => b.textContent);
-    expect(names.slice(0, 4)).toEqual([
-      'Rescan portfolio', 'Snapshot technical/network', 'Fast LLM analysis', 'Deep LLM analysis (slow)',
+    expect(names.slice(0, 3)).toEqual([
+      'Rescan portfolio', 'Fast LLM analysis', 'Deep LLM analysis (slow)',
     ]);
     // The when-to-run hint renders with live clock data (either market state is valid here).
     expect(screen.getByText(/US market is (open|closed)/)).toBeInTheDocument();
@@ -88,14 +87,7 @@ describe('EvaluationCommandBar', () => {
     renderBar();
     expect(await screen.findByText(/your portfolio is empty/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /fast llm analysis/i })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /snapshot technical\/network/i })).toBeDisabled();
-  });
-
-  it('snapshot button records and reports', async () => {
-    renderBar();
-    fireEvent.click(await screen.findByRole('button', { name: /snapshot technical\/network/i }));
-    expect(await screen.findByText(/recorded 2 watchlist signals/i)).toBeInTheDocument();
-    expect(api.snapshotEvaluation).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: /rescan portfolio/i })).toBeDisabled();
   });
 
   it('rescan shows live tick progress, then chains a snapshot on done', async () => {
@@ -114,6 +106,7 @@ describe('EvaluationCommandBar', () => {
     act(() => rescanHandlers.current!.onEvent({ type: 'done', scanned: 3, skipped: 1 }));
     expect(screen.getByText(/✓ board rescanned — 3 scanned, 1 skipped/i)).toBeInTheDocument();
     await waitFor(() => expect(api.snapshotEvaluation).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText(/recorded 2 portfolio signals/i)).toBeInTheDocument();
   });
 
   it('rescan can be stopped — stream closed, nothing-saved note, no snapshot', async () => {
@@ -141,7 +134,7 @@ describe('EvaluationCommandBar', () => {
     act(() => handlers.current!.onEvent({ type: 'start', total: 2, tickers: ['AAPL', 'MSFT'] }));
     act(() => handlers.current!.onEvent({ type: 'ticker', ticker: 'AAPL', status: 'running' }));
     expect(screen.getByText(/⏳ AAPL/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /snapshot technical\/network/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /rescan portfolio/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /stop/i })).toBeInTheDocument();
 
     act(() => handlers.current!.onEvent({
@@ -153,7 +146,7 @@ describe('EvaluationCommandBar', () => {
 
     act(() => handlers.current!.onEvent({ type: 'done', analyzed: 1, skipped: 1, failed: 0 }));
     expect(screen.getByText(/analyzed 1 · skipped 1 · failed 0/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /snapshot technical\/network/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /rescan portfolio/i })).toBeEnabled();
   });
 
   it('renders failed and fell-back chips', async () => {
@@ -190,9 +183,8 @@ describe('EvaluationCommandBar', () => {
     expect(screen.getByText(/stopped — run again/i)).toBeInTheDocument();
     expect(screen.getByText(/· AAPL/)).toBeInTheDocument();
 
-    // Snapshot next: the stopped run's residue vanishes; only the snapshot result shows.
-    fireEvent.click(screen.getByRole('button', { name: /snapshot technical\/network/i }));
-    expect(await screen.findByText(/recorded 2 watchlist signals/i)).toBeInTheDocument();
+    // Rescan next: starting it resets the stopped run's residue (rescanAndSnapshot runs runReset).
+    fireEvent.click(screen.getByRole('button', { name: /rescan portfolio/i }));
     expect(screen.queryByText(/stopped — run again/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/· AAPL/)).not.toBeInTheDocument();
   });
