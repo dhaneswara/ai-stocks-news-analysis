@@ -12,10 +12,16 @@ def _stock(ticker):
                      candles=[], fundamentals=Fundamentals(), indicators=Indicators())
 
 
+class _FakeNews:
+    def search(self, query, *, limit, recency_days):
+        return []
+
+
 def _wire(monkeypatch, edges_for):
     monkeypatch.setattr(service, "build_provider", lambda s: object())
     monkeypatch.setattr(service, "load_universe", lambda: [])
     monkeypatch.setattr(service, "get_stock_data", lambda t, *a, **k: _stock(t))
+    monkeypatch.setattr(service, "build_news_provider", lambda s: _FakeNews())  # no real network
     monkeypatch.setattr(service, "extract_relationships",
                         lambda stock, *a, **k: edges_for.get(stock.ticker, []))
 
