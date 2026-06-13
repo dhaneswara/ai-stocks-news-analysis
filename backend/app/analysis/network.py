@@ -132,6 +132,12 @@ def apply_network(board: ScreenBoard, graph: KnowledgeGraph, settings: Settings,
                   base_override: dict[str, StockScore] | None = None) -> ScreenBoard:
     """Fold a capped ``network`` family into each focus company's score/direction.
 
+    Pure: reads neighbours' BASE scores (one hop, no feedback) and returns a new board. Blends
+    from each row's ``base_score``/``base_net`` (never the already-blended values), so applying
+    it twice is idempotent and never double-counts. Rows whose edges have disappeared (graph
+    emptied or edge removed) are reset to their base values — true re-bake semantics for
+    activate/deactivate/save-ontology flows.
+
     Neighbour states come from the board's own rows; ``base_override`` supplies states for
     neighbours NOT on the board (the all-board fallback when blending the portfolio board).
     Board rows always win, preserving the one-hop / blend-from-base invariants.
