@@ -5,8 +5,10 @@ data, fundamentals, and recent news for a stock, computes simple technical indic
 and asks an **LLM (Anthropic / OpenAI / Gemini / DeepSeek / local Ollama)** to produce a structured
 analysis — a plain-language summary, a read on the news, and **buy/sell signals drawn
 directly on an interactive chart** with the reasoning shown on the page. It can also send
-**scheduled buy/sell alerts** to Telegram, rank opportunities across the S&P 500, map
-inter-company relationships as a **knowledge graph**, run an **agentic Deep Analysis** that
+**scheduled buy/sell alerts** to Telegram, rank opportunities across the S&P 500 — or focus
+on just your own **portfolio** (your watchlist plus the companies in your active knowledge
+graph), scored the same way but in seconds — map inter-company relationships as a
+**knowledge graph**, run an **agentic Deep Analysis** that
 pulls evidence on demand, and **grade how accurate its own past calls turn out to be — for
 every signal source it produces** (fast LLM, deep LLM, technical screen, network-blended).
 
@@ -59,16 +61,40 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   boundaries (very short tickers and multi-word names can over- or under-match). The read
   is "as of the day's first analysis per ticker" (mirrors the per-day cache); real-time
   reaction to a breaking post is out of scope.
+- **Portfolio — your focused board** — a **Portfolio** tab scores just your own universe:
+  your **watchlist plus the ticker nodes in your active ontology** (non-ticker `ext:`/`man:`
+  nodes are excluded). Because it covers only those names instead of all ~503 S&P 500
+  constituents, a rescan takes **seconds, not minutes**. The board reuses the same shared
+  `ScoreBoard` UI as Discover — each row shows score, call, and reason chips; click any row
+  to open the full Dashboard deep-dive. An as-of line, a **Rescan portfolio** button (which
+  also chains the technical/network snapshot), and a **Stop** button while scanning complete
+  the bar; when the portfolio is empty an inline prompt directs you to add to your watchlist
+  or activate an ontology. The portfolio board is cached separately under scope `"portfolio"`.
+  Beyond its own tab, the portfolio data is the **primary scoring source** via base-index
+  precedence: a `combined_base_index` (portfolio board overlaid on the broad Discover `all`
+  board, portfolio wins) feeds the single-ticker score chip on the Dashboard Signals strip,
+  the fast/deep LLM prompts' network section, and Graph node colours/scores — each falling
+  back to the broad Discover scan for any ticker not in the portfolio.
+  *Note:* the portfolio board snapshot is refreshed only by **Rescan portfolio** — it is not
+  auto-re-baked on an ontology change (since the ontology is the portfolio's very membership,
+  a real rescan is needed to re-score it).
 - **Discover — opportunity board** — a **Discover** tab auto-ranks the S&P 500 (or a
   sector slice) by a 0–100 opportunity score computed with a fast, no-LLM scorer (RSI /
   52-wk extremes, golden/death cross + SMA alignment, 1-month momentum, breakout proximity,
   volume surge, and an optional Trump-mention boost). Each row shows the score, a
-  buy/sell/hold call, and plain-language reason chips. Clicking a row deep-links into the
-  existing per-ticker LLM analysis. Filter by sector/direction and use the **Show** control
+  buy/sell/hold call, and plain-language reason chips; an **Exchange** column (NASDAQ / NYSE /
+  etc.) and an **S&P** column badge each row as **S&P 500** or **Custom**. A **search box**
+  above the board filters rows by ticker or company name (client-side). **Custom (non-S&P 500)
+  companies** can be added via an **"Add company"** form — enter a ticker and the app
+  auto-fetches the name, exchange, sector, and current price from market data and saves it
+  permanently; it is then scanned on the Discover board alongside the S&P 500 and flagged
+  **Custom**, removable via an × on its row. Clicking a row deep-links into the existing
+  per-ticker LLM analysis. Filter by sector/direction and use the **Show** control
   (25 / 50 / 100 / All) to set how many ranked names appear; **Update S&P 500 list** rescrapes
   the current constituents from Wikipedia (validated, atomic write). A **Rescan** button
   triggers a fresh scan on demand; the daily snapshot can also be refreshed automatically via
-  `python -m app.screener` (see [backend/README.md](backend/README.md)).
+  `python -m app.screener` (see [backend/README.md](backend/README.md)). Every button on the
+  page has a tooltip.
   *Caveats:* decision support only — the board is a screen, not a recommendation system;
   ranking ≠ prediction; data is end-of-day (not intraday); a Trump mention boosts attention
   but never determines the buy/sell direction.
@@ -103,13 +129,14 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   by-source breakdown and a source filter, an **overconfidence** flag for the LLM calls, and a
   source-aware **"Explain miss"** LLM post-mortem, plus a confirm-guarded **Clear all results**
   reset that wipes every recorded call and score — start the experiment over once you're done
-  testing. Your watchlist's technical/network calls are
-  snapshotted automatically every time you **Rescan** Discover; an **action bar on the
-  Evaluation page** can also run every process watchlist-wide on demand — snapshot the
-  technical/network calls, batch the **fast** or **deep** LLM analysis across the whole
-  watchlist (live per-ticker progress, a Stop button, and already-recorded tickers skipped so
-  reruns only fill gaps), or trigger a full Discover rescan; a deep run that silently fell back
-  to the fast path is honestly recorded as fast so the deep-vs-fast comparison never lies.
+  testing. The **action bar on the Evaluation page** runs processes across your whole
+  **portfolio (watchlist + active ontology)** on demand — its buttons are **Rescan portfolio**
+  (re-scores the portfolio and chains the technical/network snapshot), **Fast LLM analysis**,
+  and **Deep LLM analysis** (live per-ticker progress, a Stop button, and already-recorded
+  tickers skipped so reruns only fill gaps); the old standalone snapshot button and the
+  full-Discover-rescan button are gone — **Rescan portfolio** covers both. A deep run that
+  silently fell back to the fast path is honestly recorded as fast so the deep-vs-fast
+  comparison never lies.
   Every process **keeps running while you browse other pages** — the LLM batches, the rescan
   (including its chained snapshot) and the snapshot all live at app level, with a pulsing
   masthead chip showing live progress from anywhere (a browser refresh or closed tab still
@@ -136,17 +163,17 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
 ```
 ┌─────────────────────────┐      REST/JSON      ┌──────────────────────────────┐
 │ Frontend (React+Vite+TS) │  ───────────────▶  │ Backend (FastAPI, Python)      │
-│  Dashboard·Discover·Graph│  ◀───────────────  │  data · indicators · news      │
-│  Evaluation · Settings   │                    │  LLM providers · analyzer      │
-└─────────────────────────┘                    │  settings/cache (SQLite)       │
-                                                │  alerts·screener·network·eval  │
+│  Dashboard · Portfolio · │  ◀───────────────  │  data · indicators · news      │
+│  Discover · Graph        │                    │  LLM providers · analyzer      │
+│  Evaluation · Settings   │                    │  settings/cache (SQLite)       │
+└─────────────────────────┘                    │  alerts·screener·network·eval  │
                                                 └──────────────────────────────┘
 ```
 
 - **Backend** (`backend/`) — FastAPI REST API + the `python -m app.alerts`,
   `python -m app.screener`, `python -m app.network`, and `python -m app.evaluation` CLIs.
   See [backend/README.md](backend/README.md).
-- **Frontend** (`frontend/`) — React app (Dashboard · Discover · Graph · Evaluation ·
+- **Frontend** (`frontend/`) — React app (Dashboard · Portfolio · Discover · Graph · Evaluation ·
   Settings). See [frontend/README.md](frontend/README.md).
 - **Design docs** — specs and implementation plans under [docs/superpowers/](docs/superpowers/).
 
@@ -207,22 +234,29 @@ npm run dev                        # http://localhost:5173
    for a fast call — or **Deep Analysis** to watch the agent pull data step-by-step — to draw
    buy/sell markers and show the reasoning + news. The **Signals strip** in the header is the
    one place to compare all four calls (technical / network / fast / deep) before you act.
-4. **Discover (optional):** open the **Discover** tab and click **Rescan all** to build
+4. **Discover (optional):** open the **Discover** tab and click **Rescan** to build
    today's opportunity board across the full S&P 500. Click any row to open the
-   LLM deep-dive for that ticker. Each rescan also snapshots your watchlist's
-   technical/network calls into the Evaluation scoreboard. For an automatic daily refresh,
-   schedule `python -m app.screener` post-close (see [backend/README.md](backend/README.md)).
-5. **Alerts (optional):** in **Settings → Alerts**, enable alerts, paste a Telegram bot token
+   LLM deep-dive for that ticker. You can also **add a custom company** (non-S&P 500) via
+   the "Add company" form — the app auto-fills its name, exchange, and sector. For an
+   automatic daily refresh, schedule `python -m app.screener` post-close (see
+   [backend/README.md](backend/README.md)).
+5. **Portfolio (optional):** open the **Portfolio** tab and click **Rescan portfolio** to
+   score just your watchlist plus the companies in your active ontology — the scan takes
+   seconds. The portfolio board becomes the primary scoring source for the Dashboard Signals
+   strip, LLM prompts, and Graph node colours (falling back to the broad Discover scan for
+   any ticker not in the portfolio). Build your watchlist on the Dashboard and your ontology
+   on the Graph tab, then rescan here to keep it current.
+6. **Alerts (optional):** in **Settings → Alerts**, enable alerts, paste a Telegram bot token
    (from [@BotFather](https://t.me/BotFather)) + your chat id, set RSI thresholds, and click
    **Send test alert**. Then schedule `python -m app.alerts` daily (see
    [backend/README.md](backend/README.md) for Windows Task Scheduler / cron steps).
-6. **Evaluation (optional):** after a few days of analyses and rescans, open the
+7. **Evaluation (optional):** after a few days of analyses and rescans, open the
    **Evaluation** tab to see how accurate the calls were — per source (technical / network /
    LLM fast / LLM deep) and per company (1/5/20-day hit-rate, score, grade) — and click
-   **Explain miss** on a bad one. The action bar at the top runs any process for the whole
-   watchlist — snapshot technical/network calls, fast/deep LLM batches, or a full Discover
-   rescan — without visiting the other pages. For unattended scoring, schedule
-   `python -m app.evaluation` (see [backend/README.md](backend/README.md)).
+   **Explain miss** on a bad one. The action bar runs on your **portfolio (watchlist + active
+   ontology)**: click **Rescan portfolio** (re-scores and snapshots), **Fast LLM analysis**,
+   or **Deep LLM analysis** — all without visiting the other pages. For unattended scoring,
+   schedule `python -m app.evaluation` (see [backend/README.md](backend/README.md)).
 
 ## Testing
 
@@ -254,12 +288,15 @@ Curated, high-value additions (roughly in priority order):
 3. **Per-provider accuracy** — the Evaluation page already breaks accuracy out **by signal
    source** (technical / network / fast LLM / deep LLM) and records which provider/model made
    each call; also break the rollups out by provider to see which LLM is most reliable.
-4. **Watchlist overview page** — a multi-ticker table (price, RSI, recommendation, last
-   signal) so you can scan the whole list at a glance, not one ticker at a time.
+4. **Portfolio board enhancements** — the new Portfolio page already provides a focused
+   multi-ticker board (watchlist + active ontology, rescanned in seconds). Remaining
+   enhancements: inline price and RSI columns so you can compare current technicals at a
+   glance without opening each ticker.
 5. **Richer indicators** — MACD and Bollinger Bands (compute + chart overlays + new alert
    rules); make the indicator set user-configurable.
 6. **Portfolio tracking** — enter holdings and show P/L plus position-aware context in the
-   analysis.
+   analysis. (This is distinct from the new Portfolio *scan* page, which scores opportunities
+   across your watchlist + ontology — not about holdings or P/L.)
 7. **Auth + deployment** — optional login and a Docker compose / one-box deploy so it can
    run as an always-on service (enabling true server-side scheduled jobs without the OS scheduler).
 8. **Export** — download an analysis (chart + reasoning + news) as PDF/CSV.

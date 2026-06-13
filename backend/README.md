@@ -1,8 +1,9 @@
 # Backend — MarketCortex
 
 FastAPI service: US-stock data + indicators + news + multi-provider LLM analysis (single-shot
-**and** agentic Deep Analysis), opportunity screening, a company knowledge graph, and a
-**multi-source recommendation-accuracy scoreboard**.
+**and** agentic Deep Analysis), opportunity screening (broad S&P 500 board **and** a focused
+**portfolio board** for your watchlist + active ontology — the primary scoring source),
+a company knowledge graph, and a **multi-source recommendation-accuracy scoreboard**.
 
 ## Setup
 
@@ -38,18 +39,22 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 - `GET  /api/stock/{ticker}?period=2y`
 - `POST /api/analyze/{ticker}?period=2y` — runs the fast LLM analysis (and records the call **plus a technical/network baseline** for evaluation)
 - `GET  /api/analyze/{ticker}/deep/stream?period=2y` — agentic **Deep Analysis** streamed as Server-Sent Events (records as `llm_deep`; persists the agent trace)
-- `GET  /api/analyze/watchlist/stream?mode=fast|deep&period=2y` — run the fast/deep analysis for **every watchlist ticker** as one SSE batch (per-ticker progress events; a ticker whose matching-source call already exists for its latest trading day is skipped)
+- `GET  /api/analyze/watchlist/stream?mode=fast|deep&period=2y` — run the fast/deep analysis for **every portfolio ticker (watchlist + active ontology)** as one SSE batch (per-ticker progress events; a ticker whose matching-source call already exists for its latest trading day is skipped)
 - `GET  /api/traces/{ticker}?limit=5` — recent persisted deep-analysis reasoning traces (newest first)
 - `GET  /api/score/{ticker}` — no-LLM opportunity score for one ticker (Discover parity, network-blended)
 - `GET  /api/signals/{ticker}` — every recorded CALL source for one ticker + per-source track records, agreement and the historically best source (powers the Dashboard Signals strip)
 - `GET  /api/settings` · `PUT /api/settings`
 - `GET  /api/providers` · `POST /api/providers/{id}/test`
 - `GET  /api/truth/mood` — current Truth Social mood + post count
-- `GET  /api/screen?sector=&direction=&limit=` — read the latest opportunity board
-- `POST /api/screen/rescan?sector=` — trigger a fresh scan and persist the result
-- `GET  /api/screen/rescan/stream?sector=` — the same scan as SSE with live per-ticker progress (one `tick` per ticker, terminal `done`; the UI's rescan buttons use this)
+- `GET  /api/screen?sector=&direction=&limit=&scope=` — read the latest opportunity board; `scope=portfolio` reads the portfolio board (watchlist + active-ontology tickers)
+- `POST /api/screen/rescan?scope=` — trigger a fresh scan and persist the result; `scope=` accepts `portfolio`, a sector name, or none (full S&P 500); `sector=` still accepted
+- `GET  /api/screen/rescan/stream?scope=` — the same scan as SSE with live per-ticker progress (one `tick` per ticker, terminal `done`; the UI's rescan buttons use this); same `scope=` values
 - `GET  /api/screen/sectors` — list available sectors from the universe file
+- `GET  /api/portfolio/tickers` — the portfolio universe (watchlist ∪ active-ontology tickers); drives the Portfolio page empty-state and the Evaluation command-bar count
 - `POST /api/universe/refresh` — rescrape the S&P 500 constituents from Wikipedia (validated, atomic)
+- `GET  /api/universe/custom` — list custom (non-S&P 500) companies
+- `POST /api/universe/custom` `{ticker}` — auto-fetch a company's name, exchange, sector, and price from market data and persist it permanently; returns 422 if the ticker is unknown
+- `DELETE /api/universe/custom/{ticker}` — remove a custom company
 - `GET  /api/graph` — the active ontology's graph (empty when no ontology is active)
 - `GET  /api/graph/company/{ticker}` — one-hop ego graph for a single company (explore / expand)
 - `GET  /api/graph/ontologies` — list all saved ontologies (name, version count, active flag)
@@ -62,7 +67,7 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 - `GET  /api/graph/imports` · `DELETE /api/graph/imports?set_id=` — list / remove import sets
 - `GET  /api/graph/imports/{id}` — one import set's graph (for the merge-into-canvas MergePreview)
 - `GET  /api/evaluation` — recommendation-accuracy board with per-source rollups (runs lazy scoring first)
-- `POST /api/evaluation/snapshot` — record today's technical/network calls for the whole watchlist (fired by Discover after a rescan; no body)
+- `POST /api/evaluation/snapshot` — record today's technical/network calls for the whole **portfolio** (watchlist + active ontology; fired by Rescan portfolio; no body)
 - `DELETE /api/evaluation` — start over: delete every recorded call and score across all tickers (per-ticker variant: `DELETE /api/evaluation/{ticker}`)
 - `POST /api/evaluation/{ticker}/{call_date}/explain?source=llm_fast` — on-demand LLM post-mortem on a missed call (source-aware)
 - `DELETE /api/evaluation/{ticker}` — stop tracking a company (clears its recorded calls, all sources)
@@ -94,7 +99,30 @@ reaction to a breaking post is out of scope for this version.
 
 The **Discover** tab ranks the S&P 500 (or a sector slice) by a 0–100 opportunity score
 computed with a pure, deterministic scorer — **no LLM call on the board path**. Clicking a
-row opens the existing per-ticker LLM deep-dive on the Dashboard.
+row opens the existing per-ticker LLM deep-dive on the Dashboard. Each row carries an
+**`exchange`** field (friendly exchange name) and an **`in_sp500`** boolean; custom companies
+(added via `POST /api/universe/custom`) are merged into `load_universe` and scanned in the
+`all` board flagged non-member.
+
+### Portfolio board
+
+`GET /api/screen?scope=portfolio` reads the portfolio board — a separate cached snapshot
+(key `screen_snapshot:portfolio`) that covers only the **portfolio universe**: the union of
+`settings.watchlist` and the ticker nodes in the active ontology (non-ticker `ext:`/`man:`
+nodes are excluded). Because this set is typically small (tens of names rather than ~503),
+a rescan via `POST /api/screen/rescan?scope=portfolio` (or the SSE variant) completes in
+**seconds**. `GET /api/portfolio/tickers` returns the current portfolio universe.
+
+**Base-index precedence (`combined_base_index`):** the portfolio board is overlaid on the
+broad `all` board (portfolio rows win), and this combined index is what `score_one`
+(Dashboard score chip), the fast/deep LLM prompts' network section, and Graph node
+colours/scores all read — falling back to the broad scan for any ticker absent from the
+portfolio. This makes the focused, frequently-refreshed portfolio data the headline
+scoring source.
+
+> *Note:* the portfolio board snapshot is refreshed only by an explicit `scope=portfolio`
+> rescan — it is **not** auto-re-baked on an ontology change (the ontology is the
+> portfolio's very membership, so re-scoring requires a real rescan).
 
 ### Scorer — signal families
 
@@ -224,12 +252,13 @@ so the Evaluation tab can answer *"which signal should I trust?"* with data. The
 
 | Source | What it is | Recorded when |
 |--------|-----------|---------------|
-| `llm_fast` | the single-shot **Analyze with LLM** call | `POST /api/analyze/{ticker}`, and watchlist-wide via `GET /api/analyze/watchlist/stream` |
-| `llm_deep` | the agentic **Deep Analysis** result | the deep stream's terminal event (a fallback run records as `llm_fast`), and watchlist-wide via `GET /api/analyze/watchlist/stream` |
-| `technical` | the deterministic screener's pre-network vote | alongside every LLM analysis, and for the whole watchlist via `POST /api/evaluation/snapshot` (fired by Discover rescans) |
+| `llm_fast` | the single-shot **Analyze with LLM** call | `POST /api/analyze/{ticker}`, and portfolio-wide via `GET /api/analyze/watchlist/stream` |
+| `llm_deep` | the agentic **Deep Analysis** result | the deep stream's terminal event (a fallback run records as `llm_fast`), and portfolio-wide via `GET /api/analyze/watchlist/stream` |
+| `technical` | the deterministic screener's pre-network vote | alongside every LLM analysis, and for the whole portfolio via `POST /api/evaluation/snapshot` (fired by Rescan portfolio) |
 | `network` | the network-blended call | same moments as `technical`, but only when a network signal actually influenced the score |
 
-The watchlist snapshot reads `settings.watchlist` server-side and runs the same no-LLM scorer
+The portfolio snapshot reads the **portfolio universe** (`portfolio_universe` = watchlist ∪
+active-ontology tickers) server-side and runs the same no-LLM scorer
 as the Discover board over a 1-year window of (cached) yfinance data; calls are keyed to the
 **last candle's** trading date, so a weekend run records under Friday and re-running on the
 same day just overwrites the same rows. The `network` call blends the active ontology and
