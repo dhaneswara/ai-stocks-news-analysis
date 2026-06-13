@@ -206,6 +206,30 @@ class NetworkConfig(BaseModel):
     )
 
 
+NewsProviderId = Literal["google", "tavily", "exa", "you"]
+
+NEWS_DEFAULT_MCP_URLS: dict[str, str] = {
+    "tavily": "https://mcp.tavily.com/mcp/",
+    "exa": "https://mcp.exa.ai/mcp",
+    "you": "https://api.you.com/mcp",
+}
+
+
+class NewsProviderConfig(BaseModel):
+    api_key: str = ""
+    mcp_url: str = ""          # optional endpoint override; empty -> NEWS_DEFAULT_MCP_URLS
+
+
+def _default_news_providers() -> dict[str, NewsProviderConfig]:
+    return {pid: NewsProviderConfig() for pid in ("google", "tavily", "exa", "you")}
+
+
+class NewsConfig(BaseModel):
+    active_provider: NewsProviderId = "google"
+    providers: dict[str, NewsProviderConfig] = Field(default_factory=_default_news_providers)
+    news_recency_days: int = 90
+
+
 class EvaluationConfig(BaseModel):
     enabled: bool = True
     horizons: list[int] = Field(default_factory=lambda: [1, 5, 20])
@@ -481,9 +505,12 @@ class Settings(BaseModel):
     screener: ScreenerConfig = Field(default_factory=ScreenerConfig)
     network: NetworkConfig = Field(default_factory=NetworkConfig)
     evaluation: EvaluationConfig = Field(default_factory=EvaluationConfig)
+    news: NewsConfig = Field(default_factory=NewsConfig)
 
     @model_validator(mode="after")
     def _ensure_all_providers(self) -> "Settings":
         for pid, cfg in _default_providers().items():
             self.providers.setdefault(pid, cfg)
+        for pid, cfg in _default_news_providers().items():
+            self.news.providers.setdefault(pid, cfg)
         return self
