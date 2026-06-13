@@ -20,6 +20,7 @@ from app.deps import (
 )
 from app.llm.base import LLMError
 from app.llm.factory import build_provider, resolve_config
+from app.news.factory import _NEWS_LABELS, build_news_provider, resolve_news_config
 from app.models.schemas import (
     DEFAULT_MODELS,
     ActiveOntology,
@@ -29,6 +30,7 @@ from app.models.schemas import (
     ImportSetSummary,
     KnowledgeGraph,
     LastAnalysis,
+    NewsProviderConfig,
     OntologySummary,
     OntologyVersion,
     RescanEvent,
@@ -427,6 +429,30 @@ def list_provider_models(
         return {"models": build_provider(settings).list_models(), "error": ""}
     except Exception as exc:  # noqa: BLE001
         return {"models": [], "error": str(exc)}
+
+
+@router.get("/news/providers")
+def list_news_providers(store: SettingsStore = Depends(get_settings_store)) -> list[dict]:
+    news = store.load().news
+    out = []
+    for pid, label in _NEWS_LABELS.items():
+        cfg = news.providers.get(pid) or NewsProviderConfig()
+        # Google needs no key; the others are "configured" when a key is set (stored or env).
+        configured = pid == "google" or bool(resolve_news_config(pid, cfg).api_key)
+        out.append({"id": pid, "label": label, "configured": configured})
+    return out
+
+
+@router.get("/news/test")
+def test_news_provider(
+    provider: str = Query(...), store: SettingsStore = Depends(get_settings_store)
+) -> dict:
+    label = _NEWS_LABELS.get(provider, provider)
+    try:
+        build_news_provider(store.load(), provider).search("test", limit=1, recency_days=3650)
+        return {"ok": True, "message": f"{label} OK"}
+    except Exception as e:  # noqa: BLE001 — resilient: never 500
+        return {"ok": False, "message": str(e)}
 
 
 @router.get("/truth/mood")
