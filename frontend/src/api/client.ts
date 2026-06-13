@@ -81,8 +81,8 @@ export const api = {
   getScore: (ticker: string) => http<StockScore>(`/score/${encodeURIComponent(ticker)}`),
   getSignals: (ticker: string) => http<SignalsSummary>(`/signals/${encodeURIComponent(ticker)}`),
   snapshotEvaluation: () => http<SnapshotResult>('/evaluation/snapshot', { method: 'POST' }),
-  getCompanyGraph: (ticker: string) =>
-    http<KnowledgeGraph>(`/graph/company/${encodeURIComponent(ticker)}`),
+  getCompanyGraph: (ticker: string, refresh = false) =>
+    http<KnowledgeGraph>(`/graph/company/${encodeURIComponent(ticker)}${refresh ? '?refresh=true' : ''}`),
   listOntologies: () => http<OntologySummary[]>('/graph/ontologies'),
   saveOntology: (v: OntologyVersion) =>
     http<OntologyVersion>('/graph/ontologies', { method: 'POST', body: JSON.stringify(v) }),

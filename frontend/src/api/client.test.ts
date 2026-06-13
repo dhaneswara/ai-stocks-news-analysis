@@ -88,6 +88,13 @@ describe('api client', () => {
     expect(fetchMock.mock.calls[0][0] as string).toContain('/graph/company/AAPL');
   });
 
+  it('getCompanyGraph adds ?refresh=true when asked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ nodes: ['AAPL'], edges: [] }) });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.getCompanyGraph('AAPL', true);
+    expect(fetchMock.mock.calls[0][0] as string).toContain('/graph/company/AAPL?refresh=true');
+  });
+
   it('saveOntology POSTs /graph/ontologies', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
     vi.stubGlobal('fetch', fetchMock);
