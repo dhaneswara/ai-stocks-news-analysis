@@ -179,7 +179,7 @@ export default function Dashboard() {
                   <ReasoningPanel result={shown} />
                 </div>
               ) : !deep.running && deep.steps.length === 0 ? (
-                <p className="muted">Click "Analyze with LLM" for a fast call, or "Deep Analysis" to watch the agent pull data step-by-step.</p>
+                <p className="muted">Click “Analyze with LLM” for a fast call, or “Deep Analysis” to watch the agent pull data step-by-step.</p>
               ) : null}
             </section>
 
