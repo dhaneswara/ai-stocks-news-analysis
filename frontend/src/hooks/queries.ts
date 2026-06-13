@@ -120,7 +120,10 @@ export function useDeleteCustomCompany() {
 }
 
 export function useEgoGraph() {
-  return useMutation({ mutationFn: (ticker: string) => api.getCompanyGraph(ticker) });
+  return useMutation({
+    mutationFn: ({ ticker, refresh }: { ticker: string; refresh?: boolean }) =>
+      api.getCompanyGraph(ticker, refresh),
+  });
 }
 
 const ONTOLOGY_INVALIDATES = [['ontologies'], ['screen'], ['score'], ['signals']] as const;

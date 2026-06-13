@@ -7,7 +7,7 @@ import {
   useActiveOntology, useDeleteImport, useDeleteOntology, useEgoGraph, useImportGraph, useImports,
   useLoadOntology, useOntologies, useSaveOntology, useScreen, useSetActiveOntology, useSettings, useWatchlist,
 } from '../hooks/queries';
-import { addCompanyNode, addManualEdge, addManualNode, applyFilters, COMPANY_TICKER_RE, deleteEdge, deleteNode, mergeGraph, mergeNodes, renameNode, resolveManualTarget, toLinks, type ViewNode } from '../lib/graphView';
+import { addCompanyNode, addManualEdge, addManualNode, applyFilters, COMPANY_TICKER_RE, deleteEdge, deleteNode, mergeGraph, mergeNodes, renameNode, resolveManualTarget, revalidateGraph, toLinks, type ViewNode } from '../lib/graphView';
 import { loadExplorerState, saveExplorerState } from '../lib/explorerStore';
 import type { EdgeSentiment, GraphEdge, ImportReport, KnowledgeGraph, RelationType, ScreenBoard } from '../types';
 import { api } from '../api/client';
@@ -98,11 +98,24 @@ export default function Graph() {
   const expand = async (ticker: string) => {
     setNotice(null);
     try {
-      const frag = await ego.mutateAsync(ticker);
+      const frag = await ego.mutateAsync({ ticker, refresh: false });
       setWorking((w) => mergeGraph(w, frag));
       setExpanded((s) => new Set(s).add(ticker));
       setDirty(true);
       if (frag.edges.length === 0) setNotice(`No further relationships for ${ticker}.`);
+    } catch { /* surfaced via the load-error banner */ }
+  };
+
+  const revalidate = async (ticker: string) => {
+    setNotice(null);
+    try {
+      const frag = await ego.mutateAsync({ ticker, refresh: true });
+      setWorking((w) => revalidateGraph(w ?? EMPTY_GRAPH, ticker, frag));
+      setExpanded((s) => new Set(s).add(ticker));
+      setDirty(true);
+      setNotice(frag.edges.length === 0
+        ? `No current relationships found for ${ticker}.`
+        : `Refreshed relationships for ${ticker}.`);
     } catch { /* surfaced via the load-error banner */ }
   };
 
@@ -330,6 +343,7 @@ export default function Graph() {
         tab={tab}
         onTab={setTab}
         onExpand={expand}
+        onRevalidate={revalidate}
         loading={busy}
         nodeCount={view.nodes.length}
         linkCount={view.links.length}

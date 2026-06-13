@@ -37,6 +37,7 @@ export interface GraphSidebarProps {
   tab: 'explore' | 'saved' | 'import';
   onTab: (t: 'explore' | 'saved' | 'import') => void;
   onExpand: (ticker: string) => void;
+  onRevalidate: (ticker: string) => void;
   loading: boolean;
   nodeCount: number;
   linkCount: number;
@@ -74,7 +75,7 @@ export interface GraphSidebarProps {
 
 export function GraphSidebar(props: GraphSidebarProps) {
   const {
-    tab, onTab, onExpand, loading,
+    tab, onTab, onExpand, onRevalidate, loading,
     nodeCount, linkCount, enabledTypes, onToggleType, selected,
     imports, onImport, onDeleteImport, importing, importReport, importError,
     addingFrom, onSubmitRelationship, onCancelRelationship,
@@ -225,7 +226,12 @@ export function GraphSidebar(props: GraphSidebarProps) {
               )}
               {selected.onBoard && <p className="muted">score {selected.score.toFixed(0)}</p>}
               <Link to={`/?ticker=${encodeURIComponent(selected.id)}`}>Open in Dashboard →</Link>
-              <button disabled={loading} onClick={() => onExpand(selected.id)}>Expand neighbours</button>
+              <div className="graph-actions">
+                <button disabled={loading} onClick={() => onExpand(selected.id)}>Expand neighbours</button>
+                {!selected.id.includes(':') && (
+                  <button disabled={loading} onClick={() => onRevalidate(selected.id)}>Revalidate relationships</button>
+                )}
+              </div>
               {selected.network && selected.network.influences.length > 0 ? (
                 <ul className="factor-list">
                   {selected.network.influences.map((inf, i) => {

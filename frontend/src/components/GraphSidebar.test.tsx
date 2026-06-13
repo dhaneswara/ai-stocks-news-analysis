@@ -16,7 +16,7 @@ const SELECTED: ViewNode = {
 function base() {
   return {
     tab: 'explore' as const, onTab: vi.fn(),
-    onExpand: vi.fn(), loading: false,
+    onExpand: vi.fn(), onRevalidate: vi.fn(), loading: false,
     nodeCount: 2, linkCount: 1,
     enabledTypes: new Set<RelationType>(['supplier']), onToggleType: vi.fn(),
     imports: [] as ImportSetSummary[],
@@ -63,6 +63,20 @@ it('expands the selected node', () => {
   wrap(<GraphSidebar {...props} selected={SELECTED} />);
   fireEvent.click(screen.getByRole('button', { name: /expand neighbours/i }));
   expect(props.onExpand).toHaveBeenCalledWith('AAPL');
+});
+
+it('revalidates the selected ticker node', () => {
+  const props = base();
+  wrap(<GraphSidebar {...props} selected={SELECTED} />);
+  fireEvent.click(screen.getByRole('button', { name: /revalidate relationships/i }));
+  expect(props.onRevalidate).toHaveBeenCalledWith('AAPL');
+});
+
+it('hides Revalidate for a concept node', () => {
+  const concept: ViewNode = { ...SELECTED, id: 'man:ai-chip', label: 'AI Chip' };
+  const props = base();
+  wrap(<GraphSidebar {...props} selected={concept} />);
+  expect(screen.queryByRole('button', { name: /revalidate relationships/i })).not.toBeInTheDocument();
 });
 
 it('rename form prefills from the node and submits ticker + name', () => {
