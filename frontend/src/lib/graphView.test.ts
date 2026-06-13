@@ -311,4 +311,25 @@ describe('revalidateGraph', () => {
     expect(g.nodes).toContain('XYZ');                                      // orphan kept
     expect(g.edges.some((e) => e.source === 'XYZ' || e.target === 'XYZ')).toBe(false); // truly orphaned
   });
+
+  it('keeps a manual edge when the fresh fragment has the same source|target|type', () => {
+    const withManual: KnowledgeGraph = {
+      ...working,
+      edges: [
+        ...working.edges,
+        { source: 'AAPL', target: 'TSM', type: 'partner', sentiment: 'positive', weight: 1, confidence: 1, evidence: 'mine', url: '', as_of: '', origin: 'manual' },
+      ],
+    };
+    const fragWithDup: KnowledgeGraph = {
+      ...fragment,
+      edges: [
+        ...fragment.edges,
+        { source: 'AAPL', target: 'TSM', type: 'partner', sentiment: 'negative', weight: 0.5, confidence: 0.9, evidence: 'fresh', url: '', as_of: 't2', origin: 'extracted' },
+      ],
+    };
+    const g = revalidateGraph(withManual, 'AAPL', fragWithDup);
+    const edge = find(g, 'AAPL', 'TSM', 'partner');
+    expect(edge?.origin).toBe('manual');     // user's manual edge wins
+    expect(edge?.evidence).toBe('mine');     // not clobbered by the fresh dup
+  });
 });
