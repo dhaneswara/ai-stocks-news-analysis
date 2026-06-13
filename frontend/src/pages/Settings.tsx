@@ -97,7 +97,8 @@ export default function Settings() {
   };
 
   return (
-    <div className="panel settings">
+    <div className="settings">
+      <section className="panel settings-card">
       <h3>Provider settings</h3>
 
       <div className="field">
@@ -141,7 +142,9 @@ export default function Settings() {
 
       <button className="secondary" onClick={onTest} disabled={save.isPending}>Test connection</button>
       {test && <span className={`note ${test.ok ? 'muted' : 'error'}`} style={{ marginLeft: 8 }}>{test.ok ? '✓ ' : '✗ '}{test.message}</span>}
+      </section>
 
+      <section className="panel settings-card">
       <h3>Watchlist</h3>
       <div className="field">
         <label>Tickers (comma-separated)</label>
@@ -150,7 +153,9 @@ export default function Settings() {
           onChange={(e) => update({ watchlist: e.target.value.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean) })}
         />
       </div>
+      </section>
 
+      <section className="panel settings-card">
       <h3>Alerts</h3>
       <div className="field check">
         <label>
@@ -195,7 +200,9 @@ export default function Settings() {
           {alertTest && <span className={`note ${alertTest.ok ? 'muted' : 'error'}`} style={{ marginLeft: 8 }}>{alertTest.ok ? '✓ ' : '✗ '}{alertTest.message}</span>}
         </>
       )}
+      </section>
 
+      <section className="panel settings-card">
       <h3>Truth Social signal</h3>
       <div className="field check">
         <label>
@@ -217,7 +224,9 @@ export default function Settings() {
           />
         </div>
       )}
+      </section>
 
+      <section className="panel settings-card">
       <h3>News source</h3>
       <div className="field">
         <label htmlFor="news-source">News source</label>
@@ -246,12 +255,13 @@ export default function Settings() {
         <input id="news-recency" type="number" value={news.news_recency_days}
                onChange={(e) => updateNews({ news_recency_days: Number(e.target.value) })} />
       </div>
+      </section>
 
       <div className="settings-actions">
         <button onClick={onSave} disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save'}</button>
         {saved && <span className="note muted">Saved.</span>}
+        {save.isError && <span className="note error">Save failed: {(save.error as Error).message}</span>}
       </div>
-      {save.isError && <p className="error">Save failed: {(save.error as Error).message}</p>}
     </div>
   );
 }

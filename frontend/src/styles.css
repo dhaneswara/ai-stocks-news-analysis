@@ -670,16 +670,19 @@ input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; v
 .news-item .meta { color: var(--ink-faint); font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; margin-top: 6px; }
 
 /* ----- Forms (Settings) ---------------------------------------------------- */
-.settings { max-width: 660px; }
+/* Multi-column card dashboard: each section is its own glass card, masonry-flowed across the
+   wide screen instead of stacking in one narrow left column. */
+.settings { columns: 360px; column-gap: 20px; }
+.settings-card { break-inside: avoid; -webkit-column-break-inside: avoid; margin: 0 0 20px; }
+.settings-card > *:last-child { margin-bottom: 0; }
 .settings h3 {
   font-family: var(--serif);
   font-weight: 500;
   font-size: 22px;
   letter-spacing: -0.01em;
-  margin: 30px 0 16px;
+  margin: 0 0 16px;
   color: var(--ink);
 }
-.settings h3:first-of-type { margin-top: 0; }
 .field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
 .field > label {
   font-family: var(--mono);
@@ -689,7 +692,7 @@ input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; v
   color: var(--ink-faint);
 }
 .field.check > label { display: flex; align-items: center; gap: 10px; text-transform: none; letter-spacing: 0.02em; font-size: 13px; font-family: var(--sans); color: var(--ink-soft); cursor: pointer; }
-.settings-actions { display: flex; gap: 12px; align-items: center; margin-top: 22px; padding-top: 20px; border-top: 1px solid var(--hairline); flex-wrap: wrap; }
+.settings-actions { display: flex; gap: 12px; align-items: center; margin-top: 4px; padding-top: 20px; border-top: 1px solid var(--hairline); flex-wrap: wrap; column-span: all; }
 .note { font-family: var(--mono); font-size: 11px; letter-spacing: 0.03em; }
 .model-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
 .model-row > select { flex: 1; min-width: 220px; }
