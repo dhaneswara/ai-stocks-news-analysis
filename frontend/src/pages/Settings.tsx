@@ -48,7 +48,10 @@ export default function Settings() {
   const updateTruth = (patch: Partial<TruthSignalConfig>) => update({ truth_signal: { ...form.truth_signal, ...patch } });
 
   const news = form.news ?? DEFAULT_NEWS;
-  const updateNews = (patch: Partial<NewsConfig>) => update({ news: { ...news, ...patch } });
+  const updateNews = (patch: Partial<NewsConfig>) => {
+    if (patch.active_provider && patch.active_provider !== news.active_provider) setNewsTest(null);
+    update({ news: { ...news, ...patch } });
+  };
   const updateNewsKey = (key: string) =>
     updateNews({ providers: { ...news.providers, [news.active_provider]: { ...news.providers[news.active_provider], api_key: key } } });
 
