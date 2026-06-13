@@ -112,6 +112,12 @@ it('switches to the Import tab', () => {
   expect(props.onTab).toHaveBeenCalledWith('import');
 });
 
+it('the Import tab copy button reads "Copy LLM prompt"', () => {
+  const props = { ...base(), tab: 'import' as const };
+  wrap(<GraphSidebar {...props} selected={null} />);
+  expect(screen.getByRole('button', { name: /copy llm prompt/i })).toBeInTheDocument();
+});
+
 it('imports valid pasted JSON', () => {
   const props = { ...base(), tab: 'import' as const };
   wrap(<GraphSidebar {...props} selected={null} />);

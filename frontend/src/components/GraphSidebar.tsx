@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { EdgeSentiment, ImportReport, ImportSetSummary, OntologySummary, RelationType } from '../types';
 import type { ViewNode } from '../lib/graphView';
-import { chatGptPrompt } from '../lib/importPrompt';
+import { llmPrompt } from '../lib/importPrompt';
 
 const EDGE_TYPES: RelationType[] = ['supplier', 'customer', 'partner', 'competitor', 'owner', 'subsidiary', 'other'];
 
@@ -125,7 +125,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
   };
 
   const copyPrompt = () => {
-    navigator.clipboard?.writeText(chatGptPrompt(promptDefault)).catch(() => {});
+    navigator.clipboard?.writeText(llmPrompt(promptDefault)).catch(() => {});
   };
 
   return (
@@ -273,7 +273,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
 
       {tab === 'import' && (
         <div className="graph-tab">
-          <button type="button" className="secondary" onClick={copyPrompt}>Copy ChatGPT prompt</button>
+          <button type="button" className="secondary" onClick={copyPrompt}>Copy LLM prompt</button>
           <p className="muted">Paste the model JSON your external tool produced:</p>
           <input placeholder="Set name (optional)" value={setName} onChange={(e) => setSetName(e.target.value)} />
           <textarea
