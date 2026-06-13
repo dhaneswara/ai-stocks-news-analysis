@@ -853,6 +853,18 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
    over the secondary base (the old rule dimmed the default gold button instead). */
 .src-filter button.active { color: var(--gold); border-color: var(--gold-line); background: var(--gold-tint); }
 
+/* Board search box — sits above the table inside .board-wrap */
+.board-search { padding: 0 0 12px; }
+.board-search input { width: min(280px, 100%); }
+
+/* S&P 500 membership badges — reuse .badge base for shape/spacing/font */
+.badge.sp     { background: rgba(88, 166, 255, 0.10); color: #58a6ff; border-color: rgba(88, 166, 255, 0.25); }
+.badge.custom { background: rgba(255, 255, 255, 0.05); color: var(--ink-faint); border-color: var(--panel-brd); }
+
+/* Add-company inline form in the Discover toolbar (.board-controls) */
+.add-company { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.add-company input { min-width: 220px; flex: 1 1 220px; max-width: 340px; }
+
 /* graph editing: context menu, legend overlay, merge preview, relationship form */
 .graph-ctx-menu {
   position: absolute; z-index: 20; min-width: 150px; padding: 4px;
