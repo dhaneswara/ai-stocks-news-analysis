@@ -25,16 +25,19 @@ def test_upsert_replaces_latest_wins(tmp_path):
     assert s.get_prediction("AAPL", "2026-06-05").recommendation == "sell"
 
 
-def test_changing_entry_price_clears_child_evals(tmp_path):
+def test_scored_prediction_is_immutable_on_rerecord(tmp_path):
     s = _store(tmp_path)
     s.upsert_prediction(ticker="AAPL", call_date="2026-06-05", provider="a", model="m",
                         recommendation="buy", confidence=0.8, sentiment="bullish", entry_price=200.0)
     s.record_eval("AAPL", "2026-06-05", 1, "2026-06-06", 210.0, 5.0, 1, 100.0)
     assert s.has_eval("AAPL", "2026-06-05", 1) is True
-    # Re-record with a different entry price -> stale evals are dropped
+    # Once scored, re-recording at a different entry price is a no-op: scored history and the
+    # original entry are preserved (re-running analysis must never destroy evals).
     s.upsert_prediction(ticker="AAPL", call_date="2026-06-05", provider="a", model="m",
-                        recommendation="buy", confidence=0.8, sentiment="bullish", entry_price=201.0)
-    assert s.has_eval("AAPL", "2026-06-05", 1) is False
+                        recommendation="sell", confidence=0.2, sentiment="bearish", entry_price=201.0)
+    assert s.has_eval("AAPL", "2026-06-05", 1) is True
+    row = s.get_prediction("AAPL", "2026-06-05")
+    assert row.entry_price == 200.0 and row.recommendation == "buy"
 
 
 def test_record_and_read_evals(tmp_path):
