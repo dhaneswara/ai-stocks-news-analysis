@@ -5,7 +5,7 @@ import { GraphSidebar } from '../components/GraphSidebar';
 import { MergePreview } from '../components/MergePreview';
 import {
   useActiveOntology, useDeleteImport, useDeleteOntology, useEgoGraph, useImportGraph, useImports,
-  useLoadOntology, useOntologies, useSaveOntology, useScreen, useSetActiveOntology, useWatchlist,
+  useLoadOntology, useOntologies, useSaveOntology, useScreen, useSetActiveOntology, useSettings, useWatchlist,
 } from '../hooks/queries';
 import { addCompanyNode, addManualEdge, addManualNode, applyFilters, COMPANY_TICKER_RE, deleteEdge, deleteNode, mergeGraph, mergeNodes, renameNode, resolveManualTarget, toLinks, type ViewNode } from '../lib/graphView';
 import { loadExplorerState, saveExplorerState } from '../lib/explorerStore';
@@ -27,6 +27,7 @@ export default function Graph() {
     return [...m.values()];
   }, [allBoard.data, pfBoard.data]);
   const ego = useEgoGraph();
+  const settings = useSettings();
   const ontologies = useOntologies();
   const activeOnto = useActiveOntology();
   const saveOntology = useSaveOntology();
@@ -354,6 +355,7 @@ export default function Graph() {
         onStartRename={startRename}
         onMergeImport={startMerge}
         promptDefault={selectedId ?? ''}
+        recencyDays={settings.data?.news?.news_recency_days ?? 90}
         ontologies={ontologies.data ?? []}
         activeName={activeName}
         onLoadOntology={doLoadOntology}

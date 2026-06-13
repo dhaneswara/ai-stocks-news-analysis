@@ -38,6 +38,7 @@ function base() {
     onStartRename: vi.fn(),
     onMergeImport: vi.fn(),
     promptDefault: 'AAPL',
+    recencyDays: 90,
     ontologies: [] as OntologySummary[],
     activeName: null as string | null,
     onLoadOntology: vi.fn(),

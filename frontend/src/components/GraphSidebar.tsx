@@ -62,6 +62,7 @@ export interface GraphSidebarProps {
   onStartRename: (id: string) => void;
   onMergeImport: (id: string) => void;
   promptDefault: string;
+  recencyDays: number;
   watchlist: string[];
   onToggleWatch: (id: string) => void;
   ontologies: OntologySummary[];
@@ -81,6 +82,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
     renaming, onSubmitRename, onCancelRename, onStartRename,
     onMergeImport,
     promptDefault,
+    recencyDays,
     ontologies, activeName, onLoadOntology, onDeleteOntology, onActivate,
     watchlist, onToggleWatch,
   } = props;
@@ -125,7 +127,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
   };
 
   const copyPrompt = () => {
-    navigator.clipboard?.writeText(llmPrompt(promptDefault)).catch(() => {});
+    navigator.clipboard?.writeText(llmPrompt(promptDefault, { recencyDays })).catch(() => {});
   };
 
   return (
