@@ -404,6 +404,10 @@ input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; v
   align-items: stretch;
   gap: 10px;
   padding: 12px 16px;
+  /* Lift the whole command bar above the panels below it. .panel's backdrop-filter makes every
+     panel its own stacking context, so the Watchlist popover (positioned inside this panel)
+     can't otherwise rise above the later-sibling summary panel — its z-index is trapped here. */
+  z-index: 20;
 }
 .tickerbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; width: 100%; }
 .tickerbar form { display: flex; gap: 8px; }
