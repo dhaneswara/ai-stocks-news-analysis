@@ -72,3 +72,19 @@ it('renders hold calls with a distinct glyph from absent sources', () => {
   expect(screen.getByText('■ HOLD')).toBeInTheDocument();
   expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(3); // TECH/FAST/DEEP absent
 });
+
+it('shows scored-vs-recorded counts instead of "collecting data" for an unmatured source', () => {
+  render(<SignalsStrip score={score()} signals={signals({
+    sources: {
+      network: {
+        latest: { call_date: '2026-06-12', recommendation: 'hold', confidence: 0.1 },
+        track: { n_calls: 1, n_matured: 0, hit_rate: null, avg_score: null, grade: null },
+      },
+    },
+  })} />);
+  const chip = screen.getByText('NET').closest('.signal-chip') as HTMLElement;
+  expect(chip).toHaveAttribute(
+    'title',
+    'NET: HOLD on 2026-06-12 · 0 of 1 scored — awaiting maturity',
+  );
+});

@@ -25,7 +25,7 @@ export function SignalsStrip({ score, signals }: { score?: StockScore; signals?:
             ? `${label}: ${s.latest.recommendation.toUpperCase()} on ${s.latest.call_date}` +
               (s.track.hit_rate != null
                 ? ` · ${s.track.hit_rate}% hit rate over ${s.track.n_matured} scored`
-                : ' · collecting data')
+                : ` · ${s.track.n_matured} of ${s.track.n_calls} scored — awaiting maturity`)
             : `${label}: no call recorded yet`;
           return (
             <span key={key} className={`signal-chip${crowned ? ' winner' : ''}`} title={title}>
