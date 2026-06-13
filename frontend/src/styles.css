@@ -451,6 +451,43 @@ input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; v
 }
 .star-btn:hover { filter: brightness(1.2); transform: none; box-shadow: none; }
 
+/* Collapsible watchlist menu (replaces the inline chip row when the list grows long) */
+.watch-menu { position: relative; }
+.watch-toggle { white-space: nowrap; }
+.watch-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 30;
+  width: 230px;
+  max-height: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--bg-2);
+  border: 1px solid var(--panel-brd);
+  border-radius: 10px;
+  box-shadow: 0 14px 34px -12px rgba(0, 0, 0, 0.6);
+}
+.watch-filter { width: 100%; }
+.watch-list { overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.watch-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+}
+.watch-item:hover { background: var(--gold-tint); color: var(--gold); }
+.watch-item.current { border: 1px solid var(--gold-line); color: var(--gold); }
+.watch-empty { padding: 6px 8px; }
+
 /* ----- Chart --------------------------------------------------------------- */
 .price-chart { flex: 1; min-height: 0; width: 100%; border-radius: 12px; overflow: hidden; }
 

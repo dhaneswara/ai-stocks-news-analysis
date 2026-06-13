@@ -36,22 +36,16 @@ it('removes the current ticker when it is already in the watchlist', () => {
   expect(onRemove).toHaveBeenCalledWith('AAPL');
 });
 
-it('removes a chip via its × without also selecting it', () => {
-  const { onRemove, onSelect } = setup({ watchlist: ['AAPL', 'MSFT'], current: '' });
-  fireEvent.click(screen.getByRole('button', { name: /remove MSFT/i }));
-  expect(onRemove).toHaveBeenCalledWith('MSFT');
-  expect(onSelect).not.toHaveBeenCalled();
-});
-
-it('selects a ticker when its chip body is clicked', () => {
-  const { onSelect } = setup({ watchlist: ['AAPL', 'MSFT'], current: '' });
-  fireEvent.click(screen.getByText('MSFT'));
-  expect(onSelect).toHaveBeenCalledWith('MSFT');
-});
-
 it('shows no star when no ticker is loaded', () => {
   setup({ current: '' });
-  expect(screen.queryByRole('button', { name: /watchlist/i })).not.toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: /add to watchlist|remove from watchlist/i }),
+  ).not.toBeInTheDocument();
+});
+
+it('renders the collapsible watchlist toggle with a count', () => {
+  setup({ watchlist: ['AAPL', 'MSFT'], current: 'AAPL' });
+  expect(screen.getByRole('button', { name: /watchlist \(2\)/i })).toBeInTheDocument();
 });
 
 it('fires onDeepAnalyze when the Deep Analysis button is clicked', () => {

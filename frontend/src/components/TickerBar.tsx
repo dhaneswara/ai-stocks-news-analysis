@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { WatchlistMenu } from './WatchlistMenu';
 
 export function TickerBar({
   watchlist,
@@ -53,22 +54,12 @@ export function TickerBar({
         </button>
       )}
       {watchlist.length > 0 && (
-        <div className="watch">
-          <span className="watch-label">Watchlist</span>
-          {watchlist.map((t) => (
-            <span className="chip" key={t} onClick={() => onSelect(t)}>
-              <span className="chip-label">{t}</span>
-              <button
-                type="button"
-                className="chip-x"
-                aria-label={`Remove ${t}`}
-                onClick={(e) => { e.stopPropagation(); onRemove(t); }}
-              >
-                ×
-              </button>
-            </span>
-          ))}
-        </div>
+        <WatchlistMenu
+          watchlist={watchlist}
+          current={current}
+          onSelect={onSelect}
+          onRemove={onRemove}
+        />
       )}
       <span className="spacer" />
       <button type="button" onClick={onAnalyze} disabled={!canAnalyze || analyzing}>
