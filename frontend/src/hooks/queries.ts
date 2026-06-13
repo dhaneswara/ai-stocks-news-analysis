@@ -18,6 +18,7 @@ export function useAnalyze(ticker: string, period = '5y') {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['signals', ticker] });
       qc.invalidateQueries({ queryKey: ['evaluation'] });
+      qc.invalidateQueries({ queryKey: ['analysis', ticker] });
     },
   });
 }
@@ -205,6 +206,15 @@ export function useSignals(ticker: string) {
   return useQuery({
     queryKey: ['signals', ticker],
     queryFn: () => api.getSignals(ticker),
+    enabled: ticker.length > 0,
+    retry: false,
+  });
+}
+
+export function useLastAnalysis(ticker: string) {
+  return useQuery({
+    queryKey: ['analysis', ticker],
+    queryFn: () => api.getLastAnalysis(ticker),
     enabled: ticker.length > 0,
     retry: false,
   });

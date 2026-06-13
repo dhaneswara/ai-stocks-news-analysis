@@ -128,6 +128,13 @@ export type Grade = 'Strong' | 'Mixed' | 'Weak';
 
 export type Source = 'llm_fast' | 'llm_deep' | 'technical' | 'network';
 
+export interface LastAnalysis {
+  result: AnalysisResult;
+  source: Source;
+  call_date: string;
+  created_at: number;
+}
+
 export interface SourceTrack {
   n_calls: number;
   n_matured: number;

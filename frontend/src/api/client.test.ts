@@ -170,6 +170,15 @@ describe('api client', () => {
     expect(spy).toHaveBeenCalledWith(expect.stringContaining('/universe/custom'),
       expect.objectContaining({ method: 'POST' }));
   });
+
+  it('getLastAnalysis GETs the analysis endpoint and returns the body', async () => {
+    const body = { result: { overall_summary: 'hi' }, source: 'llm_fast', call_date: '2026-06-12', created_at: 1 };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => body });
+    vi.stubGlobal('fetch', fetchMock);
+    const got = await api.getLastAnalysis('aapl');
+    expect((got as { source: string }).source).toBe('llm_fast');
+    expect(fetchMock.mock.calls[0][0] as string).toContain('/analysis/aapl');
+  });
 });
 
 describe('signals / snapshot / explainPrediction with source', () => {

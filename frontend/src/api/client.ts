@@ -7,6 +7,7 @@ import type {
   ImportReport,
   ImportSetSummary,
   KnowledgeGraph,
+  LastAnalysis,
   MarketMood,
   OntologySummary,
   OntologyVersion,
@@ -50,6 +51,8 @@ export const api = {
     http<AnalysisResult>(`/analyze/${encodeURIComponent(ticker)}?period=${period}`, {
       method: 'POST',
     }),
+  getLastAnalysis: (ticker: string) =>
+    http<LastAnalysis | null>(`/analysis/${encodeURIComponent(ticker)}`),
   getSettings: () => http<Settings>('/settings'),
   saveSettings: (s: Settings) =>
     http<Settings>('/settings', { method: 'PUT', body: JSON.stringify(s) }),
