@@ -291,3 +291,25 @@ def test_blend_twice_does_not_duplicate_reasons():
     # Reasons list must be non-empty (guard against silent degeneration) and identical
     assert a1.reasons
     assert a1.reasons == a2.reasons
+
+
+def _row(t, base_net=0.0, base_score=50.0):
+    return StockScore(ticker=t, name=t, price=1, change_pct=0, score=base_score,
+                      direction="hold", net=base_net, base_net=base_net, base_score=base_score)
+
+
+def test_apply_network_uses_base_override_for_offboard_neighbour():
+    # Board has only AAA; its partner ZZZ lives only in the override (the all-board fallback).
+    board = ScreenBoard(scope="portfolio", items=[_row("AAA")])
+    graph = KnowledgeGraph(nodes=["AAA", "ZZZ"], edges=[
+        GraphEdge(source="AAA", target="ZZZ", type="partner", sentiment="positive",
+                  weight=1.0, confidence=1.0)])
+    override = {"ZZZ": _row("ZZZ", base_net=0.8)}
+    blended = apply_network(board, graph, Settings(), base_override=override)
+    aaa = blended.items[0]
+    assert aaa.network is not None and aaa.network.signed > 0   # picked up ZZZ via override
+
+    # Without the override the neighbour is unknown -> no state contribution.
+    plain = apply_network(board, graph, Settings())
+    assert plain.items[0].network is not None  # edge still scores the event term
+    assert plain.items[0].network.signed <= aaa.network.signed
