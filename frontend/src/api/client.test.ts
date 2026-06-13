@@ -179,6 +179,17 @@ describe('api client', () => {
     expect((got as { source: string }).source).toBe('llm_fast');
     expect(fetchMock.mock.calls[0][0] as string).toContain('/analysis/aapl');
   });
+
+  it('getNewsProviders requests /news/providers', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => [{ id: 'google', label: 'Google News', configured: true }],
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const data = await api.getNewsProviders();
+    expect(Array.isArray(data)).toBe(true);
+    expect(fetchMock.mock.calls[0][0] as string).toContain('/news/providers');
+  });
 });
 
 describe('signals / snapshot / explainPrediction with source', () => {

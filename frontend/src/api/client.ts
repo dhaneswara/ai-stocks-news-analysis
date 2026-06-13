@@ -9,6 +9,7 @@ import type {
   KnowledgeGraph,
   LastAnalysis,
   MarketMood,
+  NewsProviderInfo,
   OntologySummary,
   OntologyVersion,
   ProviderInfo,
@@ -59,6 +60,9 @@ export const api = {
   listProviders: () => http<ProviderInfo[]>('/providers'),
   testProvider: (id: string) =>
     http<TestResult>(`/providers/${encodeURIComponent(id)}/test`, { method: 'POST' }),
+  getNewsProviders: () => http<NewsProviderInfo[]>('/news/providers'),
+  testNews: (provider: string) =>
+    http<TestResult>(`/news/test?provider=${encodeURIComponent(provider)}`),
   listModels: (id: string) =>
     http<{ models: string[]; error: string }>(`/providers/${encodeURIComponent(id)}/models`),
   testAlert: () => http<TestResult>('/alerts/test', { method: 'POST' }),

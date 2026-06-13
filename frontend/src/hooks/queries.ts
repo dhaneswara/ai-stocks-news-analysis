@@ -56,6 +56,10 @@ export function useProviders() {
   return useQuery({ queryKey: ['providers'], queryFn: api.listProviders });
 }
 
+export function useNewsProviders() {
+  return useQuery({ queryKey: ['newsProviders'], queryFn: api.getNewsProviders });
+}
+
 export function useListModels() {
   return useMutation({ mutationFn: (id: string) => api.listModels(id) });
 }
