@@ -150,6 +150,21 @@ def test_track_record_block_gates(tmp_path):
     assert build_track_record_block("NVDA", store2, Settings()) is None
 
 
+def test_snapshot_covers_portfolio_not_just_watchlist(tmp_path, monkeypatch):
+    from app.evaluation.signals import snapshot_watchlist
+    store = PredictionStore(str(tmp_path / "p.db"))
+    cache = Cache(str(tmp_path / "c.db"))
+    settings = Settings()
+    settings.watchlist = ["AAPL"]
+    # Ontology contributes NVDA -> the snapshot must include it, not just the watchlist.
+    monkeypatch.setattr(signals, "portfolio_universe", lambda s, c: ["AAPL", "NVDA"])
+    monkeypatch.setattr(signals, "get_stock_data", lambda t, p, ip, c: _stock(t))
+    monkeypatch.setattr(signals, "score_one", lambda t, s, c: _score(t))
+    out = snapshot_watchlist(settings, cache, store)
+    assert out["recorded"] == 2
+    assert store.get_prediction("NVDA", "2026-06-05", "technical") is not None
+
+
 def _signal_pred(store, source, call_date, rec, *, ticker="AAPL", conf=0.5):
     store.upsert_prediction(ticker=ticker, call_date=call_date, provider="x", model="",
                             recommendation=rec, confidence=conf, sentiment="neutral",

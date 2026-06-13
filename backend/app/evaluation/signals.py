@@ -31,7 +31,7 @@ from app.models.schemas import (
     SourceTrack,
     StockData,
 )
-from app.screener.service import SCAN_PERIOD, score_one
+from app.screener.service import SCAN_PERIOD, portfolio_universe, score_one
 from app.services.stock_service import get_stock_data
 
 logger = logging.getLogger("evaluation")
@@ -64,13 +64,12 @@ def record_deterministic_pair(stock: StockData, settings: Settings, cache: Cache
 
 
 def snapshot_watchlist(settings: Settings, cache: Cache, store: PredictionStore) -> dict:
-    """Record today's technical/network calls for every watchlist ticker (the Discover page
-    fires this after Rescan All). Per-ticker isolation: one bad ticker is skipped and
-    reported, the rest record. Stock data is read via the same
-    cache the rescan just populated (cold calls fall back to a live fetch; score_one's
-    internal fetch hits the same cache entry)."""
+    """Record today's technical/network calls for the whole portfolio (watchlist + active
+    ontology). Per-ticker isolation: one bad ticker is skipped and reported, the rest record.
+    Stock data is read via the same cache the rescan just populated (cold calls fall back to a
+    live fetch; score_one's internal fetch hits the same cache entry)."""
     recorded, skipped = 0, []
-    for raw in settings.watchlist:
+    for raw in portfolio_universe(settings, cache):
         ticker = raw.upper().strip()
         try:
             stock = get_stock_data(ticker, SCAN_PERIOD, settings.indicator_params, cache)
