@@ -98,3 +98,22 @@ def test_refresh_universe_refuses_bad_parse_and_keeps_existing_file(tmp_path, mo
     with pytest.raises(ValueError):
         universe.refresh_universe()
     assert "Sentinel" in out.read_text(encoding="utf-8")  # untouched, no partial write
+
+
+def test_custom_store_round_trip_and_merge(tmp_path):
+    from app.config.cache import Cache
+    from app.data import universe
+    from app.models.schemas import UniverseEntry
+    cache = Cache(str(tmp_path / "c.db"))
+
+    assert universe.list_custom(cache) == []
+    e = UniverseEntry(ticker="PRIV", name="Private Co", sector="Tech", exchange="NYSE")
+    universe.add_custom(e, cache)
+    assert [c.ticker for c in universe.list_custom(cache)] == ["PRIV"]
+
+    merged = {x.ticker for x in universe.load_universe(cache=cache)}
+    assert "PRIV" in merged and "AAPL" in merged       # custom appended to committed S&P
+    assert universe.is_sp500_member("PRIV") is False    # committed-only membership
+
+    assert universe.delete_custom("PRIV", cache) is True
+    assert universe.list_custom(cache) == []

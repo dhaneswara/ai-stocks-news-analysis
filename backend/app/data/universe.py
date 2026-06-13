@@ -18,6 +18,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from app.config.cache import Cache
 from app.models.schemas import UniverseEntry
 
 _DATA_FILE = Path(__file__).with_name("sp500.json")
@@ -31,11 +32,14 @@ def _all_entries() -> tuple[UniverseEntry, ...]:
     return tuple(UniverseEntry(**row) for row in raw)
 
 
-def load_universe(sector: str | None = None) -> list[UniverseEntry]:
-    entries = _all_entries()
+def load_universe(sector: str | None = None, cache: Cache | None = None) -> list[UniverseEntry]:
+    entries = list(_all_entries())
+    if cache is not None:
+        seen = {e.ticker for e in entries}
+        entries += [c for c in list_custom(cache) if c.ticker not in seen]
     if sector:
         return [e for e in entries if e.sector == sector]
-    return list(entries)
+    return entries
 
 
 def list_sectors() -> list[str]:
@@ -50,6 +54,38 @@ def _sp500_tickers() -> frozenset[str]:
 def is_sp500_member(ticker: str) -> bool:
     """True iff the ticker is in the committed S&P 500 list (never includes custom companies)."""
     return ticker.upper().strip() in _sp500_tickers()
+
+
+_CUSTOM_KEY = "custom_universe"
+_CUSTOM_TTL_SECONDS = 3650 * 24 * 60 * 60  # ~10 years (effectively permanent), like ontologies
+
+
+def list_custom(cache: Cache) -> list[UniverseEntry]:
+    raw = cache.get(_CUSTOM_KEY)
+    if not raw:
+        return []
+    try:
+        return [UniverseEntry(**row) for row in json.loads(raw)]
+    except Exception:  # noqa: BLE001 — corrupt entry -> none
+        return []
+
+
+def add_custom(entry: UniverseEntry, cache: Cache) -> UniverseEntry:
+    """Persist a custom (non-S&P) company; idempotent on ticker (last write wins)."""
+    rows = [c for c in list_custom(cache) if c.ticker != entry.ticker]
+    rows.append(entry)
+    cache.set(_CUSTOM_KEY, json.dumps([c.model_dump() for c in rows]), _CUSTOM_TTL_SECONDS)
+    return entry
+
+
+def delete_custom(ticker: str, cache: Cache) -> bool:
+    t = ticker.upper().strip()
+    rows = list_custom(cache)
+    kept = [c for c in rows if c.ticker != t]
+    if len(kept) == len(rows):
+        return False
+    cache.set(_CUSTOM_KEY, json.dumps([c.model_dump() for c in kept]), _CUSTOM_TTL_SECONDS)
+    return True
 
 
 def _fetch_sp500_html(url: str = WIKI_SP500_URL) -> str:
