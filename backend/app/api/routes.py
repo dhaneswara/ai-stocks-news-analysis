@@ -489,7 +489,7 @@ def screen_rescan_stream(
                 else:
                     yield _sse(RescanEvent(type="tick", ticker=step.ticker, scanned=step.scanned,
                                            total=step.total, skipped=step.skipped))
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001 — surface any abort as a stream event
             logger.warning("rescan stream failed: %s", exc)
             yield _sse(RescanEvent(type="error", message=str(exc)))
 
