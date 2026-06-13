@@ -13,7 +13,7 @@ from app.data.universe import is_sp500_member, load_universe
 from app.analysis.network import blend_network_into_score, compute_network_signal, incident_edges
 from app.models.schemas import ScreenBoard, Settings, StockScore, UniverseEntry
 from app.network.store import active_graph
-from app.screener.store import combined_base_index, load_snapshot
+from app.screener.store import combined_base_index
 from app.services.stock_service import get_stock_data
 
 SCAN_PERIOD = "1y"  # enough history for SMA200, RSI, 1-month momentum, 52-wk extremes
