@@ -31,6 +31,7 @@ from app.models.schemas import (
     Source,
     StockData,
     StockScore,
+    UniverseEntry,
     WatchlistRunEvent,
 )
 from app.analysis import political
@@ -669,6 +670,33 @@ def update_universe() -> dict:
         raise HTTPException(
             status_code=502, detail=f"Could not update the S&P 500 list: {exc}"
         ) from exc
+
+
+@router.get("/universe/custom", response_model=list[UniverseEntry])
+def list_custom_companies(cache: Cache = Depends(get_cache)) -> list[UniverseEntry]:
+    return universe.list_custom(cache)
+
+
+@router.post("/universe/custom")
+def add_custom_company(
+    payload: dict,
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+) -> dict:
+    ticker = str((payload or {}).get("ticker", "")).strip()
+    if not ticker:
+        raise HTTPException(status_code=422, detail="A ticker is required.")
+    try:
+        entry, price = universe.resolve_custom_entry(ticker, store.load().indicator_params, cache)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"Could not add '{ticker}': {exc}") from exc
+    universe.add_custom(entry, cache)
+    return {"entry": entry.model_dump(), "price": price}
+
+
+@router.delete("/universe/custom/{ticker}")
+def delete_custom_company(ticker: str, cache: Cache = Depends(get_cache)) -> dict:
+    return {"deleted": universe.delete_custom(ticker, cache)}
 
 
 @router.get("/evaluation", response_model=EvaluationBoard)
