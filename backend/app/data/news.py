@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from urllib.parse import quote_plus
 
 import feedparser
@@ -49,3 +51,37 @@ def get_news(ticker: str, company_name: str = "", limit: int = 10) -> list[NewsI
         return parse_feed(_fetch_feed(query), limit)
     except Exception:
         return []
+
+
+def _parse_date(s: str) -> datetime | None:
+    s = (s or "").strip()
+    if not s:
+        return None
+    d = None
+    try:
+        d = parsedate_to_datetime(s)          # RFC-822 (Google News RSS)
+    except Exception:  # noqa: BLE001
+        d = None
+    if d is None:
+        try:
+            d = datetime.fromisoformat(s.replace("Z", "+00:00"))  # ISO-8601 (Exa/you.com)
+        except Exception:  # noqa: BLE001
+            return None
+    return d.replace(tzinfo=timezone.utc) if d.tzinfo is None else d
+
+
+def recent_news(items: list[NewsItem], *, days: int, now: datetime | None = None) -> list[NewsItem]:
+    """Drop items older than `days`, newest-first; unparseable dates are kept and sorted last.
+    `days <= 0` disables the cutoff (keep all, just sorted). Pure (pass `now` in tests)."""
+    now = now or datetime.now(timezone.utc)
+    kept = items
+    if days and days > 0:
+        cutoff = now.timestamp() - days * 86400
+        kept = [it for it in items if (_parse_date(it.published_at) is None
+                                       or _parse_date(it.published_at).timestamp() >= cutoff)]
+
+    def _key(it: NewsItem) -> float:
+        d = _parse_date(it.published_at)
+        return d.timestamp() if d else float("-inf")
+
+    return sorted(kept, key=_key, reverse=True)
