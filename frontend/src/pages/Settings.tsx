@@ -132,8 +132,9 @@ export default function Settings() {
       <button className="secondary" onClick={onTest} disabled={save.isPending}>Test connection</button>
       {test && <span className={`note ${test.ok ? 'muted' : 'error'}`} style={{ marginLeft: 8 }}>{test.ok ? '✓ ' : '✗ '}{test.message}</span>}
 
+      <h3>Watchlist</h3>
       <div className="field">
-        <label>Watchlist (comma-separated)</label>
+        <label>Tickers (comma-separated)</label>
         <input
           value={form.watchlist.join(', ')}
           onChange={(e) => update({ watchlist: e.target.value.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean) })}
