@@ -57,7 +57,7 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 - `POST /api/universe/custom` `{ticker}` — auto-fetch a company's name, exchange, sector, and price from market data and persist it permanently; returns 422 if the ticker is unknown
 - `DELETE /api/universe/custom/{ticker}` — remove a custom company
 - `GET  /api/graph` — the active ontology's graph (empty when no ontology is active)
-- `GET  /api/graph/company/{ticker}` — one-hop ego graph for a single company (explore / expand)
+- `GET  /api/graph/company/{ticker}` — one-hop ego graph for a single company (explore / expand); `?refresh=true` bypasses the 24h relationship cache to re-extract from the latest news (powers **Revalidate relationships**)
 - `GET  /api/graph/ontologies` — list all saved ontologies (name, version count, active flag)
 - `POST /api/graph/ontologies` — save (create or add a revision to) a named ontology; re-bakes the board if it is the active one
 - `GET  /api/graph/ontologies/{name}?version=` — load one ontology (latest or a specific revision)
@@ -193,8 +193,11 @@ is made** — the ontology is user-curated on the Graph page. Disable with
 `Settings.network.enabled = false`.
 
 The **interactive Graph tab** is where you build and manage the ontology: start from a company
-(one-hop live news extraction), click **Expand neighbours** on demand, right-click to add
-relationships or **Add company…** (a real ticker node, also expandable), delete nodes/edges, and
+(one-hop live news extraction), click **Expand neighbours** on demand (or **Revalidate
+relationships** to re-extract a company's edges against the latest news, bypassing the daily
+cache — stale extracted edges are replaced while your manual/imported edges are kept),
+right-click to add relationships or **Add company…** (a real ticker node, also expandable),
+delete nodes/edges, and
 merge stored **import sets** via the conflict-resolution MergePreview. Save the canvas under a
 user-chosen name (toolbar: name field + **Save / Save as / New / Export**). The **Ontologies** sidebar
 tab lists every saved ontology, shows the **ACTIVE** badge, and lets you **Set active** per row
@@ -206,8 +209,9 @@ inspected, and the canvas marks itself dirty until you save.
 #### Import external ontology models (building blocks)
 
 The Graph tab's **Import** sub-tab accepts a small **app-defined JSON model** (paste or `.json`
-upload; a copy-paste **ChatGPT prompt template** is provided in the UI — this is *not* real
-OWL/RDF). On import (`app/network/import_model.py`), each entity is resolved to a universe
+upload; a copy-paste **LLM prompt template** is provided in the UI — usable with any LLM
+(ChatGPT, Gemini, Claude, …), and it embeds the current date range (from the news-recency
+setting) so the model researches up-to-date news — this is *not* real OWL/RDF). On import (`app/network/import_model.py`), each entity is resolved to a universe
 ticker where possible (else kept as a labelled `ext:` node with metadata), relation types map to
 the six canonical types or `other`, weight/confidence are clamped, and every edge is tagged
 `origin="imported"`. The saved import set is a **reusable building block** — it does **not**

@@ -106,7 +106,8 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   tilts the Discover board's buy/sell/hold by a company's neighbours (e.g. a key supplier's
   bad news weighs on the customer). The graph that drives all analysis is a **named, versioned
   ontology** you build and maintain on the **Graph** tab: start from a company (one-hop live
-  news extraction), expand neighbours on demand, right-click to add relationships or
+  news extraction), expand neighbours — or **revalidate** a company's relationships to
+  re-extract them against the latest news — on demand, right-click to add relationships or
   **add custom companies** (ticker + optional name, fully expandable), delete nodes/edges, and
   merge stored **import sets** via the conflict-resolution MergePreview. Save the canvas
   under a user-chosen name (toolbar: name field + **Save / Save as / New / Export**; up to 5
@@ -120,7 +121,7 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   on the canvas shows which ontology analysis is currently using (or "no network signal") when
   the canvas isn't the live active revision. Company nodes also expose **☆ Add / ★ Remove
   watchlist** in the right-click menu and the node detail panel. Import sets (paste/upload a
-  ChatGPT-generated JSON graph via the Import sub-tab) are reusable building blocks to merge
+  LLM-generated JSON graph via the Import sub-tab) are reusable building blocks to merge
   into a canvas and save — they only feed scores once merged into the active ontology. The
   toolbar **Export** button downloads the current canvas as a JSON file in that same import-set
   shape — copy it to another machine and bring it in via the Import sub-tab (then merge → Save →
