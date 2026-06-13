@@ -79,3 +79,19 @@ def build_fundamentals(info: dict) -> Fundamentals:
 
 def company_name(info: dict, ticker: str) -> str:
     return info.get("longName") or info.get("shortName") or ticker
+
+
+_EXCHANGE_NAMES = {
+    "NMS": "NASDAQ", "NGM": "NASDAQ", "NCM": "NASDAQ", "NaN": "",
+    "NYQ": "NYSE", "PCX": "NYSE Arca", "ASE": "NYSE American", "BTS": "BATS",
+}
+
+
+def friendly_exchange(info: dict) -> str:
+    """Human-readable exchange from yfinance `.info` — maps the common short codes, else
+    falls back to `fullExchangeName`, else the raw code, else ''."""
+    code = str(info.get("exchange") or "").strip()
+    if code in _EXCHANGE_NAMES:
+        return _EXCHANGE_NAMES[code]
+    full = str(info.get("fullExchangeName") or "").strip()
+    return full or code

@@ -1,6 +1,6 @@
 import pandas as pd
 
-from app.data.market import build_candles, build_fundamentals, build_price, company_name
+from app.data.market import build_candles, build_fundamentals, build_price, company_name, friendly_exchange
 
 
 def _df():
@@ -43,6 +43,17 @@ def test_build_fundamentals_uses_get():
 def test_company_name_fallback():
     assert company_name({"longName": "Apple Inc."}, "AAPL") == "Apple Inc."
     assert company_name({}, "AAPL") == "AAPL"
+
+
+def test_friendly_exchange_maps_known_codes():
+    assert friendly_exchange({"exchange": "NMS"}) == "NASDAQ"
+    assert friendly_exchange({"exchange": "NYQ"}) == "NYSE"
+
+
+def test_friendly_exchange_falls_back_to_full_name_then_code():
+    assert friendly_exchange({"exchange": "XYZ", "fullExchangeName": "Some Exchange"}) == "Some Exchange"
+    assert friendly_exchange({"exchange": "XYZ"}) == "XYZ"
+    assert friendly_exchange({}) == ""
 
 
 def test_fetch_close_series_returns_ordered_pairs(monkeypatch):

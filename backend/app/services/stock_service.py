@@ -13,6 +13,7 @@ from app.data.market import (
     company_name,
     fetch_history,
     fetch_info,
+    friendly_exchange,
 )
 from app.data.news import get_news
 from app.models.schemas import IndicatorParams, StockData
@@ -47,6 +48,8 @@ def get_stock_data(
         ticker=ticker,
         company_name=name,
         as_of=datetime.now(timezone.utc).isoformat(),
+        exchange=friendly_exchange(info),
+        sector=str(info.get("sector") or ""),
         price=build_price(df),
         candles=build_candles(df),
         fundamentals=build_fundamentals(info),
