@@ -1,5 +1,5 @@
-from app.config.settings_store import SettingsStore, mask_settings, merge_settings
-from app.models.schemas import ProviderConfig, Settings
+from app.config.settings_store import MASK, SettingsStore, mask_settings, merge_settings
+from app.models.schemas import NewsConfig, NewsProviderConfig, ProviderConfig, Settings
 
 
 def test_load_returns_defaults_when_empty(tmp_path):
@@ -38,3 +38,14 @@ def test_merge_keeps_existing_key_when_masked():
     merged = merge_settings(existing, incoming)
     assert merged.providers["anthropic"].api_key == "sk-real"
     assert merged.providers["openai"].api_key == "sk-new"
+
+
+def test_mask_hides_news_keys():
+    s = Settings(news=NewsConfig(providers={"tavily": NewsProviderConfig(api_key="secret")}))
+    assert mask_settings(s).news.providers["tavily"].api_key == MASK
+
+
+def test_merge_restores_masked_news_key():
+    existing = Settings(news=NewsConfig(providers={"tavily": NewsProviderConfig(api_key="secret")}))
+    incoming = Settings(news=NewsConfig(providers={"tavily": NewsProviderConfig(api_key=MASK)}))
+    assert merge_settings(existing, incoming).news.providers["tavily"].api_key == "secret"

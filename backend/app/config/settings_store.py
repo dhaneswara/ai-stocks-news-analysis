@@ -48,6 +48,9 @@ def mask_settings(settings: Settings) -> Settings:
             cfg.api_key = MASK
     if masked.alerts.telegram_bot_token:
         masked.alerts.telegram_bot_token = MASK
+    for cfg in masked.news.providers.values():
+        if cfg.api_key:
+            cfg.api_key = MASK
     return masked
 
 
@@ -58,4 +61,7 @@ def merge_settings(existing: Settings, incoming: Settings) -> Settings:
             cfg.api_key = existing.providers.get(name, type(cfg)()).api_key
     if merged.alerts.telegram_bot_token == MASK:
         merged.alerts.telegram_bot_token = existing.alerts.telegram_bot_token
+    for name, cfg in merged.news.providers.items():
+        if cfg.api_key == MASK:
+            cfg.api_key = existing.news.providers.get(name, type(cfg)()).api_key
     return merged
