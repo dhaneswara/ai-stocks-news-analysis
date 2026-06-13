@@ -57,6 +57,10 @@ export interface StockScore {
   ticker: string;
   name: string;
   sector: string;
+  // Always present on backend data (defaults); optional here so existing test/lib literals
+  // that build partial StockScores don't all need updating.
+  exchange?: string;
+  in_sp500?: boolean;
   price: number;
   change_pct: number;
   score: number;
@@ -78,6 +82,8 @@ export interface StockData {
   ticker: string;
   company_name: string;
   as_of: string;
+  exchange?: string;
+  sector?: string;
   price: PriceSummary;
   candles: Candle[];
   fundamentals: Fundamentals;
