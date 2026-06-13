@@ -40,6 +40,7 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 - `POST /api/analyze/{ticker}?period=2y` — runs the fast LLM analysis (and records the call **plus a technical/network baseline** for evaluation)
 - `GET  /api/analyze/{ticker}/deep/stream?period=2y` — agentic **Deep Analysis** streamed as Server-Sent Events (records as `llm_deep`; persists the agent trace)
 - `GET  /api/analyze/watchlist/stream?mode=fast|deep&period=2y` — run the fast/deep analysis for **every portfolio ticker (watchlist + active ontology)** as one SSE batch (per-ticker progress events; a ticker whose matching-source call already exists for its latest trading day is skipped)
+- `GET  /api/analysis/{ticker}` — the most recent persisted **analysis snapshot** for a ticker (the full result), for the Dashboard's read-only restore; returns `null` when none exists. Pure read — no compute, no recording, no evaluation impact
 - `GET  /api/traces/{ticker}?limit=5` — recent persisted deep-analysis reasoning traces (newest first)
 - `GET  /api/score/{ticker}` — no-LLM opportunity score for one ticker (Discover parity, network-blended)
 - `GET  /api/signals/{ticker}` — every recorded CALL source for one ticker + per-source track records, agreement and the historically best source (powers the Dashboard Signals strip)
@@ -260,8 +261,10 @@ so the Evaluation tab can answer *"which signal should I trust?"* with data. The
 The portfolio snapshot reads the **portfolio universe** (`portfolio_universe` = watchlist ∪
 active-ontology tickers) server-side and runs the same no-LLM scorer
 as the Discover board over a 1-year window of (cached) yfinance data; calls are keyed to the
-**last candle's** trading date, so a weekend run records under Friday and re-running on the
-same day just overwrites the same rows. The `network` call blends the active ontology and
+**last candle's** trading date, so a weekend run records under Friday. A same-day re-run
+refreshes the row **only until a horizon matures** — once a call has any scored outcome it is
+**immutable**, so re-running analysis can never move its entry/recommendation or wipe its
+verdicts. The `network` call blends the active ontology and
 the Discover-board snapshot, so it is freshest right after a rescan — which is why Discover
 chains the snapshot automatically.
 
@@ -296,7 +299,10 @@ Config lives in `Settings.evaluation` (`enabled`, `horizons` = `[1, 5, 20]`, `ho
 stored in two SQLite tables (`predictions`, `prediction_evals`) in the app DB under `DATA_DIR`;
 both carry the `source` inside their primary keys (older databases are **migrated
 automatically on first start** — existing history is preserved, tagged `llm_fast`). Deep
-reasoning traces live in a third table, `agent_traces`.
+reasoning traces live in a third table, `agent_traces`. The full last analysis per ticker —
+for the Dashboard's read-only restore — lives in a **separate** `analysis_snapshots.db` under
+`DATA_DIR`, deliberately apart from the evaluation tables so viewing a past analysis never
+touches scoring.
 
 ### Scoring job
 
@@ -325,7 +331,8 @@ Create a Basic Task -> Daily (e.g. **5:45 PM**, after the screener/network tasks
 > end-of-day prices — not risk-adjusted, dividend-adjusted, or benchmark-relative. It scores
 > only the calls you actually ran (no synthetic backfill), a single-day horizon is noisy by
 > nature, and per-source winners need **weeks of matured outcomes** before they mean anything
-> (the UI shows "collecting data" until a source has ≥3 scored results).
+> (a source's chip reads *N of M scored — awaiting maturity* until its calls mature, and the
+> per-source 👑 winner needs ≥3 scored outcomes).
 
 ## Scheduled alerts
 

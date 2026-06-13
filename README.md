@@ -23,8 +23,12 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
 - **Interactive dashboard** — candlestick chart (TradingView Lightweight Charts) with a
   **timeframe selector (1M / 3M / 6M / 1Y / 2Y / 5Y)**, SMA50/200 overlays, and LLM-drawn
   **buy ▲ / sell ▼ markers**. Click a marker — or a row in the dedicated **Signals** list — to
-  read that signal's reasoning. Manage your **watchlist inline**: star (★) the loaded ticker
-  to add it, or remove a chip with ×. The header shows a **Signals strip** as soon as a
+  read that signal's reasoning. Your **last analysis restores automatically** when you reopen a
+  ticker — the reasoning, the Signals list, and the chart's buy/sell markers reappear, tagged
+  *as of* its call date — a pure read that costs no tokens and never affects evaluation history,
+  so you can review past calls without re-running. Manage your watchlist from a compact,
+  searchable **Watchlist (N) ▾** dropdown: star (★) the loaded ticker to add it, filter and pick,
+  or remove with ×. The header shows a **Signals strip** as soon as a
   ticker loads: the instant **no-LLM opportunity score** (same 0–100 score + reason chips as
   the Discover board) plus the latest call from **every signal source side by side** —
   technical, network-blended, fast LLM, and deep LLM — with an agree/conflict badge and a 👑
@@ -155,7 +159,8 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   *Caveats:* a "hit" is a simple directional check (buy⇢up, sell⇢down, hold⇢flat within a
   band) over end-of-day prices — not risk-adjusted or benchmark-relative — and only scores the
   calls you actually ran; the per-ticker 👑 needs at least 3 scored outcomes before any source
-  is crowned, so expect "collecting data" for the first weeks.
+  is crowned, and a source's chip reads *N of M scored — awaiting maturity* until its calls
+  mature, so expect sparse data for the first weeks.
 - **Free/minimal data** — `yfinance` for prices/fundamentals, Google News RSS for news.
 
 ## Architecture
