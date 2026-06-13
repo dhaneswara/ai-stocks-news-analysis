@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { Link, NavLink, Route, Routes } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
+import Portfolio from './pages/Portfolio';
 import Discover from './pages/Discover';
 import Settings from './pages/Settings';
 import Evaluation from './pages/Evaluation';
@@ -28,6 +29,7 @@ export default function App() {
           <RunIndicator />
           <nav className="nav">
             <NavLink to="/" end className={navClass}>Dashboard</NavLink>
+            <NavLink to="/portfolio" className={navClass}>Portfolio</NavLink>
             <NavLink to="/discover" className={navClass}>Discover</NavLink>
             <NavLink to="/graph" className={navClass}>Graph</NavLink>
             <NavLink to="/evaluation" className={navClass}>Evaluation</NavLink>
@@ -38,6 +40,7 @@ export default function App() {
         <main className="content">
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/discover" element={<Discover />} />
             <Route path="/graph" element={<Suspense fallback={<p className="muted">Loading graph…</p>}><Graph /></Suspense>} />
             <Route path="/evaluation" element={<Evaluation />} />

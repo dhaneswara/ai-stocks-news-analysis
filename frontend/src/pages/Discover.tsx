@@ -53,15 +53,15 @@ export default function Discover() {
               {data.skipped ? `, ${data.skipped} skipped` : ''}
             </span>
           )}
-          <button className="secondary" onClick={() => refreshList.mutate()} disabled={refreshList.isPending}>
+          <button className="secondary" onClick={() => refreshList.mutate()} disabled={refreshList.isPending} title="Re-scrape the current S&P 500 constituents and replace the local list. Rescan afterward to rebuild the board.">
             {refreshList.isPending ? 'Updating…' : 'Update S&P 500 list'}
           </button>
-          <button onClick={() => rescanAndSnapshot(sector || undefined)} disabled={scanning}>
+          <button onClick={() => rescanAndSnapshot(sector || undefined)} disabled={scanning} title="Re-score every company in scope (fetches fresh price data — minutes cold, fast once cached) and rebuild the board.">
             {scanning
               ? rescan.total ? `Scanning… ${rescan.scanned}/${rescan.total}` : 'Scanning…'
               : sector ? `Rescan ${sector}` : 'Rescan all'}
           </button>
-          {scanning && <button onClick={rescan.stop}>Stop</button>}
+          {scanning && <button onClick={rescan.stop} title="Stop the scan — nothing is saved; cached tickers make a redo fast.">Stop</button>}
         </div>
         <MarketHint />
       </div>
