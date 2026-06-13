@@ -1,7 +1,7 @@
 /** Serialize the working graph into the import-model JSON shape `normalize_import` accepts.
  *  Lossy by design (see the spec): origin and per-edge as_of are dropped; tickers are
  *  re-resolved on import. The file round-trips through the existing Import tab's file upload. */
-import type { KnowledgeGraph } from '../types';
+import type { EdgeSentiment, KnowledgeGraph, RelationType } from '../types';
 
 export interface ImportModelNode {
   id: string;
@@ -12,8 +12,8 @@ export interface ImportModelNode {
 export interface ImportModelEdge {
   source: string;
   target: string;
-  type: string;
-  sentiment: string;
+  type: RelationType;
+  sentiment: EdgeSentiment;
   weight: number;
   confidence: number;
   evidence: string;
