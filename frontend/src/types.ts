@@ -53,6 +53,14 @@ export interface NetworkConfig {
   symmetric_types: RelationType[];
 }
 export interface TruthSignalConfig { enabled: boolean; source_url: string; lookback_hours: number; }
+export type NewsProviderId = 'google' | 'tavily' | 'exa' | 'you';
+export interface NewsProviderConfig { api_key: string; mcp_url: string; }
+export interface NewsConfig {
+  active_provider: NewsProviderId;
+  providers: Record<NewsProviderId, NewsProviderConfig>;
+  news_recency_days: number;
+}
+export interface NewsProviderInfo { id: NewsProviderId; label: string; configured: boolean; }
 export interface StockScore {
   ticker: string;
   name: string;
@@ -279,6 +287,7 @@ export interface Settings {
   screener: ScreenerConfig;
   network: NetworkConfig;
   evaluation: EvaluationConfig;
+  news?: NewsConfig;
 }
 export interface ProviderInfo { id: string; label: string; configured: boolean; default_model: string; }
 export interface TestResult { ok: boolean; message: string; }
