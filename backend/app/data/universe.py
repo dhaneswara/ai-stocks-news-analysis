@@ -113,6 +113,7 @@ def refresh_universe(url: str = WIKI_SP500_URL) -> dict:
     tmp.write_text(_dump_entries(entries), encoding="utf-8")
     os.replace(tmp, _DATA_FILE)  # atomic swap
     _all_entries.cache_clear()
+    _sp500_tickers.cache_clear()  # membership set is derived from _all_entries — refresh it too
 
     return {
         "count": len(entries),
