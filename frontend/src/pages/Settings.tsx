@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import { useListModels, useProviders, useSaveSettings, useSettings } from '../hooks/queries';
-import type { AlertConfig, NewsConfig, ProviderId, Settings as SettingsT, TestResult, TruthSignalConfig } from '../types';
+import { useListModels, useNewsProviders, useProviders, useSaveSettings, useSettings } from '../hooks/queries';
+import type { AlertConfig, NewsConfig, NewsProviderId, ProviderId, Settings as SettingsT, TestResult, TruthSignalConfig } from '../types';
 
 const DEFAULT_NEWS: NewsConfig = {
   active_provider: 'google',
@@ -9,9 +9,17 @@ const DEFAULT_NEWS: NewsConfig = {
   news_recency_days: 90,
 };
 
+const NEWS_OPTIONS: { id: NewsProviderId; label: string }[] = [
+  { id: 'google', label: 'Google News (default)' },
+  { id: 'tavily', label: 'Tavily (MCP)' },
+  { id: 'exa', label: 'Exa (MCP)' },
+  { id: 'you', label: 'you.com (MCP)' },
+];
+
 export default function Settings() {
   const settingsQuery = useSettings();
   const providers = useProviders();
+  const newsProviders = useNewsProviders();
   const save = useSaveSettings();
   const [form, setForm] = useState<SettingsT | null>(null);
   const [test, setTest] = useState<TestResult | null>(null);
@@ -48,6 +56,7 @@ export default function Settings() {
   const updateTruth = (patch: Partial<TruthSignalConfig>) => update({ truth_signal: { ...form.truth_signal, ...patch } });
 
   const news = form.news ?? DEFAULT_NEWS;
+  const newsConfigured = new Set((newsProviders.data ?? []).filter((p) => p.configured).map((p) => p.id));
   const updateNews = (patch: Partial<NewsConfig>) => {
     if (patch.active_provider && patch.active_provider !== news.active_provider) setNewsTest(null);
     update({ news: { ...news, ...patch } });
@@ -70,6 +79,7 @@ export default function Settings() {
     setNewsTest(null);
     await save.mutateAsync(form);
     setNewsTest(await api.testNews(news.active_provider));
+    void newsProviders.refetch();   // the just-saved key flips `configured` -> show the ✓
   };
   const onFetchModels = async () => {
     setModelsMsg(null);
@@ -213,10 +223,9 @@ export default function Settings() {
         <label htmlFor="news-source">News source</label>
         <select id="news-source" value={news.active_provider}
                 onChange={(e) => updateNews({ active_provider: e.target.value as NewsConfig['active_provider'] })}>
-          <option value="google">Google News (default)</option>
-          <option value="tavily">Tavily (MCP)</option>
-          <option value="exa">Exa (MCP)</option>
-          <option value="you">you.com (MCP)</option>
+          {NEWS_OPTIONS.map((o) => (
+            <option key={o.id} value={o.id}>{o.label}{newsConfigured.has(o.id) ? ' ✓' : ''}</option>
+          ))}
         </select>
         <p className="muted">Where Expand neighbours reads news to build the ontology.</p>
       </div>

@@ -71,6 +71,18 @@ describe('Settings news source', () => {
     fireEvent.change(recency, { target: { value: '30' } });
     expect((recency as HTMLInputElement).value).toBe('30');
   });
+
+  it('marks configured news providers with a ✓ in the dropdown', async () => {
+    vi.mocked(api.getNewsProviders).mockResolvedValue([
+      { id: 'google', label: 'Google News', configured: true },
+      { id: 'tavily', label: 'Tavily', configured: true },
+      { id: 'exa', label: 'Exa', configured: false },
+      { id: 'you', label: 'you.com', configured: false },
+    ]);
+    renderSettings();
+    expect(await screen.findByRole('option', { name: /tavily.*✓/i })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: /^exa \(mcp\)$/i })).toBeInTheDocument(); // not configured -> no tick
+  });
 });
 
 describe('Settings fetch models', () => {
