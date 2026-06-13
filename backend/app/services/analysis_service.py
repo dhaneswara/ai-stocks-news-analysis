@@ -15,7 +15,7 @@ from app.llm.base import LLMError
 from app.llm.factory import build_provider, resolve_config
 from app.models.schemas import AnalysisResult, Settings, StockData
 from app.network.store import active_graph
-from app.screener.store import load_snapshot
+from app.screener.store import combined_base_index
 from app.services.stock_service import get_stock_data
 
 ANALYSIS_TTL_SECONDS = 24 * 60 * 60  # 1 day
@@ -34,8 +34,7 @@ def gather_stock_context(ticker, period, settings, cache, provider,
     if ncfg.enabled:
         graph = active_graph(cache)
         if graph.edges:
-            board = load_snapshot(cache, "all")
-            base_index = {s.ticker: s for s in (board.items if board else [])}
+            base_index = combined_base_index(cache)  # portfolio-preferred, like score_one
             edges = incident_edges(ticker, graph.edges, set(ncfg.symmetric_types))
             if edges:
                 stock.network = compute_network_signal(ticker, edges, base_index, ncfg)

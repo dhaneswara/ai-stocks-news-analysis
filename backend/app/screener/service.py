@@ -128,7 +128,7 @@ def score_one(ticker: str, settings: Settings, cache: Cache) -> StockScore:
     )
     mentions = political.find_mentions(posts, ticker, stock.company_name)
     score = score_stock(stock, mentions, settings.screener)
-    score.sector = next((e.sector for e in load_universe() if e.ticker == ticker), "")
+    score.sector = next((e.sector for e in load_universe() if e.ticker == ticker), "") or stock.sector
     score.exchange = stock.exchange
     score.in_sp500 = is_sp500_member(ticker)
 

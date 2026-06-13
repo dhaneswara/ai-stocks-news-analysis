@@ -546,7 +546,12 @@ def _version_param(version: str | None) -> str | None:
 
 def _rebake_board(settings: Settings, cache: Cache) -> None:
     """Re-blend the Discover snapshot against the active graph so NET scores flip
-    immediately — no rescan needed."""
+    immediately — no rescan needed.
+
+    Only the `all` board is re-baked, NOT the `portfolio` snapshot: the portfolio's very
+    membership is the active ontology (watchlist ∪ ontology tickers), so an ontology change
+    needs a full Rescan portfolio (which the Portfolio page / Evaluation bar provide) — a
+    blend-only re-bake could neither add nor drop the right rows."""
     board = load_snapshot(cache, "all")
     if board is not None:
         save_snapshot(apply_network(board, active_graph(cache), settings), cache)

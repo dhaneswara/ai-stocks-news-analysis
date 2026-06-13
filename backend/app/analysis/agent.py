@@ -23,7 +23,7 @@ from app.data.news import search_news
 from app.models.schemas import AnalysisResult, NetworkSignal, Settings, StockData
 from app.network.store import active_graph
 from app.screener.service import score_one
-from app.screener.store import load_snapshot
+from app.screener.store import combined_base_index
 
 
 @dataclass
@@ -219,8 +219,7 @@ def _network_signal_for(ticker: str, ctx: ToolContext) -> Optional[NetworkSignal
         return None
     try:
         graph = active_graph(ctx.cache)
-        board = load_snapshot(ctx.cache, "all")
-        base_index = {s.ticker: s for s in (board.items if board else [])}
+        base_index = combined_base_index(ctx.cache)  # portfolio-preferred, like score_one
         edges = incident_edges(ticker, graph.edges, set(ncfg.symmetric_types))
         if not edges:
             return None
