@@ -117,3 +117,32 @@ def test_custom_store_round_trip_and_merge(tmp_path):
 
     assert universe.delete_custom("PRIV", cache) is True
     assert universe.list_custom(cache) == []
+
+
+def test_resolve_custom_entry_autofetches(tmp_path, monkeypatch):
+    from app.config.cache import Cache
+    from app.data import universe
+    from app.models.schemas import IndicatorParams, PriceSummary, StockData
+    cache = Cache(str(tmp_path / "c.db"))
+
+    def fake_stock(ticker, period, params, cache):
+        return StockData(ticker=ticker, company_name="Private Co", as_of="t",
+                         exchange="NYSE", sector="Tech",
+                         price=PriceSummary(current=42.5, change=0, change_pct=0),
+                         candles=[], fundamentals={}, indicators={})
+
+    monkeypatch.setattr(universe, "get_stock_data", fake_stock)
+    entry, price = universe.resolve_custom_entry("priv ", IndicatorParams(), cache)
+    assert entry.ticker == "PRIV" and entry.name == "Private Co"
+    assert entry.sector == "Tech" and entry.exchange == "NYSE" and price == 42.5
+
+
+def test_resolve_custom_entry_rejects_unknown(tmp_path, monkeypatch):
+    import pytest
+    from app.config.cache import Cache
+    from app.data import universe
+    from app.models.schemas import IndicatorParams
+    monkeypatch.setattr(universe, "get_stock_data",
+                        lambda *a, **k: (_ for _ in ()).throw(ValueError("No price history")))
+    with pytest.raises(ValueError):
+        universe.resolve_custom_entry("NOPE", IndicatorParams(), Cache(str(tmp_path / "c.db")))

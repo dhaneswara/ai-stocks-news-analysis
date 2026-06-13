@@ -20,6 +20,7 @@ import pandas as pd
 
 from app.config.cache import Cache
 from app.models.schemas import UniverseEntry
+from app.services.stock_service import get_stock_data
 
 _DATA_FILE = Path(__file__).with_name("sp500.json")
 WIKI_SP500_URL = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
@@ -86,6 +87,17 @@ def delete_custom(ticker: str, cache: Cache) -> bool:
         return False
     cache.set(_CUSTOM_KEY, json.dumps([c.model_dump() for c in kept]), _CUSTOM_TTL_SECONDS)
     return True
+
+
+def resolve_custom_entry(ticker: str, params, cache: Cache) -> tuple[UniverseEntry, float]:
+    """Auto-fill a custom company from market data. Raises ValueError when the ticker has no
+    price history (the caller maps that to HTTP 422). Uses a short window — enough to validate
+    the ticker and read the current price."""
+    t = ticker.upper().strip()
+    stock = get_stock_data(t, "1mo", params, cache)  # validates; raises ValueError if unknown
+    entry = UniverseEntry(ticker=t, name=stock.company_name, sector=stock.sector,
+                          exchange=stock.exchange)
+    return entry, stock.price.current
 
 
 def _fetch_sp500_html(url: str = WIKI_SP500_URL) -> str:
