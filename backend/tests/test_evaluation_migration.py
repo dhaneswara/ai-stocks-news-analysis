@@ -70,15 +70,30 @@ def test_fresh_db_gets_new_schema(tmp_path):
     assert store.get_prediction("MSFT", "2026-06-05") is None  # default looks up llm_fast
 
 
-def test_entry_price_change_invalidates_only_that_source(tmp_path):
+def test_scored_prediction_is_immutable_on_rerecord(tmp_path):
+    """Once a call has a matured eval, re-recording it (e.g. an intraday Analyze re-run at a
+    different price) is a no-op: the scored history and the original entry are preserved."""
     store = PredictionStore(str(tmp_path / "p.db"))
-    for src in ("llm_fast", "technical"):
-        store.upsert_prediction(ticker="AAPL", call_date="2026-06-05", provider="a", model="m",
-                                recommendation="buy", confidence=0.8, sentiment="bullish",
-                                entry_price=200.0, source=src)
-        store.record_eval("AAPL", "2026-06-05", 1, "2026-06-06", 210.0, 5.0, 1, 100.0, source=src)
     store.upsert_prediction(ticker="AAPL", call_date="2026-06-05", provider="a", model="m",
                             recommendation="buy", confidence=0.8, sentiment="bullish",
-                            entry_price=201.0, source="llm_fast")  # changed price
-    assert store.has_eval("AAPL", "2026-06-05", 1, "llm_fast") is False
-    assert store.has_eval("AAPL", "2026-06-05", 1, "technical") is True
+                            entry_price=200.0, source="llm_fast")
+    store.record_eval("AAPL", "2026-06-05", 1, "2026-06-06", 210.0, 5.0, 1, 100.0, source="llm_fast")
+    store.upsert_prediction(ticker="AAPL", call_date="2026-06-05", provider="a", model="m",
+                            recommendation="sell", confidence=0.2, sentiment="bearish",
+                            entry_price=201.0, source="llm_fast")  # re-run at a new price
+    row = store.get_prediction("AAPL", "2026-06-05", "llm_fast")
+    assert row.entry_price == 200.0 and row.recommendation == "buy"  # unchanged
+    assert store.has_eval("AAPL", "2026-06-05", 1, "llm_fast") is True  # eval preserved
+
+
+def test_unscored_prediction_still_updates_on_rerecord(tmp_path):
+    """Before any eval matures, re-recording the same call still refreshes it (intraday updates)."""
+    store = PredictionStore(str(tmp_path / "p.db"))
+    store.upsert_prediction(ticker="AAPL", call_date="2026-06-05", provider="a", model="m",
+                            recommendation="buy", confidence=0.8, sentiment="bullish",
+                            entry_price=200.0, source="llm_fast")
+    store.upsert_prediction(ticker="AAPL", call_date="2026-06-05", provider="a", model="m",
+                            recommendation="sell", confidence=0.3, sentiment="bearish",
+                            entry_price=205.0, source="llm_fast")
+    row = store.get_prediction("AAPL", "2026-06-05", "llm_fast")
+    assert row.entry_price == 205.0 and row.recommendation == "sell"

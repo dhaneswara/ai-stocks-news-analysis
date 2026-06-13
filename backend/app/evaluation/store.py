@@ -116,17 +116,17 @@ class PredictionStore:
                           entry_price: float, source: str = SOURCE_LLM_FAST) -> None:
         ticker = ticker.upper().strip()
         with self._lock:
-            existing = self._conn.execute(
-                "SELECT entry_price FROM predictions "
-                "WHERE ticker = ? AND call_date = ? AND source = ?",
+            # Immutable once scored: if this call already has a matured eval, re-recording is a
+            # no-op. Re-running analysis must never move the recorded entry/recommendation or
+            # destroy scored history. Before anything matures, a re-record still refreshes the
+            # row (intraday updates), so INSERT OR REPLACE runs only when no eval exists.
+            scored = self._conn.execute(
+                "SELECT 1 FROM prediction_evals "
+                "WHERE ticker = ? AND call_date = ? AND source = ? LIMIT 1",
                 (ticker, call_date, source),
             ).fetchone()
-            if existing is not None and existing[0] != entry_price:
-                self._conn.execute(
-                    "DELETE FROM prediction_evals "
-                    "WHERE ticker = ? AND call_date = ? AND source = ?",
-                    (ticker, call_date, source),
-                )
+            if scored is not None:
+                return
             self._conn.execute(
                 "INSERT OR REPLACE INTO predictions "
                 "(ticker, call_date, provider, model, recommendation, confidence, sentiment, "
