@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { ScoreBoard } from '../components/ScoreBoard';
 import { MarketHint } from '../components/MarketHint';
-import { useRefreshUniverse, useScreen, useSectors, useWatchlist } from '../hooks/queries';
+import { AddCompanyForm } from '../components/AddCompanyForm';
+import { useRefreshUniverse, useScreen, useSectors, useWatchlist, useDeleteCustomCompany } from '../hooks/queries';
 import { useWatchlistRunContext } from '../state/watchlistRunState';
 
 export default function Discover() {
@@ -14,6 +15,7 @@ export default function Discover() {
   const { snapshot, rescan, rescanAndSnapshot } = useWatchlistRunContext();
   const refreshList = useRefreshUniverse();
   const watch = useWatchlist();
+  const delCustom = useDeleteCustomCompany();
 
   const data = board.data;
   const empty = data && data.items.length === 0 && data.as_of === '';
@@ -62,6 +64,7 @@ export default function Discover() {
               : sector ? `Rescan ${sector}` : 'Rescan all'}
           </button>
           {scanning && <button onClick={rescan.stop} title="Stop the scan — nothing is saved; cached tickers make a redo fast.">Stop</button>}
+          <AddCompanyForm />
         </div>
         <MarketHint />
       </div>
@@ -107,7 +110,7 @@ export default function Discover() {
         <div className="panel-head">
           <span className="section-label">Opportunity board — click a row to deep-dive</span>
         </div>
-        {data && <ScoreBoard items={data.items} onAdd={watch.add} />}
+        {data && <ScoreBoard items={data.items} onAdd={watch.add} onRemove={(t) => delCustom.mutate(t)} />}
       </section>
     </>
   );
