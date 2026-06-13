@@ -76,7 +76,6 @@ export function TickerBar({
       </button>
       <button
         type="button"
-        className="secondary"
         onClick={onDeepAnalyze}
         disabled={!canAnalyze || deepAnalyzing}
         title="Agentic analysis — the LLM pulls data step-by-step; slower, streamed live"

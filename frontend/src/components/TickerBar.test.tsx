@@ -67,3 +67,9 @@ it('fires onDeepAnalyze when the Deep Analysis button is clicked', () => {
   fireEvent.click(screen.getByRole('button', { name: /deep analysis/i }));
   expect(onDeepAnalyze).toHaveBeenCalled();
 });
+
+it('renders the Deep Analysis button as a solid-gold (non-secondary) button', () => {
+  setup();
+  const deep = screen.getByRole('button', { name: /deep analysis/i });
+  expect(deep).not.toHaveClass('secondary');
+});
