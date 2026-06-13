@@ -13,16 +13,23 @@ over. The user wants to optionally switch the news source, in Settings, to a ric
 **MCP-based search provider** (Tavily / Exa / you.com), which returns extracted article content,
 publish dates, and native recency filtering.
 
-This is the first of **two sub-projects**:
+This is the first of **three sub-projects** (the LLM-driven build is a deliberate "fast default +
+opt-in deep agent" hybrid, mirroring the app's existing fast vs Deep Analysis split):
 
 1. **This spec — pluggable news provider (infrastructure).** A `NewsProvider` abstraction with
    Google News as the default and Tavily/Exa/you.com as MCP-client providers, selectable in
    Settings, and Expand neighbours repointed to the active provider.
-2. **Follow-up (separate spec) — richer extraction.** A deal-focused query, snippet inclusion in
-   the extraction prompt, and an M&A → owner/subsidiary prompt mapping. Out of scope here.
+2. **Follow-up (separate spec) — richer *fast* extraction.** A deal-focused query, snippet
+   inclusion in the extraction prompt, and an M&A → owner/subsidiary prompt mapping. The default
+   Expand. Out of scope here.
+3. **Follow-up (separate spec) — agentic "Deep expand".** An opt-in ReAct loop (reusing the Deep
+   Analysis engine) in which the LLM itself drives iterative news-search — *through this
+   sub-project's news provider as its tool* — to discover and assemble a richer ontology. Out of
+   scope here.
 
 **Boundary:** this sub-project owns *where the news comes from* — the provider, recency, and
-snippet *data*. Sub-project #2 owns *how the LLM reasons over it*.
+snippet *data* — and is the shared news source/tool for all three build paths. Sub-projects #2/#3
+own *how the LLM reasons over it*.
 
 ## Architecture
 
@@ -183,6 +190,8 @@ pure-Python (httpx/anyio/pydantic deps), so it installs on Windows/ARM64 without
 ## Out of scope (explicit)
 
 - The deal-focused query, snippet-in-prompt, and M&A→owner/subsidiary prompt (sub-project #2).
-- Repointing the Dashboard news list or the deep-analysis agent's `fetch_news` tool at the new
-  provider (possible later; this sub-project repoints only Expand neighbours / Start-from-company).
+- The agentic "Deep expand" ReAct builder (sub-project #3) — it will consume `build_news_provider`
+  as its news-search tool, but the loop, tools, and graph assembly are designed in its own spec.
+- Repointing the Dashboard news list or the existing deep-analysis agent's `fetch_news` tool at the
+  new provider (possible later; this sub-project repoints only Expand neighbours / Start-from-company).
 - Any change to scoring, the active ontology, `RelationType`, or the graph legend.
