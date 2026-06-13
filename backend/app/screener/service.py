@@ -56,8 +56,8 @@ def portfolio_universe(settings: Settings, cache: Cache) -> list[str]:
 def _resolve_entries(scope: str | None, settings: Settings, cache: Cache) -> list[UniverseEntry]:
     """Map a scan scope to its universe entries. `"portfolio"` synthesizes an entry per
     portfolio ticker (name/sector from the universe when known, else filled live during the
-    scan); a sector name / None defers to load_universe. Custom companies are merged in by a
-    later phase."""
+    scan); a sector name / None defers to load_universe. Cache-stored custom companies are
+    merged into both paths via `load_universe(cache=)`."""
     if scope == "portfolio":
         known = {e.ticker: e for e in load_universe(cache=cache)}
         return [known.get(t, UniverseEntry(ticker=t, name=t, sector=""))
