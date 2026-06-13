@@ -92,18 +92,20 @@ def extract_relationships(
     cfg: NetworkConfig,
     *,
     now: datetime | None = None,
+    refresh: bool = False,
 ) -> list[GraphEdge]:
     now = now or datetime.now(timezone.utc)
     if not stock.news:
         return []
 
     key = f"relationships:{provider_name}:{model}:{stock.ticker}:{now.date().isoformat()}"
-    cached = cache.get(key)
-    if cached is not None:
-        try:
-            return [GraphEdge(**e) for e in json.loads(cached)]
-        except Exception:
-            pass  # corrupt entry -> recompute
+    if not refresh:
+        cached = cache.get(key)
+        if cached is not None:
+            try:
+                return [GraphEdge(**e) for e in json.loads(cached)]
+            except Exception:
+                pass  # corrupt entry -> recompute
 
     system, user = build_extract_prompt(stock)
     edges: list[GraphEdge] = []

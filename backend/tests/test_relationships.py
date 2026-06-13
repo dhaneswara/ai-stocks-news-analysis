@@ -81,6 +81,14 @@ def test_extract_is_cached_per_day(tmp_path):
     assert p.calls == 1 and len(a) == len(b)
 
 
+def test_extract_refresh_bypasses_cache(tmp_path):
+    cache = Cache(str(tmp_path / "c.db"))
+    p = FakeProvider([EDGES_JSON, EDGES_JSON])  # two outputs available
+    extract_relationships(_stock_with_news("x"), RESOLVER, p, "m", "fake", cache, NetworkConfig())
+    extract_relationships(_stock_with_news("x"), RESOLVER, p, "m", "fake", cache, NetworkConfig(), refresh=True)
+    assert p.calls == 2  # second call ignored the cached entry and recomputed
+
+
 def test_extract_degrades_to_empty_on_bad_json(tmp_path):
     cache = Cache(str(tmp_path / "c.db"))
     edges = extract_relationships(_stock_with_news("x"), RESOLVER, FakeProvider(["not json"]),
