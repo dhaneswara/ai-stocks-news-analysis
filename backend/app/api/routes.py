@@ -241,7 +241,7 @@ def analyze_watchlist_stream(
     prediction_store: PredictionStore = Depends(get_prediction_store),
     trace_store: AgentTraceStore = Depends(get_trace_store),
 ) -> StreamingResponse:
-    """Run the LLM analysis for every watchlist ticker as one SSE batch (`start`, one
+    """Run the LLM analysis for every portfolio ticker (watchlist + active ontology) as one SSE batch (`start`, one
     `ticker` frame per state change, terminal `done`/`error`). A ticker whose
     matching-source call already exists for its latest trading day is skipped, so
     re-running resumes after a partial failure instead of re-spending tokens. Sequential
@@ -273,7 +273,7 @@ def analyze_watchlist_stream(
     except LLMError as exc:
         return one_error(str(exc))
 
-    tickers = [t.upper().strip() for t in settings.watchlist]
+    tickers = [t.upper().strip() for t in portfolio_universe(settings, cache)]
 
     def event_stream():
         yield _sse(WatchlistRunEvent(type="start", total=len(tickers), tickers=tickers))

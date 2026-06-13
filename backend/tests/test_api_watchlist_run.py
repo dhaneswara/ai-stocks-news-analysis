@@ -291,6 +291,21 @@ def test_deep_fallback_is_done_with_fell_back_flag_and_records_fast(tmp_path, mo
     assert pred_store.get_prediction("AAPL", "2026-06-05", "llm_deep") is None
 
 
+def test_watchlist_stream_uses_portfolio_universe(tmp_path, monkeypatch):
+    client, settings_store, _, _ = _client(tmp_path)
+    _ready_settings(settings_store, watchlist=["AAPL"])
+    # Ontology adds NVDA -> the run set is the portfolio, not just the watchlist.
+    monkeypatch.setattr(routes, "portfolio_universe", lambda settings, cache: ["AAPL", "NVDA"])
+    monkeypatch.setattr(routes, "build_provider", lambda settings: FakeProvider([]))
+    monkeypatch.setattr(routes, "get_stock_data", lambda t, p, ip, c: _stock_with_candles(t))
+    monkeypatch.setattr(routes, "run_analysis", lambda t, p, s, c, ps: _result(t))
+
+    evs = _events(client.get("/api/analyze/watchlist/stream?mode=fast").text)
+    assert evs[0][1]["tickers"] == ["AAPL", "NVDA"]   # the start frame lists the portfolio set
+    done = [p["ticker"] for n, p in evs if n == "ticker" and p["status"] == "done"]
+    assert done == ["AAPL", "NVDA"]
+
+
 def test_deep_llm_error_marks_ticker_failed_and_run_completes(tmp_path, monkeypatch):
     class _Raising:
         name = "raise"
