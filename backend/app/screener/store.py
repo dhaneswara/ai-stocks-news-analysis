@@ -6,7 +6,7 @@ expiry only ever yields the empty state. No new table — reuses the cache injec
 from __future__ import annotations
 
 from app.config.cache import Cache
-from app.models.schemas import ScreenBoard
+from app.models.schemas import ScreenBoard, StockScore
 
 _SNAPSHOT_TTL_SECONDS = 7 * 24 * 60 * 60  # 7 days
 
@@ -22,6 +22,20 @@ def save_snapshot(board: ScreenBoard, cache: Cache) -> None:
 def load_snapshot(cache: Cache, scope: str = "all") -> ScreenBoard | None:
     raw = cache.get(_key(scope))
     return ScreenBoard.model_validate_json(raw) if raw is not None else None
+
+
+def combined_base_index(cache: Cache) -> dict[str, StockScore]:
+    """Ticker -> base StockScore, the `all` board overlaid by the `portfolio` board (portfolio
+    wins). The neighbour-state source for single-ticker scoring: prefer the focused portfolio
+    data, fall back to the broad Discover scan."""
+    out: dict[str, StockScore] = {}
+    all_board = load_snapshot(cache, "all")
+    if all_board:
+        out.update({s.ticker: s for s in all_board.items})
+    pf = load_snapshot(cache, "portfolio")
+    if pf:
+        out.update({s.ticker: s for s in pf.items})
+    return out
 
 
 def merge_sector(full: ScreenBoard, fresh: ScreenBoard) -> ScreenBoard:

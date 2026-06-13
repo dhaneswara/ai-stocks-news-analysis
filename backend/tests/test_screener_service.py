@@ -159,3 +159,19 @@ def test_scan_portfolio_scope_synthesizes_entries_and_tags(monkeypatch):
     assert by["AAPL"].in_sp500 is True and by["PRIV"].in_sp500 is False
     assert by["PRIV"].exchange == "NASDAQ"           # from fetched StockData
     assert by["PRIV"].sector == "Tech"               # synth entry had no sector -> fall back to stock
+
+
+def test_combined_base_index_portfolio_overrides_all(tmp_path):
+    from app.screener.store import combined_base_index
+    cache = Cache(str(tmp_path / "c.db"))
+    save_snapshot(ScreenBoard(scope="all", items=[
+        StockScore(ticker="AAA", name="A", price=1, change_pct=0, score=10, direction="hold"),
+        StockScore(ticker="BBB", name="B", price=1, change_pct=0, score=20, direction="hold"),
+    ]), cache)
+    save_snapshot(ScreenBoard(scope="portfolio", items=[
+        StockScore(ticker="BBB", name="B", price=1, change_pct=0, score=99, direction="buy"),
+    ]), cache)
+    idx = combined_base_index(cache)
+    assert set(idx) == {"AAA", "BBB"}
+    assert idx["BBB"].score == 99   # portfolio wins on conflict
+    assert idx["AAA"].score == 10   # all-only ticker retained
