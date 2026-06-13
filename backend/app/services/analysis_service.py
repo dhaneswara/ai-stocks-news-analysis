@@ -16,6 +16,7 @@ from app.llm.factory import build_provider, resolve_config
 from app.models.schemas import AnalysisResult, Settings, StockData
 from app.network.store import active_graph
 from app.screener.store import combined_base_index
+from app.services.analysis_snapshot_store import AnalysisSnapshotStore
 from app.services.stock_service import get_stock_data
 
 ANALYSIS_TTL_SECONDS = 24 * 60 * 60  # 1 day
@@ -90,12 +91,31 @@ def _record_if_missing(ticker: str, period: str, result: AnalysisResult, setting
     _record_calls(stock, result, settings, cache, prediction_store)
 
 
+def _write_snapshot_fast(ticker: str, period: str, result: AnalysisResult, settings: Settings,
+                         cache: Cache, snapshot_store: AnalysisSnapshotStore | None) -> None:
+    """Best-effort: persist the full fast-analysis result so the Dashboard can restore it later
+    without re-running. INDEPENDENT of the evaluation gate — viewing must work even if recording
+    is off. call_date matches the prediction convention (the last candle); the stock fetch is a
+    same-day cache read."""
+    if snapshot_store is None:
+        return
+    try:
+        stock = get_stock_data(ticker, period, settings.indicator_params, cache)
+        call_date = stock.candles[-1].time if stock.candles else ""
+        snapshot_store.upsert(ticker=ticker, source=SOURCE_LLM_FAST, call_date=call_date,
+                              period=period, provider=result.provider, model=result.model,
+                              result_json=result.model_dump_json())
+    except Exception:  # noqa: BLE001 — snapshotting must never break analysis
+        logger.warning("analysis snapshot write failed for %s", ticker)
+
+
 def run_analysis(
     ticker: str,
     period: str,
     settings: Settings,
     cache: Cache,
     prediction_store: PredictionStore | None = None,
+    snapshot_store: AnalysisSnapshotStore | None = None,
 ) -> AnalysisResult:
     ticker = ticker.upper().strip()
     provider_id = settings.active_provider
@@ -114,6 +134,7 @@ def run_analysis(
     if cached is not None:
         result = AnalysisResult.model_validate_json(cached)
         _record_if_missing(ticker, period, result, settings, cache, prediction_store)
+        _write_snapshot_fast(ticker, period, result, settings, cache, snapshot_store)
         return result
 
     provider = build_provider(settings)
@@ -123,4 +144,5 @@ def run_analysis(
     result = analyze(stock, provider, model=cfg.model, provider_name=provider_id)
     cache.set(cache_key, result.model_dump_json(), ANALYSIS_TTL_SECONDS)
     _record_calls(stock, result, settings, cache, prediction_store)
+    _write_snapshot_fast(ticker, period, result, settings, cache, snapshot_store)
     return result

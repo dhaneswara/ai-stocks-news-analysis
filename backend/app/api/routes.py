@@ -130,10 +130,12 @@ def analyze_ticker(
     cache: Cache = Depends(get_cache),
     store: SettingsStore = Depends(get_settings_store),
     prediction_store: PredictionStore = Depends(get_prediction_store),
+    snapshot_store: AnalysisSnapshotStore = Depends(get_analysis_snapshot_store),
 ) -> AnalysisResult:
     settings = store.load()
     try:
-        return run_analysis(ticker, period, settings, cache, prediction_store)
+        return run_analysis(ticker, period, settings, cache, prediction_store,
+                            snapshot_store=snapshot_store)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except LLMError as exc:
@@ -168,7 +170,8 @@ _SSE_HEADERS = {"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
 
 
 def _persist_deep_final(event: AgentEvent, stock: StockData, settings: Settings, cache: Cache,
-                        prediction_store: PredictionStore, trace_store: AgentTraceStore) -> None:
+                        prediction_store: PredictionStore, trace_store: AgentTraceStore,
+                        snapshot_store: AnalysisSnapshotStore | None = None) -> None:
     """Persist the trace + predictions when a deep run completes. Each persistence concern is
     isolated — a failure must never break the SSE stream. A run that degraded to the
     single-shot fallback is recorded as llm_fast (that path produced the answer), keeping the
@@ -181,10 +184,19 @@ def _persist_deep_final(event: AgentEvent, stock: StockData, settings: Settings,
                                model=trace.model, trace_json=trace.model_dump_json())
         except Exception:  # noqa: BLE001
             logger.warning("trace persistence failed for %s", stock.ticker)
-    if event.result is None or not settings.evaluation.enabled:
-        return
     # No trace = can't prove it was a real agent run -> conservatively label llm_fast.
     source = SOURCE_LLM_FAST if (trace is None or trace.fell_back) else SOURCE_LLM_DEEP
+    # Snapshot the result for Dashboard restore, independent of the evaluation gate.
+    if event.result is not None and snapshot_store is not None:
+        try:
+            snapshot_store.upsert(ticker=event.result.ticker, source=source, call_date=call_date,
+                                  period="", provider=event.result.provider,
+                                  model=event.result.model,
+                                  result_json=event.result.model_dump_json())
+        except Exception:  # noqa: BLE001
+            logger.warning("deep analysis snapshot write failed for %s", stock.ticker)
+    if event.result is None or not settings.evaluation.enabled:
+        return
     try:
         record_prediction(stock, event.result, prediction_store, source=source)
     except Exception:  # noqa: BLE001
@@ -203,6 +215,7 @@ def analyze_deep_stream(
     store: SettingsStore = Depends(get_settings_store),
     prediction_store: PredictionStore = Depends(get_prediction_store),
     trace_store: AgentTraceStore = Depends(get_trace_store),
+    snapshot_store: AnalysisSnapshotStore = Depends(get_analysis_snapshot_store),
 ) -> StreamingResponse:
     """Agentic (ReAct) deep analysis, streamed step-by-step as Server-Sent Events. Failures that
     prevent starting (no price data -> 404, no provider config -> 502) are normal HTTP errors;
@@ -231,7 +244,7 @@ def analyze_deep_stream(
             for event in agent.stream(provider, cfg.model, provider_id, ctx):
                 if event.type == "final":
                     _persist_deep_final(event, stock, settings, cache, prediction_store,
-                                        trace_store)
+                                        trace_store, snapshot_store=snapshot_store)
                 yield _sse(event)
         except LLMError as exc:  # provider/LLM failure (e.g. missing key) -> usable in-stream error
             # TODO: a mid-run LLMError loses the partial trace (only `final` persists);
@@ -269,6 +282,7 @@ def analyze_watchlist_stream(
     store: SettingsStore = Depends(get_settings_store),
     prediction_store: PredictionStore = Depends(get_prediction_store),
     trace_store: AgentTraceStore = Depends(get_trace_store),
+    snapshot_store: AnalysisSnapshotStore = Depends(get_analysis_snapshot_store),
 ) -> StreamingResponse:
     """Run the LLM analysis for every portfolio ticker (watchlist + active ontology) as one SSE batch (`start`, one
     `ticker` frame per state change, terminal `done`/`error`). A ticker whose
@@ -321,7 +335,8 @@ def analyze_watchlist_stream(
                     continue
                 fell_back = False
                 if mode == "fast":
-                    result = run_analysis(ticker, period, settings, cache, prediction_store)
+                    result = run_analysis(ticker, period, settings, cache, prediction_store,
+                                          snapshot_store=snapshot_store)
                 else:
                     deep_stock = gather_stock_context(ticker, period, settings, cache,
                                                       provider, store=prediction_store)
@@ -331,7 +346,7 @@ def analyze_watchlist_stream(
                         raise LLMError("agent produced no result")
                     _persist_deep_final(AgentEvent(type="final", result=result, trace=trace),
                                         deep_stock, settings, cache, prediction_store,
-                                        trace_store)
+                                        trace_store, snapshot_store=snapshot_store)
                     fell_back = trace.fell_back if trace else True
                 analyzed += 1
                 yield _sse(WatchlistRunEvent(

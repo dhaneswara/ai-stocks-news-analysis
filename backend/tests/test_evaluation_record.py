@@ -213,6 +213,25 @@ def test_run_analysis_cache_hit_without_store_is_unchanged(tmp_path, monkeypatch
     assert result.current_recommendation == "buy"
 
 
+def test_run_analysis_writes_snapshot_on_cache_hit(tmp_path, monkeypatch):
+    from app.services.analysis_snapshot_store import AnalysisSnapshotStore
+
+    settings = Settings()
+    settings.providers["anthropic"].api_key = "k"
+    monkeypatch.setattr(analysis_service, "get_stock_data", lambda *a, **k: _stock_with_candles())
+    monkeypatch.setattr(analysis_service, "record_deterministic_pair", lambda *a, **k: None)
+    _no_provider(monkeypatch)
+    cache = Cache(str(tmp_path / "c.db"))
+    store = PredictionStore(str(tmp_path / "p.db"))
+    snap = AnalysisSnapshotStore(str(tmp_path / "snap.db"))
+    _seed_analysis_cache(cache, settings)
+
+    analysis_service.run_analysis("AAPL", "2y", settings, cache, store, snapshot_store=snap)
+
+    row = snap.latest("AAPL")
+    assert row is not None and row.source == "llm_fast" and row.call_date == "2026-06-05"
+
+
 def test_run_analysis_disabled_gates_pair_recording_too(tmp_path, monkeypatch):
     import json as _json
 

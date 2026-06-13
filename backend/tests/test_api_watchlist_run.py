@@ -143,7 +143,7 @@ def test_fast_run_analyzes_every_ticker(tmp_path, monkeypatch):
     monkeypatch.setattr(routes, "get_stock_data", lambda t, p, ip, c: _stock_with_candles(t))
     calls = []
 
-    def fake_run(t, p, s, c, ps):
+    def fake_run(t, p, s, c, ps, **kw):
         calls.append(t)
         return _result(t)
     monkeypatch.setattr(routes, "run_analysis", fake_run)
@@ -169,7 +169,7 @@ def test_fast_run_skips_ticker_already_recorded_for_last_trading_day(tmp_path, m
     monkeypatch.setattr(routes, "get_stock_data", lambda t, p, ip, c: _stock_with_candles(t))
     calls = []
     monkeypatch.setattr(routes, "run_analysis",
-                        lambda t, p, s, c, ps: calls.append(t) or _result(t))
+                        lambda t, p, s, c, ps, **kw: calls.append(t) or _result(t))
 
     resp = client.get("/api/analyze/watchlist/stream?mode=fast")
     evs = _events(resp.text)
@@ -186,7 +186,7 @@ def test_fast_run_is_not_skipped_by_a_deep_call(tmp_path, monkeypatch):
     _seed_prediction(pred_store, "AAPL", "2026-06-05", "llm_deep")
     monkeypatch.setattr(routes, "build_provider", lambda settings: FakeProvider([]))
     monkeypatch.setattr(routes, "get_stock_data", lambda t, p, ip, c: _stock_with_candles(t))
-    monkeypatch.setattr(routes, "run_analysis", lambda t, p, s, c, ps: _result(t))
+    monkeypatch.setattr(routes, "run_analysis", lambda t, p, s, c, ps, **kw: _result(t))
 
     resp = client.get("/api/analyze/watchlist/stream?mode=fast")
     assert _events(resp.text)[-1][1]["analyzed"] == 1
@@ -202,7 +202,7 @@ def test_fast_run_isolates_a_failing_ticker(tmp_path, monkeypatch):
             raise ValueError("boom")
         return _stock_with_candles(t)
     monkeypatch.setattr(routes, "get_stock_data", fake_stock)
-    monkeypatch.setattr(routes, "run_analysis", lambda t, p, s, c, ps: _result(t))
+    monkeypatch.setattr(routes, "run_analysis", lambda t, p, s, c, ps, **kw: _result(t))
 
     resp = client.get("/api/analyze/watchlist/stream?mode=fast")
     evs = _events(resp.text)
@@ -220,7 +220,7 @@ def test_run_marks_ticker_with_no_candles_failed(tmp_path, monkeypatch):
     _ready_settings(settings_store, watchlist=["AAPL"])
     monkeypatch.setattr(routes, "build_provider", lambda settings: FakeProvider([]))
     monkeypatch.setattr(routes, "get_stock_data", lambda t, p, ip, c: _stock())  # no candles
-    monkeypatch.setattr(routes, "run_analysis", lambda t, p, s, c, ps: _result(t))
+    monkeypatch.setattr(routes, "run_analysis", lambda t, p, s, c, ps, **kw: _result(t))
 
     resp = client.get("/api/analyze/watchlist/stream?mode=fast")
     evs = _events(resp.text)
@@ -298,7 +298,7 @@ def test_watchlist_stream_uses_portfolio_universe(tmp_path, monkeypatch):
     monkeypatch.setattr(routes, "portfolio_universe", lambda settings, cache: ["AAPL", "NVDA"])
     monkeypatch.setattr(routes, "build_provider", lambda settings: FakeProvider([]))
     monkeypatch.setattr(routes, "get_stock_data", lambda t, p, ip, c: _stock_with_candles(t))
-    monkeypatch.setattr(routes, "run_analysis", lambda t, p, s, c, ps: _result(t))
+    monkeypatch.setattr(routes, "run_analysis", lambda t, p, s, c, ps, **kw: _result(t))
 
     evs = _events(client.get("/api/analyze/watchlist/stream?mode=fast").text)
     assert evs[0][1]["tickers"] == ["AAPL", "NVDA"]   # the start frame lists the portfolio set

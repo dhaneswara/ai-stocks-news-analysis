@@ -137,6 +137,38 @@ def test_get_traces_returns_recent(tmp_path):
     assert len(body) == 1 and body[0]["ticker"] == "AAPL"
 
 
+def test_persist_deep_final_writes_deep_snapshot(tmp_path):
+    from app.analysis.agent import AgentEvent, AgentTrace
+    from app.analysis.trace_store import AgentTraceStore
+    from app.api.routes import _persist_deep_final
+    from app.config.cache import Cache
+    from app.evaluation.store import PredictionStore
+    from app.models.schemas import AnalysisResult, Candle, Settings, StockData, Fundamentals, Indicators, PriceSummary
+    from app.services.analysis_snapshot_store import AnalysisSnapshotStore
+
+    stock = StockData(ticker="AAPL", company_name="Apple", as_of="2026-06-12",
+                      price=PriceSummary(current=1, change=0, change_pct=0),
+                      candles=[Candle(time="2026-06-12", open=1, high=1, low=1, close=1, volume=1)],
+                      fundamentals=Fundamentals(), indicators=Indicators(), news=[])
+    result = AnalysisResult(ticker="AAPL", provider="anthropic", model="m",
+                            generated_at="2026-06-12", overall_summary="deep!", news_analysis="n",
+                            sentiment="bullish", current_recommendation="buy", confidence=0.7,
+                            key_factors=[], signals=[], risks=[])
+    trace = AgentTrace(ticker="AAPL", provider="anthropic", model="m", started_at="t",
+                       elapsed_ms=1, stopped_reason="final", fell_back=False, steps=[], final=result)
+    settings = Settings()
+    cache = Cache(str(tmp_path / "c.db"))
+    pred = PredictionStore(str(tmp_path / "p.db"))
+    traces = AgentTraceStore(str(tmp_path / "t.db"))
+    snap = AnalysisSnapshotStore(str(tmp_path / "snap.db"))
+
+    _persist_deep_final(AgentEvent(type="final", result=result, trace=trace), stock, settings,
+                        cache, pred, traces, snapshot_store=snap)
+
+    row = snap.latest("AAPL")
+    assert row is not None and row.source == "llm_deep" and row.call_date == "2026-06-12"
+
+
 def test_deep_disabled_evaluation_still_persists_trace(tmp_path, monkeypatch):
     client, pred_store, trace_store = _client(tmp_path)
     # Flip evaluation off in the overridden settings store.
