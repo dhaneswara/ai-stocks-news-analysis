@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DiscoverBoard } from '../components/DiscoverBoard';
+import { ScoreBoard } from '../components/ScoreBoard';
 import { MarketHint } from '../components/MarketHint';
 import { useRefreshUniverse, useScreen, useSectors, useWatchlist } from '../hooks/queries';
 import { useWatchlistRunContext } from '../state/watchlistRunState';
@@ -107,7 +107,7 @@ export default function Discover() {
         <div className="panel-head">
           <span className="section-label">Opportunity board — click a row to deep-dive</span>
         </div>
-        {data && <DiscoverBoard items={data.items} onAdd={watch.add} />}
+        {data && <ScoreBoard items={data.items} onAdd={watch.add} />}
       </section>
     </>
   );
