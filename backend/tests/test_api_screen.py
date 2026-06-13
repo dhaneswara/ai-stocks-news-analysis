@@ -157,3 +157,43 @@ def test_screen_limit_zero_returns_all_uncapped(tmp_path):
     app.dependency_overrides.clear()
     assert len(capped) == 2
     assert len(all_items) == 3
+
+
+def test_screen_portfolio_scope_reads_portfolio_snapshot(tmp_path):
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.config.cache import Cache
+    from app.config.settings_store import SettingsStore
+    from app.deps import get_cache, get_settings_store
+    from app.models.schemas import ScreenBoard, StockScore
+    from app.screener.store import save_snapshot
+    cache = Cache(str(tmp_path / "c.db"))
+    app.dependency_overrides[get_cache] = lambda: cache
+    app.dependency_overrides[get_settings_store] = lambda: SettingsStore(str(tmp_path / "s.db"))
+    try:
+        save_snapshot(ScreenBoard(scope="all", items=[
+            StockScore(ticker="AAA", name="A", price=1, change_pct=0, score=10, direction="hold")]), cache)
+        save_snapshot(ScreenBoard(scope="portfolio", items=[
+            StockScore(ticker="BBB", name="B", price=1, change_pct=0, score=99, direction="buy")]), cache)
+        r = TestClient(app).get("/api/screen?scope=portfolio")
+        assert r.status_code == 200
+        assert [i["ticker"] for i in r.json()["items"]] == ["BBB"]   # not the all board
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_portfolio_tickers_endpoint(tmp_path, monkeypatch):
+    import app.api.routes as routes
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.config.cache import Cache
+    from app.config.settings_store import SettingsStore
+    from app.deps import get_cache, get_settings_store
+    app.dependency_overrides[get_cache] = lambda: Cache(str(tmp_path / "c.db"))
+    app.dependency_overrides[get_settings_store] = lambda: SettingsStore(str(tmp_path / "s.db"))
+    try:
+        monkeypatch.setattr(routes, "portfolio_universe", lambda settings, cache: ["AAPL", "MSFT"])
+        r = TestClient(app).get("/api/portfolio/tickers")
+        assert r.status_code == 200 and r.json()["tickers"] == ["AAPL", "MSFT"]
+    finally:
+        app.dependency_overrides.clear()

@@ -61,7 +61,7 @@ from app.analysis.relationships import TickerResolver
 from app.network.import_model import normalize_import
 from app.data import universe
 from app.data.universe import list_sectors
-from app.screener.service import iter_scan, run_scan, score_one
+from app.screener.service import iter_scan, portfolio_universe, run_scan, score_one
 from app.screener.store import load_snapshot, merge_sector, save_snapshot
 
 router = APIRouter(prefix="/api")
@@ -408,6 +408,7 @@ def truth_mood(
 
 @router.get("/screen", response_model=ScreenBoard)
 def screen(
+    scope: str | None = None,
     sector: str | None = None,
     direction: str | None = None,
     limit: int | None = None,
@@ -415,11 +416,12 @@ def screen(
     store: SettingsStore = Depends(get_settings_store),
 ) -> ScreenBoard:
     settings = store.load()
-    board = load_snapshot(cache, "all")
+    snap_scope = "portfolio" if scope == "portfolio" else "all"
+    board = load_snapshot(cache, snap_scope)
     if board is None:
-        return ScreenBoard()  # empty -> frontend prompts a first scan
+        return ScreenBoard(scope=snap_scope)  # empty -> frontend prompts a first scan
     items = board.items
-    if sector:
+    if sector and scope != "portfolio":
         items = [i for i in items if i.sector == sector]
     if direction:
         items = [i for i in items if i.direction == direction]
@@ -428,10 +430,17 @@ def screen(
     return board.model_copy(update={"items": shown})
 
 
-def _persist_rescan(board: ScreenBoard, sector: str | None, settings: Settings, cache: Cache) -> None:
-    """Network-blend a fresh scan and save it as the snapshot (sector scans merge into the full board)."""
+def _persist_rescan(board: ScreenBoard, scope: str | None, settings: Settings, cache: Cache) -> None:
+    """Network-blend a fresh scan and save it under its scope. Portfolio scans blend against the
+    all-board (base_override) so off-portfolio neighbours still contribute; sector scans merge
+    into the full board; an unscoped scan replaces the full board."""
     graph = active_graph(cache)
-    if sector:
+    if scope == "portfolio":
+        all_board = load_snapshot(cache, "all")
+        override = {s.ticker: s for s in (all_board.items if all_board else [])}
+        save_snapshot(apply_network(board, graph, settings, base_override=override), cache)
+        return
+    if scope:
         full = load_snapshot(cache, "all")
         # No full board yet (first-ever scan is sector-scoped): promote the sector board to
         # the "all" snapshot — save_snapshot keys by scope, and only "all" is ever read back.
@@ -443,18 +452,21 @@ def _persist_rescan(board: ScreenBoard, sector: str | None, settings: Settings, 
 
 @router.post("/screen/rescan", response_model=ScreenBoard)
 def screen_rescan(
+    scope: str | None = None,
     sector: str | None = None,
     cache: Cache = Depends(get_cache),
     store: SettingsStore = Depends(get_settings_store),
 ) -> ScreenBoard:
     settings = store.load()
-    board = run_scan(sector, settings, cache)
-    _persist_rescan(board, sector, settings, cache)
+    eff = scope or sector
+    board = run_scan(eff, settings, cache)
+    _persist_rescan(board, eff, settings, cache)
     return board
 
 
 @router.get("/screen/rescan/stream")
 def screen_rescan_stream(
+    scope: str | None = None,
     sector: str | None = None,
     cache: Cache = Depends(get_cache),
     store: SettingsStore = Depends(get_settings_store),
@@ -465,28 +477,38 @@ def screen_rescan_stream(
     saves nothing (per-ticker price data is cached, so a redo is fast). Failures surface as
     an in-stream `error` event — EventSource cannot read an HTTP error body."""
     settings = store.load()
+    eff = scope or sector  # "portfolio", a sector name, or None
 
     def event_stream():
         try:
-            for step in iter_scan(sector, settings, cache):
+            for step in iter_scan(eff, settings, cache):
                 if isinstance(step, ScreenBoard):
-                    _persist_rescan(step, sector, settings, cache)
+                    _persist_rescan(step, eff, settings, cache)
                     yield _sse(RescanEvent(type="done", scanned=step.scanned,
                                            skipped=step.skipped, total=step.scanned))
                 else:
                     yield _sse(RescanEvent(type="tick", ticker=step.ticker, scanned=step.scanned,
                                            total=step.total, skipped=step.skipped))
-        except Exception as exc:  # noqa: BLE001 — surface any abort as a stream event
+        except Exception as exc:  # noqa: BLE001
             logger.warning("rescan stream failed: %s", exc)
             yield _sse(RescanEvent(type="error", message=str(exc)))
 
-    return StreamingResponse(event_stream(), media_type="text/event-stream",
-                             headers=_SSE_HEADERS)
+    return StreamingResponse(event_stream(), media_type="text/event-stream", headers=_SSE_HEADERS)
 
 
 @router.get("/screen/sectors", response_model=list[str])
 def screen_sectors() -> list[str]:
     return list_sectors()
+
+
+@router.get("/portfolio/tickers")
+def portfolio_tickers(
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+) -> dict:
+    """The portfolio universe = watchlist ∪ active-ontology tickers (drives the Portfolio page
+    empty state and the Evaluation command bar's count)."""
+    return {"tickers": portfolio_universe(store.load(), cache)}
 
 
 @router.get("/graph", response_model=KnowledgeGraph)
