@@ -220,6 +220,20 @@ export function deleteEdge(graph: KnowledgeGraph, ref: { source: string; target:
   };
 }
 
+/** Refresh a company's relationships: drop the ticker's `extracted`-origin outgoing edges
+ *  (a missing origin counts as extracted), keep its manual/imported edges and every other
+ *  source's edges, then merge the freshly-extracted `fragment` (dedupe by source|target|type).
+ *  Orphan neighbour nodes are kept — pure. */
+export function revalidateGraph(
+  working: KnowledgeGraph,
+  ticker: string,
+  fragment: KnowledgeGraph,
+): KnowledgeGraph {
+  const isExtracted = (e: GraphEdge) => (e.origin ?? 'extracted') === 'extracted';
+  const kept = working.edges.filter((e) => !(e.source === ticker && isExtracted(e)));
+  return mergeGraph({ ...working, edges: kept }, fragment);
+}
+
 /** Accumulate an explored subgraph: union nodes, dedupe edges by source|target|type, union node_meta.
  *  Pure — used by the explorer to merge each one-hop fragment into the working graph. */
 export function mergeGraph(into: KnowledgeGraph | null, fragment: KnowledgeGraph): KnowledgeGraph {

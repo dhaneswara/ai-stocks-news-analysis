@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyFilters, directionColor, mergeGraph, mergeNodes, nodeRadius, searchNodes, sentimentColor, toLinks, type ViewNode } from './graphView';
+import { applyFilters, directionColor, mergeGraph, mergeNodes, nodeRadius, revalidateGraph, searchNodes, sentimentColor, toLinks, type ViewNode } from './graphView';
 import type { KnowledgeGraph, ScreenBoard, RelationType } from '../types';
 
 const GRAPH: KnowledgeGraph = {
@@ -275,5 +275,40 @@ describe('imported nodes + meta', () => {
       IMPORTED,
     );
     expect(out.node_meta?.['ext:openai']?.label).toBe('OpenAI');
+  });
+});
+
+describe('revalidateGraph', () => {
+  const working: KnowledgeGraph = {
+    as_of: 't', scope: 'focus', built: 1, skipped: 0,
+    nodes: ['AAPL', 'TSM', 'XYZ', 'man:ai'],
+    edges: [
+      { source: 'AAPL', target: 'TSM', type: 'supplier', sentiment: 'negative', weight: 1, confidence: 1, evidence: 'old', url: '', as_of: '', origin: 'extracted' },
+      // no origin → must be treated as extracted (and replaced); XYZ's only edge
+      { source: 'AAPL', target: 'XYZ', type: 'competitor', sentiment: 'positive', weight: 1, confidence: 1, evidence: '', url: '', as_of: '' },
+      { source: 'AAPL', target: 'man:ai', type: 'partner', sentiment: 'positive', weight: 1, confidence: 1, evidence: '', url: '', as_of: '', origin: 'manual' },
+    ],
+    node_meta: { 'man:ai': { label: 'AI', kind: 'concept', source: 'manual' } },
+  };
+  const fragment: KnowledgeGraph = {
+    as_of: 't2', scope: 'company:AAPL', built: 1, skipped: 0,
+    nodes: ['AAPL', 'TSM', 'NEW'],
+    edges: [
+      { source: 'AAPL', target: 'TSM', type: 'supplier', sentiment: 'positive', weight: 0.5, confidence: 0.9, evidence: 'fresh', url: '', as_of: 't2', origin: 'extracted' },
+      { source: 'AAPL', target: 'NEW', type: 'partner', sentiment: 'positive', weight: 0.5, confidence: 0.9, evidence: '', url: '', as_of: 't2', origin: 'extracted' },
+    ],
+  };
+  const find = (g: KnowledgeGraph, s: string, t: string, ty: string) =>
+    g.edges.find((e) => e.source === s && e.target === t && e.type === ty);
+
+  it('replaces extracted edges, preserves manual ones, keeps orphans, adds new', () => {
+    const g = revalidateGraph(working, 'AAPL', fragment);
+    expect(find(g, 'AAPL', 'TSM', 'supplier')?.evidence).toBe('fresh');   // refreshed
+    expect(find(g, 'AAPL', 'XYZ', 'competitor')).toBeUndefined();          // stale (no-origin) dropped
+    expect(find(g, 'AAPL', 'man:ai', 'partner')?.origin).toBe('manual');   // manual preserved
+    expect(find(g, 'AAPL', 'NEW', 'partner')).toBeTruthy();                // new edge added
+    expect(g.nodes).toContain('NEW');                                      // new node added
+    expect(g.nodes).toContain('XYZ');                                      // orphan kept
+    expect(g.edges.some((e) => e.source === 'XYZ' || e.target === 'XYZ')).toBe(false); // truly orphaned
   });
 });
