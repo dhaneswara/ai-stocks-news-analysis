@@ -410,24 +410,6 @@ input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; v
 .tickerbar input { min-width: 170px; letter-spacing: 0.1em; text-transform: uppercase; }
 .tickerbar .spacer { flex: 1; }
 
-.watch { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.watch-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-ghost); }
-.chip {
-  background: transparent;
-  border: 1px solid var(--panel-brd);
-  color: var(--ink-soft);
-  font-family: var(--mono);
-  font-size: 12px;
-  letter-spacing: 0.06em;
-  padding: 6px 13px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-.chip:hover { color: var(--gold); border-color: var(--gold-line); background: var(--gold-tint); }
 .chip-x {
   background: none;
   border: none;
@@ -487,6 +469,17 @@ input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; v
 .watch-item:hover { background: var(--gold-tint); color: var(--gold); }
 .watch-item.current { border: 1px solid var(--gold-line); color: var(--gold); }
 .watch-empty { padding: 6px 8px; }
+
+/* "Last analysis · as of <date>" pill — marks a restored (not freshly-run) analysis. */
+.restored-badge {
+  display: inline-block;
+  margin: 0 0 8px;
+  padding: 4px 9px;
+  color: var(--gold);
+  background: var(--gold-tint);
+  border: 1px solid var(--gold-line);
+  border-radius: 6px;
+}
 
 /* ----- Chart --------------------------------------------------------------- */
 .price-chart { flex: 1; min-height: 0; width: 100%; border-radius: 12px; overflow: hidden; }
