@@ -224,6 +224,7 @@ export function GraphSidebar(props: GraphSidebarProps) {
                 </button>
               )}
               {selected.onBoard && <p className="muted">score {selected.score.toFixed(0)}</p>}
+              <Link to={`/?ticker=${encodeURIComponent(selected.id)}`}>Open in Dashboard →</Link>
               <button disabled={loading} onClick={() => onExpand(selected.id)}>Expand neighbours</button>
               {selected.network && selected.network.influences.length > 0 ? (
                 <ul className="factor-list">
@@ -235,7 +236,6 @@ export function GraphSidebar(props: GraphSidebarProps) {
               ) : (
                 <p className="muted">No outgoing network edges.</p>
               )}
-              <Link to={`/?ticker=${encodeURIComponent(selected.id)}`}>Open in Dashboard →</Link>
             </div>
           ) : (
             <div className="graph-legend">

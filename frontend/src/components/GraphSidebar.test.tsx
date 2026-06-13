@@ -92,6 +92,14 @@ it('shows the selected node detail and a Dashboard link', () => {
   expect(link).toHaveAttribute('href', expect.stringContaining('ticker=AAPL'));
 });
 
+it('places the Dashboard link before the Expand button', () => {
+  wrap(<GraphSidebar {...base()} selected={SELECTED} />);
+  const link = screen.getByRole('link', { name: /open in dashboard/i });
+  const expand = screen.getByRole('button', { name: /expand neighbours/i });
+  // expand must FOLLOW the link in DOM order (4 = Node.DOCUMENT_POSITION_FOLLOWING)
+  expect(link.compareDocumentPosition(expand) & 4).toBeTruthy();
+});
+
 it('switches to the Ontologies tab', () => {
   const props = base();
   wrap(<GraphSidebar {...props} selected={null} />);
