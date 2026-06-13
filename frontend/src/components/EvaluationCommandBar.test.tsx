@@ -5,11 +5,20 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { EvaluationCommandBar } from './EvaluationCommandBar';
 import { WatchlistRunProvider } from '../state/watchlistRunState';
 import type { RescanStreamHandlers, WatchlistStreamHandlers } from '../api/client';
+import { usePortfolioTickers } from '../hooks/queries';
 
 const handlers: { current?: WatchlistStreamHandlers } = {};
 const rescanHandlers: { current?: RescanStreamHandlers } = {};
 const closer = vi.fn();
 const rescanCloser = vi.fn();
+
+vi.mock('../hooks/queries', async (importActual) => {
+  const actual = await importActual<typeof import('../hooks/queries')>();
+  return {
+    ...actual,
+    usePortfolioTickers: vi.fn(),
+  };
+});
 
 vi.mock('../api/client', () => ({
   api: {
@@ -46,29 +55,38 @@ beforeEach(() => {
   rescanHandlers.current = undefined;
   vi.mocked(api.getSettings).mockResolvedValue({ watchlist: ['AAPL', 'MSFT'] } as never);
   vi.mocked(api.snapshotEvaluation).mockResolvedValue({ recorded: 2, skipped: [] });
+  vi.mocked(usePortfolioTickers).mockReturnValue({ data: { tickers: ['AAPL', 'MSFT'] } } as never);
 });
 
 describe('EvaluationCommandBar', () => {
-  it('renders the four process buttons once the watchlist loads', async () => {
+  it('renders the four process buttons once the portfolio loads', async () => {
     renderBar();
-    expect(await screen.findByText(/run on your watchlist \(2 tickers\)/i)).toBeInTheDocument();
+    expect(await screen.findByText(/run on your portfolio \(2 tickers/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /snapshot technical\/network/i })).toBeEnabled();
     expect(screen.getByRole('button', { name: /fast llm analysis/i })).toBeEnabled();
     expect(screen.getByRole('button', { name: /deep llm analysis/i })).toBeEnabled();
-    expect(screen.getByRole('button', { name: /full discover rescan/i })).toBeEnabled();
+    expect(screen.getByRole('button', { name: /rescan portfolio/i })).toBeEnabled();
     // Pipeline order: the rescan (which chains the snapshot) leads, as the freshest first step.
     const names = screen.getAllByRole('button').map((b) => b.textContent);
     expect(names.slice(0, 4)).toEqual([
-      'Full Discover rescan', 'Snapshot technical/network', 'Fast LLM analysis', 'Deep LLM analysis (slow)',
+      'Rescan portfolio', 'Snapshot technical/network', 'Fast LLM analysis', 'Deep LLM analysis (slow)',
     ]);
     // The when-to-run hint renders with live clock data (either market state is valid here).
     expect(screen.getByText(/US market is (open|closed)/)).toBeInTheDocument();
   });
 
-  it('disables everything and hints when the watchlist is empty', async () => {
-    vi.mocked(api.getSettings).mockResolvedValue({ watchlist: [] } as never);
+  it('labels the bar with the portfolio count and offers a portfolio rescan', async () => {
+    vi.mocked(usePortfolioTickers).mockReturnValue({ data: { tickers: ['AAPL', 'NVDA'] } } as never);
     renderBar();
-    expect(await screen.findByText(/add tickers to your watchlist first/i)).toBeInTheDocument();
+    expect(await screen.findByText(/portfolio \(2/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /rescan portfolio/i })).toBeInTheDocument();
+  });
+
+  it('disables everything and hints when the portfolio is empty', async () => {
+    vi.mocked(api.getSettings).mockResolvedValue({ watchlist: [] } as never);
+    vi.mocked(usePortfolioTickers).mockReturnValue({ data: { tickers: [] } } as never);
+    renderBar();
+    expect(await screen.findByText(/your portfolio is empty/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /fast llm analysis/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /snapshot technical\/network/i })).toBeDisabled();
   });
@@ -82,8 +100,8 @@ describe('EvaluationCommandBar', () => {
 
   it('rescan shows live tick progress, then chains a snapshot on done', async () => {
     renderBar();
-    fireEvent.click(await screen.findByRole('button', { name: /full discover rescan/i }));
-    expect(vi.mocked(streamRescan)).toHaveBeenCalledWith(undefined, expect.anything());
+    fireEvent.click(await screen.findByRole('button', { name: /rescan portfolio/i }));
+    expect(vi.mocked(streamRescan)).toHaveBeenCalledWith('portfolio', expect.anything());
 
     act(() => rescanHandlers.current!.onEvent({ type: 'tick', ticker: 'AAPL', scanned: 0, total: 3, skipped: 0 }));
     expect(screen.getByRole('button', { name: /scanning… 0\/3/i })).toBeInTheDocument();
@@ -100,7 +118,7 @@ describe('EvaluationCommandBar', () => {
 
   it('rescan can be stopped — stream closed, nothing-saved note, no snapshot', async () => {
     renderBar();
-    fireEvent.click(await screen.findByRole('button', { name: /full discover rescan/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /rescan portfolio/i }));
     act(() => rescanHandlers.current!.onEvent({ type: 'tick', ticker: 'AAPL', scanned: 0, total: 3, skipped: 0 }));
     fireEvent.click(screen.getByRole('button', { name: /stop/i }));
     expect(rescanCloser).toHaveBeenCalled();
@@ -110,7 +128,7 @@ describe('EvaluationCommandBar', () => {
 
   it('shows a rescan error line', async () => {
     renderBar();
-    fireEvent.click(await screen.findByRole('button', { name: /full discover rescan/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /rescan portfolio/i }));
     act(() => rescanHandlers.current!.onEvent({ type: 'error', message: 'universe file corrupt' }));
     expect(screen.getByText(/rescan failed: universe file corrupt/i)).toBeInTheDocument();
   });

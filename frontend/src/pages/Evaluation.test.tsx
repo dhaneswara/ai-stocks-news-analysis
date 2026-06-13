@@ -15,6 +15,7 @@ vi.mock('../api/client', () => ({
     getSettings: vi.fn(),
     saveSettings: vi.fn(),
     snapshotEvaluation: vi.fn(),
+    getPortfolioTickers: vi.fn(),
   },
   streamWatchlistRun: vi.fn(() => () => {}),
   streamRescan: vi.fn(() => () => {}),
@@ -69,6 +70,7 @@ beforeEach(() => {
   vi.mocked(api.clearEvaluation).mockReset();
   vi.mocked(api.clearEvaluation).mockResolvedValue({ predictions: 3, evals: 2 });
   vi.mocked(api.getSettings).mockResolvedValue({ watchlist: ['AAPL'] } as never);
+  vi.mocked(api.getPortfolioTickers).mockResolvedValue({ tickers: ['AAPL'] } as never);
 });
 
 describe('Evaluation page', () => {
@@ -145,11 +147,11 @@ describe('Evaluation page', () => {
     confirmSpy.mockRestore();
   });
 
-  it('renders the watchlist command bar', async () => {
+  it('renders the portfolio command bar', async () => {
     renderPage();
     expect(await screen.findByRole('button', { name: /fast llm analysis/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /deep llm analysis/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /snapshot technical\/network/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /full discover rescan/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /rescan portfolio/i })).toBeInTheDocument();
   });
 });

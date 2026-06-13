@@ -1,4 +1,4 @@
-import { useSettings, useWatchlist } from '../hooks/queries';
+import { usePortfolioTickers, useSettings } from '../hooks/queries';
 import { useWatchlistRunContext } from '../state/watchlistRunState';
 import { MarketHint } from './MarketHint';
 import type { TickerRunStatus } from '../types';
@@ -14,7 +14,8 @@ const CHIP_ICON: Record<TickerRunStatus, string> = {
  *  process at a time. */
 export function EvaluationCommandBar() {
   const settings = useSettings();
-  const watch = useWatchlist();
+  const portfolio = usePortfolioTickers();
+  const count = portfolio.data?.tickers.length ?? 0;
   // All four processes live at app level — they survive page navigation, and each
   // wrapped action clears the previous process's status so the bar tells one story.
   const { run, snapshot, rescan, startRun, snapshotNow, rescanAndSnapshot } = useWatchlistRunContext();
@@ -22,7 +23,7 @@ export function EvaluationCommandBar() {
   const running = run.phase === 'running';
   const scanning = rescan.phase === 'running';
   const busy = snapshot.isPending || scanning || running;
-  const disabled = busy || watch.list.length === 0;
+  const disabled = busy || count === 0;
   const progressed = Object.values(run.statuses).filter((t) => t.status !== 'running').length;
 
   // Until settings load, the bar would render a misleading frame — "(0 tickers)", the
@@ -41,19 +42,19 @@ export function EvaluationCommandBar() {
     <div className="panel commandbar">
       <div className="board-controls">
         <span className="section-label">
-          Run on your watchlist ({watch.list.length} ticker{watch.list.length === 1 ? '' : 's'})
+          Run on your portfolio ({count} ticker{count === 1 ? '' : 's'}: watchlist + active ontology)
         </span>
         <span className="spacer" />
         {/* All four wear the default gold (user's choice) — the watchlist-wide processes
             are this page's headline actions, not auxiliaries. */}
         <button
           disabled={disabled}
-          title="Rebuilds the S&P 500 board (fresh neighbour data for the network call), then snapshots the watchlist — no separate Snapshot click needed."
-          onClick={() => rescanAndSnapshot()}
+          title="Re-score your portfolio (watchlist + active ontology) — fast, only these names — then snapshot the technical/network calls."
+          onClick={() => rescanAndSnapshot('portfolio')}
         >
           {scanning
             ? rescan.total ? `Scanning… ${rescan.scanned}/${rescan.total}` : 'Scanning…'
-            : 'Full Discover rescan'}
+            : 'Rescan portfolio'}
         </button>
         <button
           disabled={disabled}
@@ -80,8 +81,8 @@ export function EvaluationCommandBar() {
         {scanning && <button onClick={rescan.stop}>Stop</button>}
       </div>
 
-      {watch.list.length === 0 && (
-        <p className="muted">Add tickers to your watchlist first (★ on the Dashboard).</p>
+      {count === 0 && (
+        <p className="muted">Your portfolio is empty — add to your watchlist (★ on the Dashboard) or activate an ontology.</p>
       )}
 
       <MarketHint />
