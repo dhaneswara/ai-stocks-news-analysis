@@ -11,7 +11,7 @@ import { TickerBar } from '../components/TickerBar';
 import { TracePanel } from '../components/TracePanel';
 import { useDeepAnalyze } from '../hooks/useDeepAnalyze';
 import { SignalsStrip } from '../components/SignalsStrip';
-import { useAnalyze, useScore, useSignals, useStock, useWatchlist } from '../hooks/queries';
+import { useAnalyze, useLastAnalysis, useScore, useSignals, useStock, useWatchlist } from '../hooks/queries';
 import { useDashboardState } from '../state/dashboardState';
 
 const RANGES: ChartRange[] = ['1M', '3M', '6M', '1Y', '2Y', '5Y'];
@@ -67,11 +67,17 @@ export default function Dashboard() {
     });
   };
 
+  const lastAnalysis = useLastAnalysis(ticker);
+  // In-session analysis (fresh run) wins; otherwise restore the last persisted one read-only.
+  const restored = analysis ? null : lastAnalysis.data ?? null;
+  const shown = analysis ?? restored?.result ?? null;
+
   const runDeepAnalyze = () => { setSelected(null); deep.start(); };
   useEffect(() => {
     if (deep.result) {
       setAnalysis(deep.result);
       qc.invalidateQueries({ queryKey: ['signals', ticker] });
+      qc.invalidateQueries({ queryKey: ['analysis', ticker] });
     }
   }, [deep.result, setAnalysis, qc, ticker]);
 
@@ -151,8 +157,8 @@ export default function Dashboard() {
                   <span><i className="dot" style={{ background: '#9c8246' }} />SMA 200</span>
                 </span>
               </div>
-              <PriceChart data={d} signals={analysis?.signals ?? []} range={range} onSelectSignal={setSelected} />
-              {analysis && <p className="hint">Click a marker — or a signal in Analysis — to read its reasoning.</p>}
+              <PriceChart data={d} signals={shown?.signals ?? []} range={range} onSelectSignal={setSelected} />
+              {shown && <p className="hint">Click a marker — or a signal in Analysis — to read its reasoning.</p>}
             </section>
 
             <section className="panel analysis">
@@ -162,10 +168,18 @@ export default function Dashboard() {
               {(deep.running || deep.steps.length > 0) && (
                 <TracePanel steps={deep.steps} running={deep.running} fellBack={deep.fellBack} />
               )}
-              {analysis ? (
-                <div className="analysis-scroll"><ReasoningPanel result={analysis} /></div>
+              {shown ? (
+                <div className="analysis-scroll">
+                  {!analysis && restored && (
+                    <p className="hint restored-badge">
+                      Last analysis · as of {restored.call_date} ·{' '}
+                      {restored.source === 'llm_deep' ? 'deep' : 'fast'}
+                    </p>
+                  )}
+                  <ReasoningPanel result={shown} />
+                </div>
               ) : !deep.running && deep.steps.length === 0 ? (
-                <p className="muted">Click “Analyze with LLM” for a fast call, or “Deep Analysis” to watch the agent pull data step-by-step.</p>
+                <p className="muted">Click "Analyze with LLM" for a fast call, or "Deep Analysis" to watch the agent pull data step-by-step.</p>
               ) : null}
             </section>
 
@@ -174,9 +188,9 @@ export default function Dashboard() {
                 <div className="panel-head">
                   <span className="section-label">Signals — click for reasoning</span>
                 </div>
-                {analysis ? (
+                {shown ? (
                   <div className="signals-scroll">
-                    <SignalList signals={analysis.signals} selected={selected} onSelect={setSelected} />
+                    <SignalList signals={shown.signals} selected={selected} onSelect={setSelected} />
                   </div>
                 ) : (
                   <p className="muted">Run an analysis to see buy/sell signals here.</p>

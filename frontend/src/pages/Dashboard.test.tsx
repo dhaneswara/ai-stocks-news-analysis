@@ -21,6 +21,7 @@ vi.mock('../api/client', () => ({
     refreshUniverse: vi.fn(),
     getScore: vi.fn(),
     getSignals: vi.fn(),
+    getLastAnalysis: vi.fn(),
   },
   streamWatchlistRun: vi.fn(() => () => {}),
   streamRescan: vi.fn(() => () => {}),
@@ -94,6 +95,7 @@ beforeEach(() => {
   vi.mocked(api.getScreen).mockResolvedValue(BOARD);
   vi.mocked(api.getScore).mockResolvedValue(SCORE);
   vi.mocked(api.getSignals).mockResolvedValue(SIGNALS);
+  vi.mocked(api.getLastAnalysis).mockResolvedValue(null);
 });
 
 function renderApp() {
@@ -158,5 +160,17 @@ describe('Dashboard no-LLM score', () => {
     expect(within(strip as HTMLElement).getByText('72')).toBeInTheDocument();
     // SIGNALS fixture has a technical source — its chip label should appear in the strip.
     expect(within(strip as HTMLElement).getByText(/TECH/)).toBeInTheDocument();
+  });
+});
+
+describe('Dashboard analysis restore', () => {
+  it('restores the last saved analysis on load without clicking Analyze', async () => {
+    vi.mocked(api.getLastAnalysis).mockResolvedValue({
+      result: ANALYSIS, source: 'llm_fast', call_date: '2026-06-05', created_at: 1,
+    });
+    renderApp();
+    // The persisted summary shows with no Analyze click.
+    expect(await screen.findByText('PERSIST-ME-SUMMARY')).toBeInTheDocument();
+    expect(screen.getByText(/as of 2026-06-05/i)).toBeInTheDocument();
   });
 });
