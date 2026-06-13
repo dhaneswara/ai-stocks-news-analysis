@@ -82,6 +82,7 @@ export default function Graph() {
   }, [working, expanded, selectedId, ontologyName]);
 
   const selectNode = (id: string) => { setSelectedId(id); setTab('explore'); };
+  const deselectNode = () => setSelectedId(null);   // click empty canvas space to clear selection
 
   // Toolbar find box: select the picked node and hand the canvas a camera command.
   const [focusReq, setFocusReq] = useState<{ id: string; n: number } | null>(null);
@@ -304,6 +305,7 @@ export default function Graph() {
         {!empty && (
           <GraphCanvas
             nodes={view.nodes} links={view.links} selectedId={selectedId} onSelect={selectNode}
+            onBackgroundClick={deselectNode}
             onAddRelationship={(id) => { setAddingFrom(id); setAddingCompany(false); setRenaming(null); setTab('explore'); }}
             onAddCompany={startAddCompany}
             onRenameNode={startRename}

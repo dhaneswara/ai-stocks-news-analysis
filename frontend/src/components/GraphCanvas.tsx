@@ -10,6 +10,8 @@ export interface GraphCanvasProps {
   links: ViewLink[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  /** Clicking empty canvas space clears the current selection. */
+  onBackgroundClick: () => void;
   onAddRelationship: (sourceId: string) => void;
   onAddCompany: () => void;
   onRenameNode: (id: string) => void;
@@ -24,7 +26,7 @@ export interface GraphCanvasProps {
 interface Menu { x: number; y: number; items: MenuItem[] }
 
 export function GraphCanvas({
-  nodes, links, selectedId, onSelect, onAddRelationship, onAddCompany, onRenameNode, onDeleteNode, onDeleteEdge,
+  nodes, links, selectedId, onSelect, onBackgroundClick, onAddRelationship, onAddCompany, onRenameNode, onDeleteNode, onDeleteEdge,
   watchlist, onToggleWatch, focus,
 }: GraphCanvasProps) {
   const wrap = useRef<HTMLDivElement>(null);
@@ -140,10 +142,10 @@ export function GraphCanvas({
           if (n.id === selectedId) {                       // focus ring — fill (direction colour) stays intact
             ctx.beginPath();
             ctx.arc(n.x, n.y, r + 3 / scale, 0, 2 * Math.PI);
-            ctx.lineWidth = 2 / scale;
-            ctx.strokeStyle = '#e8c87e';                   // --gold
-            ctx.shadowColor = 'rgba(232, 200, 126, 0.9)';
-            ctx.shadowBlur = 8 / scale;
+            ctx.lineWidth = 2.5 / scale;
+            ctx.strokeStyle = '#58a6ff';                   // accent blue — distinct from every node state (incl. gold HOLD)
+            ctx.shadowColor = 'rgba(88, 166, 255, 0.9)';
+            ctx.shadowBlur = 9 / scale;
             ctx.stroke();
             ctx.shadowBlur = 0;                            // reset so the label isn't blurred
           }
@@ -166,6 +168,7 @@ export function GraphCanvas({
           if (fitNext.current) { fitNext.current = false; fgRef.current?.zoomToFit(400, 40); }
         }}
         onNodeClick={(n: any) => onSelect(n.id)}
+        onBackgroundClick={() => onBackgroundClick()}
         onNodeRightClick={(n: any, e: MouseEvent) => {
           e.preventDefault();
           const items: MenuItem[] = [

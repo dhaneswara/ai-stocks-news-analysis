@@ -7,10 +7,10 @@ import type { KnowledgeGraph, ScreenBoard, Settings } from '../types';
 
 // Canvas can't render in jsdom — mock it; render a select button per node so tests can select.
 vi.mock('../components/GraphCanvas', () => ({
-  GraphCanvas: ({ nodes, onSelect, onDeleteNode, onAddRelationship, onAddCompany }: {
+  GraphCanvas: ({ nodes, onSelect, onDeleteNode, onAddRelationship, onAddCompany, onBackgroundClick }: {
     nodes: { id: string; score?: number }[]; onSelect: (id: string) => void;
     onDeleteNode: (id: string) => void; onAddRelationship: (id: string) => void;
-    onAddCompany: () => void;
+    onAddCompany: () => void; onBackgroundClick?: () => void;
     watchlist: string[]; onToggleWatch: (id: string) => void;
   }) => (
     <div data-testid="graph-canvas">
@@ -18,6 +18,7 @@ vi.mock('../components/GraphCanvas', () => ({
       {nodes.map((n) => <button key={`del-${n.id}`} onClick={() => onDeleteNode(n.id)}>{`del-${n.id}`}</button>)}
       {nodes.map((n) => <button key={`add-${n.id}`} onClick={() => onAddRelationship(n.id)}>{`add-${n.id}`}</button>)}
       <button onClick={onAddCompany}>canvas-add-company</button>
+      <button onClick={() => onBackgroundClick?.()}>bg-click</button>
     </div>
   ),
 }));
@@ -161,6 +162,14 @@ it('switches back to the Explore tab when a node is selected', async () => {
   expect(screen.queryByRole('button', { name: /expand neighbours/i })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'sel-AAPL' })); // select a node on the canvas
   expect(await screen.findByRole('button', { name: /expand neighbours/i })).toBeInTheDocument();
+});
+
+it('deselects the node when the canvas background is clicked', async () => {
+  renderGraph();
+  await addCompany('AAPL'); // adding a company auto-selects it
+  expect(await screen.findByRole('button', { name: /expand neighbours/i })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'bg-click' }));
+  expect(screen.queryByRole('button', { name: /expand neighbours/i })).not.toBeInTheDocument();
 });
 
 it('deletes a node from the working graph', async () => {
