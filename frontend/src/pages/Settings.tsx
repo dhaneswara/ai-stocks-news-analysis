@@ -129,6 +129,9 @@ export default function Settings() {
         </div>
       </div>
 
+      <button className="secondary" onClick={onTest} disabled={save.isPending}>Test connection</button>
+      {test && <span className={`note ${test.ok ? 'muted' : 'error'}`} style={{ marginLeft: 8 }}>{test.ok ? '✓ ' : '✗ '}{test.message}</span>}
+
       <div className="field">
         <label>Watchlist (comma-separated)</label>
         <input
@@ -236,9 +239,7 @@ export default function Settings() {
 
       <div className="settings-actions">
         <button onClick={onSave} disabled={save.isPending}>{save.isPending ? 'Saving…' : 'Save'}</button>
-        <button className="secondary" onClick={onTest} disabled={save.isPending}>Test connection</button>
         {saved && <span className="note muted">Saved.</span>}
-        {test && <span className={`note ${test.ok ? 'muted' : 'error'}`}>{test.ok ? '✓ ' : '✗ '}{test.message}</span>}
       </div>
       {save.isError && <p className="error">Save failed: {(save.error as Error).message}</p>}
     </div>
