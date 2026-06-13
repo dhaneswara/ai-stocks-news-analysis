@@ -40,6 +40,8 @@ vi.mock('../api/client', () => ({
   },
 }));
 import { api } from '../api/client';
+vi.mock('../lib/download', () => ({ downloadText: vi.fn() }));
+import { downloadText } from '../lib/download';
 
 const BOARD: ScreenBoard = { as_of: 't', scope: 'all', scanned: 0, skipped: 0, items: [] };
 const SETTINGS: Settings = {
@@ -119,6 +121,14 @@ it('saves the working graph as a named ontology', async () => {
   fireEvent.change(screen.getByRole('textbox', { name: /ontology name/i }), { target: { value: 'Tech' } });
   fireEvent.click(screen.getByRole('button', { name: /^save$/i }));
   await waitFor(() => expect(api.saveOntology).toHaveBeenCalledWith(expect.objectContaining({ name: 'Tech' })));
+});
+
+it('exports the working graph as JSON via the Export button', async () => {
+  renderGraph();
+  await addCompany('AAPL');
+  fireEvent.change(screen.getByRole('textbox', { name: /ontology name/i }), { target: { value: 'Tech' } });
+  fireEvent.click(screen.getByRole('button', { name: /^export$/i }));
+  expect(downloadText).toHaveBeenCalledWith('tech.json', expect.stringContaining('"AAPL"'));
 });
 
 it('surfaces a load error when extraction fails', async () => {

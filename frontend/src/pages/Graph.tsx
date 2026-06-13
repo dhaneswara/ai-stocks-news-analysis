@@ -11,6 +11,8 @@ import { addCompanyNode, addManualEdge, addManualNode, applyFilters, COMPANY_TIC
 import { loadExplorerState, saveExplorerState } from '../lib/explorerStore';
 import type { EdgeSentiment, GraphEdge, ImportReport, KnowledgeGraph, RelationType, ScreenBoard } from '../types';
 import { api } from '../api/client';
+import { exportFilename, toImportModel } from '../lib/graphExport';
+import { downloadText } from '../lib/download';
 
 const ALL_TYPES: RelationType[] = ['supplier', 'customer', 'partner', 'competitor', 'owner', 'subsidiary', 'other'];
 const EMPTY_GRAPH: KnowledgeGraph = { as_of: '', scope: 'explore', nodes: [], edges: [], built: 0, skipped: 0 };
@@ -114,6 +116,11 @@ export default function Graph() {
       setOntologyName(saved.name);   // canonical spelling from the server
       setDirty(false);
     } catch { setNotice('Could not save this ontology.'); }
+  };
+
+  const doExport = () => {
+    if (!working) return;
+    downloadText(exportFilename(ontologyName), JSON.stringify(toImportModel(working, ontologyName), null, 2));
   };
 
   const doNew = () => {
@@ -273,6 +280,13 @@ export default function Graph() {
             Save as
           </button>
           <button className="secondary" onClick={doNew}>New</button>
+          <button
+            className="secondary" disabled={!working || working.nodes.length === 0}
+            title="Download this graph as JSON to import on another machine"
+            onClick={doExport}
+          >
+            Export
+          </button>
           {hint && <span className="muted">{hint}</span>}
           {!empty && <GraphSearch nodes={view.nodes} onPick={findNode} />}
         </div>
