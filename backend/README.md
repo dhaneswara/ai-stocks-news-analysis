@@ -196,7 +196,7 @@ The **interactive Graph tab** is where you build and manage the ontology: start 
 (one-hop live news extraction), click **Expand neighbours** on demand, right-click to add
 relationships or **Add company…** (a real ticker node, also expandable), delete nodes/edges, and
 merge stored **import sets** via the conflict-resolution MergePreview. Save the canvas under a
-user-chosen name (toolbar: name field + **Save / Save as / New**). The **Ontologies** sidebar
+user-chosen name (toolbar: name field + **Save / Save as / New / Export**). The **Ontologies** sidebar
 tab lists every saved ontology, shows the **ACTIVE** badge, and lets you **Set active** per row
 (or select "None (network signal off)"). Activating, saving over, or deleting any version of the
 active ontology immediately **re-bakes** the Discover snapshot — no rescan or CLI run needed.
@@ -214,6 +214,12 @@ the six canonical types or `other`, weight/confidence are clamped, and every edg
 feed the network signal until you merge it into the canvas and save it as the active ontology.
 Merge via the MergePreview (links imported companies to the Discover list, collapses clashing
 nodes, dedupes relationships). Manage sets via `POST`/`GET`/`DELETE /api/graph/imports`.
+
+The reverse direction is the toolbar **Export** button: it serializes the current canvas to a
+JSON file in this same import-model shape (frontend-only — no endpoint). Move that file to
+another machine and bring it in through the Import sub-tab to recreate the graph there; it
+re-imports through `POST /api/graph/import` like any other model (so the same resolution rules
+apply — `man:`/`ext:` nodes become `ext:` nodes, `origin` is re-tagged `imported`, etc.).
 
 #### Schedule it daily (Windows Task Scheduler)
 

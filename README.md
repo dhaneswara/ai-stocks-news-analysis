@@ -109,8 +109,8 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   news extraction), expand neighbours on demand, right-click to add relationships or
   **add custom companies** (ticker + optional name, fully expandable), delete nodes/edges, and
   merge stored **import sets** via the conflict-resolution MergePreview. Save the canvas
-  under a user-chosen name (toolbar: name field + **Save / Save as / New**; up to 5 versions
-  kept per name). The **Ontologies** sidebar tab shows every saved ontology — **ACTIVE** badge
+  under a user-chosen name (toolbar: name field + **Save / Save as / New / Export**; up to 5
+  versions kept per name). The **Ontologies** sidebar tab shows every saved ontology — **ACTIVE** badge
   on the live one, **Set active** per row, a "None (network signal off)" row, and version
   history (load an old version to inspect it; the canvas marks itself dirty until you save).
   **Exactly one ontology is active** — it is the only graph Discover scoring, Dashboard score
@@ -121,7 +121,10 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   the canvas isn't the live active revision. Company nodes also expose **☆ Add / ★ Remove
   watchlist** in the right-click menu and the node detail panel. Import sets (paste/upload a
   ChatGPT-generated JSON graph via the Import sub-tab) are reusable building blocks to merge
-  into a canvas and save — they only feed scores once merged into the active ontology. Daily
+  into a canvas and save — they only feed scores once merged into the active ontology. The
+  toolbar **Export** button downloads the current canvas as a JSON file in that same import-set
+  shape — copy it to another machine and bring it in via the Import sub-tab (then merge → Save →
+  Set active) to recreate the graph there. Daily
   re-bake: `python -m app.network` (after the screener — no LLM; see
   [backend/README.md](backend/README.md)).
 - **Signal-source scoreboard (evaluation)** — every CALL the app produces is recorded and
