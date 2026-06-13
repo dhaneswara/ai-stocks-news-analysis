@@ -110,7 +110,7 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   on the live one, **Set active** per row, a "None (network signal off)" row, and version
   history (load an old version to inspect it; the canvas marks itself dirty until you save).
   **Exactly one ontology is active** — it is the only graph Discover scoring, Dashboard score
-  chip, fast/deep LLM prompts' network section, and watchlist snapshots consume. **No active
+  chip, fast/deep LLM prompts' network section, and portfolio snapshots consume. **No active
   ontology = no network signal anywhere.** Activating, saving over, or deleting any version of
   the active ontology immediately **re-bakes** the Discover snapshot — no rescan needed. A hint
   on the canvas shows which ontology analysis is currently using (or "no network signal") when
