@@ -16,7 +16,7 @@ NEWS_LIMIT = 10
 
 
 def build_company_graph(
-    ticker: str, settings: Settings, cache: Cache, *, now: datetime | None = None
+    ticker: str, settings: Settings, cache: Cache, *, now: datetime | None = None, refresh: bool = False
 ) -> KnowledgeGraph:
     """One-hop ego graph for a single ticker. Powers both 'start from company' and 'expand a node'.
 
@@ -45,7 +45,7 @@ def build_company_graph(
         stock.news = build_news_provider(settings).search(
             query, limit=NEWS_LIMIT, recency_days=settings.news.news_recency_days
         )
-        edges = extract_relationships(stock, resolver, provider, model, provider_id, cache, ncfg, now=now)
+        edges = extract_relationships(stock, resolver, provider, model, provider_id, cache, ncfg, now=now, refresh=refresh)
     except Exception:  # noqa: BLE001 — no data / provider / extraction error -> lone node
         return KnowledgeGraph(as_of=now.isoformat(), scope=scope, nodes=[t])
 

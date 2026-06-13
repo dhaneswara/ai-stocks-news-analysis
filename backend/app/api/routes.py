@@ -590,11 +590,13 @@ def get_graph(cache: Cache = Depends(get_cache)) -> KnowledgeGraph:
 @router.get("/graph/company/{ticker}", response_model=KnowledgeGraph)
 def get_company_graph(
     ticker: str,
+    refresh: bool = False,
     cache: Cache = Depends(get_cache),
     store: SettingsStore = Depends(get_settings_store),
 ) -> KnowledgeGraph:
-    """One-hop ego graph for a single ticker — powers both 'start from company' and 'expand'."""
-    return build_company_graph(ticker, store.load(), cache)
+    """One-hop ego graph for a single ticker — powers 'expand' and 'revalidate'
+    (refresh=true bypasses the 24h relationship cache)."""
+    return build_company_graph(ticker, store.load(), cache, refresh=refresh)
 
 
 _ONTOLOGY_NAME_MAX = 40

@@ -52,7 +52,7 @@ def test_company_graph_endpoint(client, monkeypatch):
     tc, _ = client
     g = KnowledgeGraph(scope="company:AAPL", nodes=["AAPL", "TSM"], edges=[
         GraphEdge(source="AAPL", target="TSM", type="supplier")], built=1)
-    monkeypatch.setattr(routes, "build_company_graph", lambda ticker, settings, cache: g)
+    monkeypatch.setattr(routes, "build_company_graph", lambda ticker, settings, cache, **kw: g)
     r = tc.get("/api/graph/company/AAPL")
     assert r.status_code == 200
     assert r.json()["scope"] == "company:AAPL" and r.json()["nodes"] == ["AAPL", "TSM"]

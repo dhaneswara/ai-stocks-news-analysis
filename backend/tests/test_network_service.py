@@ -59,6 +59,22 @@ def test_company_graph_disabled_returns_lone_node(tmp_path, monkeypatch):
     assert g.nodes == ["AAPL"] and g.edges == [] and g.built == 0
 
 
+def test_company_graph_forwards_refresh(tmp_path, monkeypatch):
+    captured = {}
+    monkeypatch.setattr(service, "build_provider", lambda s: object())
+    monkeypatch.setattr(service, "load_universe", lambda: [])
+    monkeypatch.setattr(service, "get_stock_data", lambda t, *a, **k: _stock(t))
+    monkeypatch.setattr(service, "build_news_provider", lambda s: _FakeNews())
+
+    def fake_extract(stock, *a, refresh=False, **k):
+        captured["refresh"] = refresh
+        return []
+
+    monkeypatch.setattr(service, "extract_relationships", fake_extract)
+    service.build_company_graph("AAPL", Settings(), Cache(str(tmp_path / "c.db")), refresh=True)
+    assert captured["refresh"] is True
+
+
 def test_build_company_graph_uses_news_provider(monkeypatch, tmp_path):
     from app.config.cache import Cache
     from app.models.schemas import NewsConfig, NewsItem, Settings
