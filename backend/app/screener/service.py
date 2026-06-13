@@ -9,9 +9,9 @@ from app.analysis import political
 from app.analysis.scoring import score_stock
 from app.config.cache import Cache
 from app.data import truth_social
-from app.data.universe import load_universe
+from app.data.universe import is_sp500_member, load_universe
 from app.analysis.network import blend_network_into_score, compute_network_signal, incident_edges
-from app.models.schemas import ScreenBoard, Settings, StockScore
+from app.models.schemas import ScreenBoard, Settings, StockScore, UniverseEntry
 from app.network.store import active_graph
 from app.screener.store import load_snapshot
 from app.services.stock_service import get_stock_data
@@ -26,6 +26,31 @@ class ScanProgress:
     scanned: int
     total: int
     skipped: int
+
+
+def _is_ticker_node(node: str) -> bool:
+    """Native ontology nodes are bare tickers; imported/manual nodes carry an `ext:`/`man:` prefix."""
+    return ":" not in node
+
+
+def portfolio_universe(settings: Settings, cache: Cache) -> list[str]:
+    """The focused universe = watchlist ∪ active-ontology ticker nodes (order-preserving, deduped,
+    upper-cased). Empty when the watchlist is empty and no ontology is active."""
+    order: list[str] = []
+    seen: set[str] = set()
+
+    def add(raw: str) -> None:
+        t = raw.upper().strip()
+        if t and t not in seen:
+            seen.add(t)
+            order.append(t)
+
+    for t in settings.watchlist:
+        add(t)
+    for node in active_graph(cache).nodes:
+        if _is_ticker_node(node):
+            add(node)
+    return order
 
 
 def iter_scan(scope: str | None, settings: Settings, cache: Cache) -> Iterator[ScanProgress | ScreenBoard]:

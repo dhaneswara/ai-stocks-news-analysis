@@ -5,6 +5,7 @@ from app.models.schemas import (
     Fundamentals,
     IndicatorPoint,
     Indicators,
+    KnowledgeGraph,
     PriceSummary,
     ScreenBoard,
     Settings,
@@ -129,3 +130,13 @@ def test_merge_sector_recomputes_scanned_skipped():
     assert merged.scanned == len(merged.items) + fresh.skipped  # honest, not the stale 30
     assert merged.skipped == fresh.skipped
     assert merged.scanned >= len(merged.items)
+
+
+def test_portfolio_universe_unions_watchlist_and_ontology_tickers(monkeypatch):
+    s = Settings()
+    s.watchlist = ["AAPL", "msft "]
+    monkeypatch.setattr(service, "active_graph", lambda cache: KnowledgeGraph(
+        nodes=["MSFT", "NVDA", "ext:openai", "man:concept"]))
+    out = service.portfolio_universe(s, cache=None)
+    # watchlist first (deduped, upper-cased), then ontology TICKER nodes (ext:/man: skipped)
+    assert out == ["AAPL", "MSFT", "NVDA"]
