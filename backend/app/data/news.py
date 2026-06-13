@@ -74,14 +74,9 @@ def recent_news(items: list[NewsItem], *, days: int, now: datetime | None = None
     """Drop items older than `days`, newest-first; unparseable dates are kept and sorted last.
     `days <= 0` disables the cutoff (keep all, just sorted). Pure (pass `now` in tests)."""
     now = now or datetime.now(timezone.utc)
-    kept = items
-    if days and days > 0:
+    dated = [(it, _parse_date(it.published_at)) for it in items]   # parse each date once
+    if days > 0:
         cutoff = now.timestamp() - days * 86400
-        kept = [it for it in items if (_parse_date(it.published_at) is None
-                                       or _parse_date(it.published_at).timestamp() >= cutoff)]
-
-    def _key(it: NewsItem) -> float:
-        d = _parse_date(it.published_at)
-        return d.timestamp() if d else float("-inf")
-
-    return sorted(kept, key=_key, reverse=True)
+        dated = [(it, d) for it, d in dated if d is None or d.timestamp() >= cutoff]
+    dated.sort(key=lambda pair: pair[1].timestamp() if pair[1] else float("-inf"), reverse=True)
+    return [it for it, _ in dated]
