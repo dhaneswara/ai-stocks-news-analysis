@@ -412,6 +412,8 @@ class StockScore(BaseModel):
     name: str
     sector: str = ""
     exchange: str = ""
+    # Defaults True because the only pre-existing serialized boards are the S&P-500 `all`
+    # scan (every row IS a member); every fresh scan/score sets this explicitly per ticker.
     in_sp500: bool = True
     price: float
     change_pct: float
