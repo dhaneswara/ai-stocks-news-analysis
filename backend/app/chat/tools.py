@@ -5,12 +5,19 @@ from typing import Callable, Optional
 
 import pandas as pd
 
+from app.analysis import political
 from app.analysis.indicators import rsi, sma
+from app.analysis.network import compute_network_signal, incident_edges
 from app.config.cache import Cache
+from app.data import truth_social
 from app.data.news import search_news
+from app.evaluation.signals import build_track_record_block
 from app.evaluation.store import PredictionStore
 from app.llm.base import LLMProvider
 from app.models.schemas import Settings
+from app.network.store import active_graph
+from app.screener.service import score_one
+from app.screener.store import combined_base_index
 from app.services.stock_service import get_stock_data
 
 
@@ -128,6 +135,71 @@ def _tool_search_news(args: dict, ctx: ChatContext) -> str:
     if not items:
         return "(no headlines found)"
     return "\n".join(f"- [{n.published_at}] {n.title} ({n.source})" for n in items)
+
+
+def _tool_opportunity_score(args: dict, ctx: ChatContext) -> str:
+    ticker = str(args.get("ticker") or "").strip().upper()
+    if not ticker:
+        return "ERROR: 'ticker' is required"
+    try:
+        s = score_one(ticker, ctx.settings, ctx.cache)
+    except ValueError as exc:
+        return f"ERROR: no data for {ticker}: {exc}"
+    reasons = "; ".join(s.reasons[:6]) or "(none)"
+    return f"{ticker} opportunity score {s.score:.0f}/100 — call {s.direction}. Drivers: {reasons}"
+
+
+def _tool_network_signal(args: dict, ctx: ChatContext) -> str:
+    ticker = str(args.get("ticker") or "").strip().upper()
+    if not ticker:
+        return "ERROR: 'ticker' is required"
+    ncfg = ctx.settings.network
+    if not ncfg.enabled:
+        return "(network signal is disabled in Settings)"
+    graph = active_graph(ctx.cache)
+    if not graph.edges:
+        return "(no active ontology — no network relationships)"
+    edges = incident_edges(ticker, graph.edges, set(ncfg.symmetric_types))
+    if not edges:
+        return f"({ticker} has no relationships in the active ontology)"
+    sig = compute_network_signal(ticker, edges, combined_base_index(ctx.cache), ncfg)
+    if not sig.influences:
+        return f"({ticker}: no scored network influences)"
+    lines = [f"{ticker} network signal (signed {sig.signed:+.2f}, intensity {sig.intensity:.2f}):"]
+    for i in sig.influences[:8]:
+        lines.append(f"- {i.type} {i.neighbour} ({i.name or i.neighbour}) [{i.edge_sentiment}], "
+                     f"neighbour lean {i.neighbour_direction}: {i.reason}")
+    return "\n".join(lines)
+
+
+def _tool_geopolitics(args: dict, ctx: ChatContext) -> str:
+    ts = ctx.settings.truth_signal
+    if not ts.enabled:
+        return "(geopolitics / Truth-Social signal is disabled in Settings)"
+    posts = truth_social.fetch_recent_posts_cached(ts.lookback_hours, ts.source_url, ctx.cache)
+    if not posts:
+        return "(no recent Truth Social posts available)"
+    mood = political.summarize_market_mood(
+        posts, ctx.provider, _model(ctx), ctx.settings.active_provider, ctx.cache)
+    lines = [f"Market mood: {mood.lean} (confidence {mood.confidence:.0%}). {mood.summary}".strip()]
+    for t in mood.themes[:4]:
+        lines.append(f"- {t.label} [{t.lean}]: {t.quote}")
+    ticker = str(args.get("ticker") or "").strip().upper()
+    if ticker:
+        mentions = political.find_mentions(posts, ticker, "")
+        lines.append(f"{ticker} mentioned in {len(mentions)} post(s): {mentions[0].excerpt}"
+                     if mentions else f"No direct {ticker} mentions in recent posts.")
+    return "\n".join(lines)
+
+
+def _tool_track_record(args: dict, ctx: ChatContext) -> str:
+    ticker = str(args.get("ticker") or "").strip().upper()
+    if not ticker:
+        return "ERROR: 'ticker' is required"
+    if ctx.prediction_store is None:
+        return "(evaluation store unavailable)"
+    block = build_track_record_block(ticker, ctx.prediction_store, ctx.settings)
+    return block or f"(no matured evaluation history for {ticker} yet)"
 
 
 TOOLS: list[ChatTool] = []
