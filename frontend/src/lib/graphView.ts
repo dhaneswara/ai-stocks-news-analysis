@@ -1,4 +1,5 @@
 import type { GraphEdge, KnowledgeGraph, NetworkSignal, RelationType, ScreenBoard, StockScore } from '../types';
+import type { Palette } from './theme';
 
 export type NodeDirection = 'buy' | 'sell' | 'hold' | 'unknown';
 
@@ -87,13 +88,22 @@ export function searchNodes(nodes: ViewNode[], query: string, limit = 8): ViewNo
     .map((x) => x.n);
 }
 
-export function directionColor(d: NodeDirection): string {
-  // neon palette: hold mirrors --neon (the app-wide accent), buy/sell mirror --buy/--sell
-  return d === 'buy' ? '#2bff9e' : d === 'sell' ? '#ff3b6b' : d === 'hold' ? '#22e0ff' : '#4a5280';
+export function directionColor(d: NodeDirection, palette: Palette): string {
+  return d === 'buy'
+    ? palette.nodeBuy
+    : d === 'sell'
+      ? palette.nodeSell
+      : d === 'hold'
+        ? palette.nodeHold
+        : palette.nodeUnknown;
 }
 
-export function sentimentColor(s: ViewLink['sentiment']): string {
-  return s === 'positive' ? '#2bff9e' : s === 'negative' ? '#ff3b6b' : '#5f6b91';
+export function sentimentColor(s: ViewLink['sentiment'], palette: Palette): string {
+  return s === 'positive'
+    ? palette.sentimentPos
+    : s === 'negative'
+      ? palette.sentimentNeg
+      : palette.sentimentNeutral;
 }
 
 export function nodeRadius(score: number): number {

@@ -3,6 +3,7 @@ import ForceGraph2D, { type ForceGraphMethods, type LinkObject, type NodeObject 
 import { directionColor, nodeRadius, sentimentColor, type ViewLink, type ViewNode } from '../lib/graphView';
 import { GraphLegend } from './GraphLegend';
 import { GraphContextMenu, type MenuItem } from './GraphContextMenu';
+import { PALETTES, useTheme } from '../lib/theme';
 import type { RelationType } from '../types';
 
 // The shapes react-force-graph hands our accessors: our view types plus the force sim's
@@ -41,6 +42,8 @@ export function GraphCanvas({
   const fitNext = useRef(true);   // zoom-to-fit once after the next time the layout settles
   const [dims, setDims] = useState({ width: 600, height: 480 });
   const [menu, setMenu] = useState<Menu | null>(null);
+  const { theme } = useTheme();
+  const palette = PALETTES[theme];
 
   useEffect(() => {
     const el = wrap.current;
@@ -156,7 +159,7 @@ export function GraphCanvas({
         graphData={data}
         nodeRelSize={1}
         nodeVal={(n: FGNode) => nodeRadius(n.score) ** 2}
-        nodeColor={(n: FGNode) => (n.external ? '#a96bff' : directionColor(n.direction))}
+        nodeColor={(n: FGNode) => (n.external ? palette.nodeExternal : directionColor(n.direction, palette))}
         nodeCanvasObjectMode={() => 'after'}
         nodeCanvasObject={(n: FGNode, ctx: CanvasRenderingContext2D, scale: number) => {
           const r = nodeRadius(n.score);
@@ -166,18 +169,18 @@ export function GraphCanvas({
             ctx.beginPath();
             ctx.arc(x, y, r + 3 / scale, 0, 2 * Math.PI);
             ctx.lineWidth = 2.5 / scale;
-            ctx.strokeStyle = '#ff2bd6';                   // neon magenta — distinct from every node state (incl. cyan HOLD)
-            ctx.shadowColor = 'rgba(255, 43, 214, 0.9)';
+            ctx.strokeStyle = palette.focusRing;             // theme focus ring — distinct from every node state
+            ctx.shadowColor = palette.focusGlow;
             ctx.shadowBlur = 11 / scale;
             ctx.stroke();
             ctx.shadowBlur = 0;                            // reset so the label isn't blurred
           }
-          ctx.fillStyle = '#eaf0ff';
+          ctx.fillStyle = palette.nodeLabel;
           ctx.font = `${(n.id === selectedId ? 11 : 10) / scale}px "Exo 2", sans-serif`;
           ctx.textAlign = 'center';
           ctx.fillText(n.label, x, y - r - 2 / scale);
         }}
-        linkColor={(l: FGLink) => (!selectedId || isIncident(l) ? sentimentColor(l.sentiment) : 'rgba(95, 110, 160, 0.16)')}
+        linkColor={(l: FGLink) => (!selectedId || isIncident(l) ? sentimentColor(l.sentiment, palette) : palette.fadedLink)}
         linkWidth={(l: FGLink) => {
           const w = 0.5 + l.weight * l.confidence * 2;
           return selectedId && isIncident(l) ? w + 1.5 : w;   // emphasise the focused node's edges

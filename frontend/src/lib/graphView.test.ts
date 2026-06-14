@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyFilters, directionColor, mergeGraph, mergeNodes, nodeRadius, revalidateGraph, searchNodes, sentimentColor, toLinks, type ViewNode } from './graphView';
+import { PALETTES } from './theme';
 import type { KnowledgeGraph, ScreenBoard, RelationType } from '../types';
 
 const GRAPH: KnowledgeGraph = {
@@ -55,11 +56,16 @@ describe('applyFilters', () => {
 
 describe('encoders', () => {
   it('maps colours and radius', () => {
-    expect(directionColor('buy')).toBe('#2bff9e');
-    expect(directionColor('hold')).toBe('#22e0ff');
-    expect(directionColor('hold')).not.toBe(directionColor('unknown'));
-    expect(directionColor('unknown')).toBe('#4a5280');
-    expect(sentimentColor('negative')).toBe('#ff3b6b');
+    expect(directionColor('buy', PALETTES.neon)).toBe('#2bff9e');
+    expect(directionColor('hold', PALETTES.neon)).toBe('#22e0ff');
+    expect(directionColor('buy', PALETTES.gold)).toBe('#3fb950');
+    expect(directionColor('hold', PALETTES.gold)).toBe('#e8c87e');
+    expect(directionColor('hold', PALETTES.gold)).not.toBe(
+      directionColor('unknown', PALETTES.gold),
+    );
+    expect(directionColor('unknown', PALETTES.neon)).toBe('#4a5280');
+    expect(sentimentColor('negative', PALETTES.neon)).toBe('#ff3b6b');
+    expect(sentimentColor('negative', PALETTES.gold)).toBe('#f85149');
     expect(nodeRadius(0)).toBeLessThan(nodeRadius(100));
   });
 });
