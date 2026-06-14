@@ -95,7 +95,7 @@ export function useRescanTicker(scope?: string) {
     onSuccess: (fresh) => {
       // Patch the one row in every cached board view (no refetch); re-sort to match the server.
       qc.setQueriesData<ScreenBoard>({ queryKey: ['screen'] }, (board) => {
-        if (!board) return board;
+        if (!board) return board;          // no cached board for this view — leave it untouched
         const i = board.items.findIndex(
           (s) => s.ticker.toUpperCase() === fresh.ticker.toUpperCase(),
         );

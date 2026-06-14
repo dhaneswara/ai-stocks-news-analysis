@@ -35,6 +35,20 @@ it('replaces the matching row in the screen cache and re-sorts by score', async 
   expect(board.items[0].score).toBe(99);                              // patched
 });
 
+it('leaves a cached board untouched when it does not contain the ticker', async () => {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const other = ['screen', 'tech', '', '', ''];
+  const untouched: ScreenBoard = { as_of: 't', scope: 'all', scanned: 1, skipped: 0, items: [row('CCC', 50)] };
+  qc.setQueryData<ScreenBoard>(other, untouched);
+  vi.mocked(api.rescanTicker).mockResolvedValue(row('BBB', 99));
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+  );
+  const { result } = renderHook(() => useRescanTicker(), { wrapper });
+  await act(async () => { await result.current.mutateAsync('BBB'); });
+  expect(qc.getQueryData<ScreenBoard>(other)).toBe(untouched);   // same reference — not rewritten
+});
+
 it('passes the scope through to the API', async () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   vi.mocked(api.rescanTicker).mockResolvedValue(row('BBB', 99));
