@@ -49,3 +49,19 @@ it('records a per-turn error', () => {
   expect(result.current.running).toBe(false);
   expect(result.current.turns[1].error).toBe('Connection error');
 });
+
+it('stop aborts the stream and discards the empty in-flight turn', () => {
+  const close = vi.fn();
+  vi.spyOn(client, 'streamChat').mockImplementation(() => close);
+  const { result } = renderHook(() => useChat());
+
+  act(() => result.current.send('hello'));
+  expect(result.current.turns).toHaveLength(2); // user + empty assistant
+  expect(result.current.running).toBe(true);
+
+  act(() => result.current.stop());
+  expect(close).toHaveBeenCalledTimes(1);          // stream closer invoked (abort)
+  expect(result.current.running).toBe(false);
+  expect(result.current.turns).toHaveLength(1);     // empty assistant turn discarded
+  expect(result.current.turns[0]).toMatchObject({ role: 'user', content: 'hello' });
+});

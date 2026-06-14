@@ -31,7 +31,9 @@ export function useChat() {
     if (!q || running) return;
     closeRef.current?.();
 
-    const history: ChatMessage[] = turnsRef.current.map((t) => ({ role: t.role, content: t.content }));
+    const history: ChatMessage[] = turnsRef.current
+      .filter((t) => t.role === 'user' || t.content)
+      .map((t) => ({ role: t.role, content: t.content }));
     const messages: ChatMessage[] = [...history, { role: 'user', content: q }];
     commit([
       ...turnsRef.current,
@@ -64,7 +66,13 @@ export function useChat() {
   const stop = useCallback(() => {
     closeRef.current?.();
     setRunning(false);
-  }, []);
+    // Discard the in-flight assistant turn if it never produced an answer.
+    const cur = turnsRef.current;
+    const i = cur.length - 1;
+    if (i >= 0 && cur[i].role === 'assistant' && !cur[i].content) {
+      commit(cur.slice(0, i));
+    }
+  }, [commit]);
 
   useEffect(() => () => closeRef.current?.(), []);
 
