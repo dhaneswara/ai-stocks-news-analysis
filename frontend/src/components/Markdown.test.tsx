@@ -18,3 +18,9 @@ it('renders plain paragraphs', () => {
   const { container } = render(<Markdown text={'just text'} />);
   expect(container.querySelector('p')?.textContent).toBe('just text');
 });
+
+it('neutralizes non-http link schemes', () => {
+  render(<Markdown text={'click [here](javascript:alert(1))'} />);
+  const link = screen.getByRole('link', { name: 'here' });
+  expect(link).toHaveAttribute('href', '#');
+});

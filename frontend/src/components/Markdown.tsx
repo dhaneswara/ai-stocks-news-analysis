@@ -20,8 +20,9 @@ function renderInline(text: string): ReactNode[] {
       out.push(<code key={key++}>{tok.slice(1, -1)}</code>);
     } else {
       const mm = /\[([^\]]+)\]\(([^)]+)\)/.exec(tok)!;
+      const safe = /^https?:\/\//i.test(mm[2]) || mm[2].startsWith('/') ? mm[2] : '#';
       out.push(
-        <a key={key++} href={mm[2]} target="_blank" rel="noreferrer">{mm[1]}</a>,
+        <a key={key++} href={safe} target="_blank" rel="noreferrer">{mm[1]}</a>,
       );
     }
     last = m.index + tok.length;
