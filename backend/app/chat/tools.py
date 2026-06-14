@@ -47,6 +47,17 @@ def _fmt(v: object) -> str:
     return "n/a" if v is None else f"{v}"
 
 
+def _fmt_cap(v: Optional[float]) -> str:
+    """Human-readable market cap (e.g. 3.00T / 45.20B / 980.00M) — the raw float repr
+    (3000000000000.0) is noise in an LLM observation."""
+    if v is None:
+        return "n/a"
+    for scale, suffix in ((1e12, "T"), (1e9, "B"), (1e6, "M")):
+        if abs(v) >= scale:
+            return f"{v / scale:.2f}{suffix}"
+    return f"{v:.0f}"
+
+
 def _last(points: list) -> Optional[float]:
     return points[-1].value if points else None
 
@@ -65,7 +76,7 @@ def _tool_get_stock(args: dict, ctx: ChatContext) -> str:
     return "\n".join([
         f"{ticker} — {stock.company_name} ({stock.exchange or '?'}, {stock.sector or '?'})",
         f"Price {p.current:.2f} {p.currency} ({p.change_pct:+.2f}% today)",
-        f"Market cap {_fmt(f.market_cap)}, P/E {_fmt(f.pe_ratio)}, EPS {_fmt(f.eps)}, "
+        f"Market cap {_fmt_cap(f.market_cap)}, P/E {_fmt(f.pe_ratio)}, EPS {_fmt(f.eps)}, "
         f"div yield {_fmt(f.dividend_yield)}",
         f"52wk high/low {_fmt(f.week52_high)}/{_fmt(f.week52_low)}, "
         f"dist from 52wk high {_fmt(ind.dist_from_52wk_high_pct)}%",
@@ -111,6 +122,8 @@ def _tool_search_news(args: dict, ctx: ChatContext) -> str:
     if not query:
         return "ERROR: 'query' is required"
     limit = max(1, min(10, _int_arg(args, "limit", 5)))
+    # No " stock" suffix (unlike the single-ticker agent's fetch_news): chat queries can be
+    # about any topic, sector, or event, not just equities.
     items = search_news(query, limit)
     if not items:
         return "(no headlines found)"

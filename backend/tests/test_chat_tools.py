@@ -45,6 +45,7 @@ def test_get_stock_formats_snapshot(monkeypatch):
     out = chat_tools._tool_get_stock({"ticker": "nvda"}, _ctx())
     assert "NVDA" in out and "NVIDIA Corp" in out
     assert "120.00" in out
+    assert "Market cap 3.00T" in out  # human-readable, not 3000000000000.0
     assert "P/E 45.0" in out
     assert "RSI14 58.3" in out
 
