@@ -88,23 +88,33 @@ export function useScore(ticker: string) {
   });
 }
 
+// Which saved snapshot a board's scope key segment reads from — mirrors the backend's
+// `snap_scope = "portfolio" if scope == "portfolio" else "all"` (store.upsert_score / GET /screen).
+const snapScope = (s: unknown) => (s === 'portfolio' ? 'portfolio' : 'all');
+
 export function useRescanTicker(scope?: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (ticker: string) => api.rescanTicker(ticker, scope),
     onSuccess: (fresh) => {
-      // Patch the one row in every cached board view (no refetch); re-sort to match the server.
-      qc.setQueriesData<ScreenBoard>({ queryKey: ['screen'] }, (board) => {
-        if (!board) return board;          // no cached board for this view — leave it untouched
-        const i = board.items.findIndex(
-          (s) => s.ticker.toUpperCase() === fresh.ticker.toUpperCase(),
-        );
-        if (i === -1) return board;
-        const items = [...board.items];
-        items[i] = fresh;
-        items.sort((a, b) => b.score - a.score);
-        return { ...board, items };
-      });
+      // Patch the row only in cached boards backed by the SAME snapshot the server just persisted
+      // (key[4] is the scope segment of ['screen', sector, direction, limit, scope]); re-sort to
+      // match the server. No refetch — and don't touch the other scope's board, whose on-disk
+      // snapshot was not updated, or it would diverge until its next refetch.
+      qc.setQueriesData<ScreenBoard>(
+        { queryKey: ['screen'], predicate: (q) => snapScope(q.queryKey[4]) === snapScope(scope) },
+        (board) => {
+          if (!board) return board;          // no cached board for this view — leave it untouched
+          const i = board.items.findIndex(
+            (s) => s.ticker.toUpperCase() === fresh.ticker.toUpperCase(),
+          );
+          if (i === -1) return board;
+          const items = [...board.items];
+          items[i] = fresh;
+          items.sort((a, b) => b.score - a.score);
+          return { ...board, items };
+        },
+      );
     },
   });
 }

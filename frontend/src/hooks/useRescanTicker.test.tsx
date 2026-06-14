@@ -49,6 +49,20 @@ it('leaves a cached board untouched when it does not contain the ticker', async 
   expect(qc.getQueryData<ScreenBoard>(other)).toBe(untouched);   // same reference — not rewritten
 });
 
+it('does not patch a board from a different scope (only the matching snapshot)', async () => {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const pfKey = ['screen', '', '', 0, 'portfolio'];
+  const pf: ScreenBoard = { as_of: 't', scope: 'portfolio', scanned: 1, skipped: 0, items: [row('BBB', 80)] };
+  qc.setQueryData<ScreenBoard>(pfKey, pf);
+  vi.mocked(api.rescanTicker).mockResolvedValue(row('BBB', 99));
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+  );
+  const { result } = renderHook(() => useRescanTicker(), { wrapper }); // default → "all" scope
+  await act(async () => { await result.current.mutateAsync('BBB'); });
+  expect(qc.getQueryData<ScreenBoard>(pfKey)).toBe(pf);   // portfolio board untouched by an "all" rescan
+});
+
 it('passes the scope through to the API', async () => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   vi.mocked(api.rescanTicker).mockResolvedValue(row('BBB', 99));
