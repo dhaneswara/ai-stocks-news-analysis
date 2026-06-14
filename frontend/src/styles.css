@@ -1,47 +1,77 @@
 /* ============================================================================
-   MarketCortex — "Neon Terminal" retro-futuristic synthwave theme
-   Chakra Petch (display HUD) · Exo 2 (body) · JetBrains Mono (data)
-   Deep indigo void · electric-cyan primary + hot-magenta / violet accents
-   · glowing glass surfaces over a faint perspective grid + CRT scanlines.
-   Tuned for density: most of a ticker fits without scrolling.
-
-   NOTE on tokens: the app was built around --gold* / --serif accent names.
-   Rather than rename ~1100 lines, the legacy names are kept as ALIASES that
-   now resolve to the neon palette below — so every reference re-skins for free.
-   New work should prefer --neon / --neon-magenta / --neon-violet directly.
+   MarketCortex — dual-theme stylesheet
+   GOLD ("Quiet Luxury") is the default — bare :root.
+   NEON ("Neon Terminal") overrides via :root[data-theme="neon"].
+   A boot script sets <html data-theme="gold|neon">.
    ========================================================================== */
 
 :root {
-  /* Canvas — deep indigo-violet void */
+  /* ===== Default theme = GOLD ("Quiet Luxury"). data-theme="neon" overrides below. ===== */
+  --bg:        #0a0a0b;
+  --bg-2:      #0d0d10;
+  --ink:       #f4f1ea;
+  --ink-soft:  #b6b1a7;
+  --ink-faint: #76726a;
+  --ink-ghost: #4b4842;
+
+  --gold:       #e8c87e;
+  --gold-bright:#f3d99a;
+  --gold-deep:  #a9863f;
+  --gold-tint:  rgba(232, 200, 126, 0.10);
+  --gold-line:  rgba(232, 200, 126, 0.22);
+
+  /* RGB triplet for monochrome accent glows: rgba(var(--accent-rgb), a). */
+  --accent-rgb: 232, 200, 126;
+
+  --buy:  #5fd39b;
+  --sell: #f0817c;
+  --buy-tint:  rgba(95, 211, 155, 0.12);
+  --sell-tint: rgba(240, 129, 124, 0.12);
+
+  --panel:      rgba(255, 255, 255, 0.022);
+  --panel-2:    rgba(255, 255, 255, 0.04);
+  --panel-brd:  rgba(255, 255, 255, 0.07);
+  --hairline:   rgba(244, 241, 234, 0.08);
+
+  --shadow: 0 30px 60px -36px rgba(0, 0, 0, 0.85);
+  --radius: 16px;
+
+  --serif: "Fraunces", Georgia, "Times New Roman", serif;
+  --sans:  "Hanken Grotesk", system-ui, -apple-system, Segoe UI, sans-serif;
+  --mono:  "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --maxw: 1880px;
+}
+
+:root[data-theme="neon"] {
+  /* ===== NEON ("Neon Terminal") override ===== */
   --bg:        #08080f;
   --bg-2:      #0c0c18;
-  --ink:       #eaf0ff;   /* cool white */
+  --ink:       #eaf0ff;
   --ink-soft:  #9fb0d8;
   --ink-faint: #5f6b91;
   --ink-ghost: #363c63;
 
-  /* The neon palette — source of truth */
-  --neon:         #22e0ff;   /* electric cyan — primary "live data" accent */
+  --neon:         #22e0ff;
   --neon-bright:  #7af2ff;
   --neon-deep:    #0a93b8;
-  --neon-magenta: #ff2bd6;   /* hot magenta — action / emphasis */
-  --neon-violet:  #a96bff;   /* electric violet — special / external */
+  --neon-magenta: #ff2bd6;
+  --neon-violet:  #a96bff;
   --neon-grid:    rgba(120, 90, 220, 0.07);
 
-  /* Legacy accent names → primary neon (back-compat aliases). */
   --gold:       var(--neon);
   --gold-bright:var(--neon-bright);
   --gold-deep:  var(--neon-deep);
   --gold-tint:  rgba(34, 224, 255, 0.10);
   --gold-line:  rgba(34, 224, 255, 0.26);
 
-  /* Market signals (used sparingly, only for direction) */
-  --buy:  #2bff9e;   /* neon mint */
-  --sell: #ff3b6b;   /* neon rose */
+  --accent-rgb: 34, 224, 255;
+
+  --buy:  #2bff9e;
+  --sell: #ff3b6b;
   --buy-tint:  rgba(43, 255, 158, 0.12);
   --sell-tint: rgba(255, 59, 107, 0.12);
 
-  /* Surfaces — cool-tinted glass */
   --panel:      rgba(120, 150, 230, 0.035);
   --panel-2:    rgba(120, 150, 230, 0.065);
   --panel-brd:  rgba(130, 165, 255, 0.13);
@@ -51,11 +81,9 @@
   --radius: 12px;
 
   --display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
-  --serif:  var(--display);   /* legacy name → display HUD font */
+  --serif:  var(--display);
   --sans:   "Exo 2", system-ui, -apple-system, Segoe UI, sans-serif;
   --mono:   "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-
-  --maxw: 1880px;
 }
 
 * { box-sizing: border-box; }
@@ -87,6 +115,16 @@ body::after {
 }
 body::before {
   background:
+    radial-gradient(120% 80% at 50% -25%, rgba(232, 200, 126, 0.10), transparent 55%),
+    radial-gradient(90% 60% at 100% 0%, rgba(120, 150, 200, 0.05), transparent 50%);
+}
+body::after {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  opacity: 0.025;
+  mix-blend-mode: screen;
+}
+:root[data-theme="neon"] body::before {
+  background:
     radial-gradient(115% 70% at 50% -18%, rgba(34, 224, 255, 0.11), transparent 55%),
     radial-gradient(80% 60% at 100% 0%, rgba(255, 43, 214, 0.07), transparent 52%),
     radial-gradient(95% 85% at 0% 112%, rgba(169, 107, 255, 0.09), transparent 55%),
@@ -95,8 +133,7 @@ body::before {
   background-size: 100% 100%, 100% 100%, 100% 100%, 46px 46px, 46px 46px;
   background-position: 0 0, 0 0, 0 0, center, center;
 }
-body::after {
-  /* Fine CRT scanlines — kept faint so dense data never shimmers. */
+:root[data-theme="neon"] body::after {
   background-image: repeating-linear-gradient(
     0deg, rgba(0, 0, 0, 0.22) 0px, rgba(0, 0, 0, 0.22) 1px, transparent 1px, transparent 3px);
   opacity: 0.22;
@@ -105,7 +142,7 @@ body::after {
 
 a { color: var(--gold); text-decoration: none; }
 
-::selection { background: rgba(34, 224, 255, 0.25); color: var(--ink); }
+::selection { background: rgba(var(--accent-rgb), 0.25); color: var(--ink); }
 
 /* ----- Scrollbar ----------------------------------------------------------- */
 * { scrollbar-width: thin; scrollbar-color: var(--ink-ghost) transparent; }
@@ -142,17 +179,20 @@ a { color: var(--gold); text-decoration: none; }
 .brand:hover { color: var(--ink); }
 .brand-mark {
   font-size: 12px;
-  color: var(--neon-magenta);
+  color: var(--gold);
   transform: translateY(-2px);
+  text-shadow: 0 0 14px rgba(var(--accent-rgb), 0.55);
+}
+:root[data-theme="neon"] .brand-mark {
+  color: var(--neon-magenta);
   text-shadow: 0 0 6px var(--neon-magenta), 0 0 18px rgba(255, 43, 214, 0.7);
   animation: brand-flicker 6s steps(1) infinite;
 }
-/* A barely-there neon flicker — the sign that never quite settles. */
 @keyframes brand-flicker {
   0%, 92%, 96%, 100% { opacity: 1; }
   94% { opacity: 0.55; }
 }
-.brand-name {
+:root[data-theme="neon"] .brand-name {
   background: linear-gradient(92deg, var(--ink), var(--neon-bright));
   -webkit-background-clip: text;
   background-clip: text;
@@ -182,14 +222,19 @@ a { color: var(--gold); text-decoration: none; }
 }
 .nav-link:hover { color: var(--ink-soft); }
 .nav-link:hover::after { right: 30%; }
-.nav-link.active { color: var(--neon-bright); text-shadow: 0 0 14px rgba(34, 224, 255, 0.45); }
-.nav-link.active::after { right: 0; box-shadow: 0 0 10px var(--neon), 0 0 18px rgba(34, 224, 255, 0.6); }
+.nav-link.active { color: var(--ink); }
+.nav-link.active::after { right: 0; box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.6); }
+:root[data-theme="neon"] .nav-link.active { color: var(--neon-bright); text-shadow: 0 0 14px rgba(34, 224, 255, 0.45); }
+:root[data-theme="neon"] .nav-link.active::after { box-shadow: 0 0 10px var(--neon), 0 0 18px rgba(34, 224, 255, 0.6); }
 
-/* Neon beam under the masthead — cyan bleeding into magenta, with a soft glow. */
 .masthead-rule {
   height: 1px;
   border: 0;
   margin: 0 0 12px;
+  background: linear-gradient(90deg, transparent, var(--gold-line) 18%, var(--gold) 50%, var(--gold-line) 82%, transparent);
+  opacity: 0.7;
+}
+:root[data-theme="neon"] .masthead-rule {
   background: linear-gradient(90deg, transparent, var(--gold-line) 12%, var(--neon) 38%, var(--neon-magenta) 64%, var(--gold-line) 88%, transparent);
   box-shadow: 0 0 12px rgba(34, 224, 255, 0.35);
   opacity: 0.85;
@@ -217,6 +262,20 @@ a { color: var(--gold); text-decoration: none; }
   border: 1px solid var(--panel-brd);
   border-radius: var(--radius);
   padding: 16px 20px;
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.panel::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  margin: 0 18px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.18), transparent);
+  opacity: 0.6;
+}
+:root[data-theme="neon"] .panel {
   backdrop-filter: blur(16px) saturate(135%);
   -webkit-backdrop-filter: blur(16px) saturate(135%);
   box-shadow:
@@ -225,12 +284,7 @@ a { color: var(--gold); text-decoration: none; }
     0 0 0 1px rgba(34, 224, 255, 0.03),
     0 0 28px -16px rgba(34, 224, 255, 0.25);
 }
-/* Neon strip catching the top glass edge — cyan dissolving into magenta. */
-.panel::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 1px;
+:root[data-theme="neon"] .panel::before {
   margin: 0 16px;
   background: linear-gradient(90deg, transparent, rgba(34, 224, 255, 0.55) 35%, rgba(255, 43, 214, 0.45) 65%, transparent);
   opacity: 0.55;
@@ -286,7 +340,7 @@ a { color: var(--gold); text-decoration: none; }
   content: "";
   width: 14px; height: 1px;
   background: var(--gold);
-  box-shadow: 0 0 8px rgba(34, 224, 255, 0.6);
+  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.6);
 }
 
 /* ----- Summary band (company + price + indicators together) --------------- */
@@ -308,25 +362,25 @@ a { color: var(--gold); text-decoration: none; }
 .hero-name {
   font-family: var(--serif);
   font-optical-sizing: auto;
-  font-weight: 600;
+  font-weight: 500;
   font-size: clamp(24px, 2.6vw, 34px);
   line-height: 1.04;
-  letter-spacing: 0.004em;
+  letter-spacing: -0.018em;
   margin: 0;
   color: var(--ink);
-  text-shadow: 0 0 22px rgba(122, 242, 255, 0.18);
 }
+:root[data-theme="neon"] .hero-name { font-weight: 600; letter-spacing: 0.004em; text-shadow: 0 0 22px rgba(122, 242, 255, 0.18); }
 .hero-quote { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-top: 2px; }
 .hero-price {
-  font-family: var(--mono);
-  font-weight: 600;
+  font-family: var(--serif);
+  font-weight: 500;
   font-size: clamp(34px, 3.6vw, 46px);
   line-height: 0.95;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.025em;
   font-feature-settings: "tnum" 1, "lnum" 1;
   color: var(--ink);
-  text-shadow: 0 0 20px rgba(34, 224, 255, 0.28);
 }
+:root[data-theme="neon"] .hero-price { font-family: var(--mono); font-weight: 600; letter-spacing: -0.015em; text-shadow: 0 0 20px rgba(34, 224, 255, 0.28); }
 .hero-price .cur { font-size: 0.45em; color: var(--ink-faint); font-style: italic; margin-right: 0.1em; vertical-align: 0.45em; }
 .hero-change {
   font-family: var(--mono);
@@ -393,9 +447,9 @@ button {
   padding: 10px 19px;
   cursor: pointer;
   transition: transform 0.18s ease, box-shadow 0.25s ease, filter 0.2s ease;
-  box-shadow: 0 8px 22px -10px rgba(34, 224, 255, 0.6);
+  box-shadow: 0 8px 22px -10px rgba(var(--accent-rgb), 0.6);
 }
-button:hover { transform: translateY(-1px); box-shadow: 0 12px 30px -10px rgba(34, 224, 255, 0.7); filter: brightness(1.04); }
+button:hover { transform: translateY(-1px); box-shadow: 0 12px 30px -10px rgba(var(--accent-rgb), 0.7); filter: brightness(1.04); }
 button:active { transform: translateY(0); }
 button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; filter: saturate(0.6); }
 
@@ -562,7 +616,7 @@ input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; v
   transition: color 0.15s ease, background 0.15s ease;
 }
 .range-tab:hover { color: var(--ink-soft); background: transparent; transform: none; box-shadow: none; filter: none; }
-.range-tab.active { color: #021016; background: linear-gradient(180deg, var(--gold-bright), var(--gold)); box-shadow: 0 4px 12px -6px rgba(34, 224, 255, 0.7); }
+.range-tab.active { color: #021016; background: linear-gradient(180deg, var(--gold-bright), var(--gold)); box-shadow: 0 4px 12px -6px rgba(var(--accent-rgb), 0.7); }
 .range-tab.active:hover { color: #021016; filter: brightness(1.04); }
 .legend { display: flex; gap: 18px; align-items: center; }
 .legend span { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); }
@@ -598,13 +652,12 @@ input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; v
 }
 .verdict-word {
   font-family: var(--serif);
-  font-weight: 700;
+  font-weight: 500;
   font-size: 32px;
   line-height: 1;
-  letter-spacing: 0.01em;
-  text-transform: uppercase;
-  text-shadow: 0 0 20px color-mix(in srgb, currentColor 55%, transparent);
+  letter-spacing: -0.01em;
 }
+:root[data-theme="neon"] .verdict-word { font-weight: 700; letter-spacing: 0.01em; text-transform: uppercase; text-shadow: 0 0 20px color-mix(in srgb, currentColor 55%, transparent); }
 .verdict-word.buy { color: var(--buy); }
 .verdict-word.sell { color: var(--sell); }
 .verdict-word.hold { color: var(--gold); }
@@ -801,7 +854,7 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 
 .graph-tabs { display: flex; gap: 4px; margin-bottom: 10px; border-bottom: 1px solid rgba(130, 165, 255, 0.16); }
 .graph-tabs .tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--ink-faint); cursor: pointer; padding: 6px 10px; font: inherit; }
-.graph-tabs .tab.active { color: var(--ink); border-bottom-color: var(--neon); box-shadow: 0 1px 8px -2px var(--neon); }
+.graph-tabs .tab.active { color: var(--ink); border-bottom-color: var(--gold); box-shadow: 0 1px 8px -2px var(--gold); }
 .graph-tab { display: flex; flex-direction: column; gap: 8px; }
 .graph-tab > label { display: flex; flex-direction: column; gap: 4px; }
 .graph-tab input { width: 100%; }
@@ -810,7 +863,7 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 .graph-actions .secondary { flex: 1; }
 .graph-saves { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
 .graph-save-row { display: flex; align-items: center; gap: 6px; }
-.graph-save-row .linklike { background: none; border: none; color: var(--neon); cursor: pointer; padding: 0; text-align: left; flex: 1; }
+.graph-save-row .linklike { background: none; border: none; color: var(--gold); cursor: pointer; padding: 0; text-align: left; flex: 1; }
 .graph-save-row .icon-btn { background: none; border: none; color: var(--ink-faint); cursor: pointer; }
 
 /* ----- Discover board ------------------------------------------------------ */
@@ -839,8 +892,10 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 
 .score-cell { display: flex; align-items: center; gap: 9px; }
 .score-cell > span { font-family: var(--mono); font-size: 12px; color: var(--ink); min-width: 22px; }
-.score-bar { position: relative; width: 70px; height: 6px; border-radius: 999px; background: rgba(130, 165, 255, 0.10); overflow: hidden; box-shadow: inset 0 0 0 1px rgba(34, 224, 255, 0.08); }
-.score-bar > span { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--neon-deep), var(--neon) 60%, var(--neon-magenta)); border-radius: 999px; box-shadow: 0 0 8px rgba(34, 224, 255, 0.6); }
+.score-bar { position: relative; width: 70px; height: 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); overflow: hidden; }
+.score-bar > span { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, var(--gold-deep), var(--gold)); border-radius: 999px; }
+:root[data-theme="neon"] .score-bar { background: rgba(130, 165, 255, 0.10); box-shadow: inset 0 0 0 1px rgba(34, 224, 255, 0.08); }
+:root[data-theme="neon"] .score-bar > span { background: linear-gradient(90deg, var(--neon-deep), var(--neon) 60%, var(--neon-magenta)); box-shadow: 0 0 8px rgba(34, 224, 255, 0.6); }
 
 .signals-strip { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
 .signals-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
@@ -848,7 +903,8 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
   display: inline-flex; align-items: center; gap: 6px;
   padding: 3px 9px; border: 1px solid var(--panel-brd); border-radius: 999px;
 }
-.signal-chip.winner { border-color: var(--gold-line); background: var(--gold-tint); box-shadow: 0 0 14px -4px var(--neon); }
+.signal-chip.winner { border-color: var(--gold-line); background: var(--gold-tint); }
+:root[data-theme="neon"] .signal-chip.winner { box-shadow: 0 0 14px -4px var(--neon); }
 .signal-src { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; color: var(--ink-faint); }
 .agree-badge { font-family: var(--mono); font-size: 10.5px; color: var(--buy); }
 .agree-badge.conflict { color: var(--sell); }
@@ -954,7 +1010,8 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 .board-search input { width: min(280px, 100%); }
 
 /* S&P 500 membership badges — reuse .badge base for shape/spacing/font */
-.badge.sp     { background: rgba(169, 107, 255, 0.12); color: var(--neon-violet); border-color: rgba(169, 107, 255, 0.30); }
+.badge.sp     { background: rgba(88, 166, 255, 0.10); color: #58a6ff; border-color: rgba(88, 166, 255, 0.25); }
+:root[data-theme="neon"] .badge.sp { background: rgba(169, 107, 255, 0.12); color: var(--neon-violet); border-color: rgba(169, 107, 255, 0.30); }
 .badge.custom { background: rgba(255, 255, 255, 0.05); color: var(--ink-faint); border-color: var(--panel-brd); }
 
 /* Add-company inline form in the Discover toolbar (.board-controls) */
@@ -1012,7 +1069,7 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 .merge-summary { margin: 8px 0; }
 
 .rel-form { display: flex; flex-direction: column; gap: 6px; }
-.unsaved-hint { color: var(--neon); }
+.unsaved-hint { color: var(--gold); }
 
 /* ----- Agent trace (Deep Analysis) ---------------------------------------- */
 .trace {
@@ -1036,7 +1093,7 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
   text-align: left;
   font: inherit;
 }
-.trace-head:hover { color: var(--ink); background: rgba(34, 224, 255, 0.06); }
+.trace-head:hover { color: var(--ink); background: rgba(var(--accent-rgb), 0.06); }
 .trace-caret { color: var(--gold); font-size: 11px; width: 12px; flex: none; }
 .trace-progress { color: var(--gold); font-variant-numeric: tabular-nums; }
 .trace-count { color: var(--ink-faint); margin-left: auto; }
@@ -1199,3 +1256,37 @@ h3 { font-family: var(--serif); font-weight: 500; letter-spacing: -0.01em; }
 }
 .chat-composer textarea:focus { outline: none; border-color: var(--gold-line); }
 .chat-composer button { white-space: nowrap; }
+
+/* ----- Theme controls (masthead toggle + Settings picker) ----------------- */
+.theme-toggle {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  background: transparent;
+  border: 1px solid var(--panel-brd);
+  border-radius: 999px;
+  padding: 5px 11px;
+  box-shadow: none;
+  white-space: nowrap;
+  align-self: center;
+}
+.theme-toggle:hover { color: var(--gold); border-color: var(--gold-line); background: var(--gold-tint); transform: none; box-shadow: none; filter: none; }
+
+.theme-seg { display: inline-flex; gap: 2px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--panel-brd); border-radius: 9px; padding: 3px; }
+.theme-seg button {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--ink-faint);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+  box-shadow: none;
+}
+.theme-seg button:hover { color: var(--ink-soft); background: transparent; transform: none; box-shadow: none; filter: none; }
+.theme-seg button.active { color: #021016; background: linear-gradient(180deg, var(--gold-bright), var(--gold)); }
