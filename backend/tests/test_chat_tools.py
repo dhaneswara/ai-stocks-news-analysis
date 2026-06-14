@@ -180,8 +180,20 @@ def test_portfolio_board_ranks_and_filters(monkeypatch):
     ])
     monkeypatch.setattr(chat_tools, "load_snapshot", lambda c, scope: board)
     out = chat_tools._tool_portfolio_board({"direction": "buy"}, _ctx())
-    assert "NVDA 80/100 buy" in out
+    assert "NVDA (NVIDIA) 80/100 buy" in out
     assert "KO" not in out  # filtered out by direction
+
+
+def test_portfolio_board_filters_by_sector_on_portfolio(monkeypatch):
+    board = ScreenBoard(scope="portfolio", items=[
+        StockScore(ticker="NVDA", name="NVIDIA", price=120.0, change_pct=1.0, score=80.0,
+                   direction="buy", sector="Technology"),
+        StockScore(ticker="KO", name="Coca-Cola", price=60.0, change_pct=0.1, score=40.0,
+                   direction="hold", sector="Consumer"),
+    ])
+    monkeypatch.setattr(chat_tools, "load_snapshot", lambda c, scope: board)
+    out = chat_tools._tool_portfolio_board({"sector": "Technology"}, _ctx())
+    assert "NVDA" in out and "KO" not in out
 
 
 def test_ontology_overview_empty(monkeypatch):

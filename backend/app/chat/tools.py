@@ -217,7 +217,7 @@ def _tool_portfolio_board(args: dict, ctx: ChatContext) -> str:
                 "or Discover page first)")
     items = board.items
     sector = str(args.get("sector") or "").strip()
-    if sector and snap_scope == "all":
+    if sector:
         items = [i for i in items if i.sector.lower() == sector.lower()]
     direction = str(args.get("direction") or "").strip().lower()
     if direction in ("buy", "sell", "hold"):
@@ -226,14 +226,16 @@ def _tool_portfolio_board(args: dict, ctx: ChatContext) -> str:
     items = items[:limit]
     if not items:
         return "(no matching companies on the board)"
-    return "\n".join(f"- {i.ticker} {i.score:.0f}/100 {i.direction} ({i.sector or '?'})"
+    return "\n".join(f"- {i.ticker} ({i.name}) {i.score:.0f}/100 {i.direction} ({i.sector or '?'})"
                      for i in items)
 
 
 def _tool_ontology_overview(args: dict, ctx: ChatContext) -> str:
     name = get_active_ontology(ctx.cache)
+    if not name:
+        return "(no active ontology — the knowledge graph is empty)"
     graph = active_graph(ctx.cache)
-    if not name or not graph.nodes:
+    if not graph.nodes:
         return "(no active ontology — the knowledge graph is empty)"
     tickers = [n for n in graph.nodes if ":" not in n]
     types = sorted({e.type for e in graph.edges})
