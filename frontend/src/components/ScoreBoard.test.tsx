@@ -65,3 +65,27 @@ it('routes a ☆ click to onAdd and a ★ click to onUnwatch', () => {
   expect(onAdd).toHaveBeenCalledWith('TSLA');
   expect(onUnwatch).toHaveBeenCalledWith('AAPL');
 });
+
+it('renders a ⟳ rescan button per row only when onRescan is given', () => {
+  const items = [row({})];
+  const { rerender } = render(<MemoryRouter><ScoreBoard items={items} onAdd={() => {}} /></MemoryRouter>);
+  expect(screen.queryByTitle(/rescan AAPL/i)).not.toBeInTheDocument();
+  rerender(<MemoryRouter><ScoreBoard items={items} onAdd={() => {}} onRescan={() => {}} /></MemoryRouter>);
+  expect(screen.getByTitle(/rescan AAPL/i)).toBeInTheDocument();
+});
+
+it('calls onRescan with the ticker when ⟳ is clicked', () => {
+  const onRescan = vi.fn();
+  render(<MemoryRouter><ScoreBoard items={[row({})]} onAdd={() => {}} onRescan={onRescan} /></MemoryRouter>);
+  fireEvent.click(screen.getByTitle(/rescan AAPL/i));
+  expect(onRescan).toHaveBeenCalledWith('AAPL');
+});
+
+it('disables the ⟳ for the row currently being rescanned', () => {
+  render(
+    <MemoryRouter>
+      <ScoreBoard items={[row({})]} onAdd={() => {}} onRescan={() => {}} rescanning="AAPL" />
+    </MemoryRouter>,
+  );
+  expect(screen.getByTitle(/rescanning AAPL/i)).toBeDisabled();
+});

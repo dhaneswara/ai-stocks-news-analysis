@@ -12,9 +12,13 @@ interface Props {
   onUnwatch?: (t: string) => void;
   /** When given, custom rows (`in_sp500 === false`) get a × remove button. */
   onRemove?: (t: string) => void;
+  /** Re-score a single row. Omit to hide the per-row ⟳ button. */
+  onRescan?: (t: string) => void;
+  /** Ticker currently being rescanned — that row's ⟳ spins and is disabled. */
+  rescanning?: string | null;
 }
 
-export function ScoreBoard({ items, onAdd, watched, onUnwatch, onRemove }: Props) {
+export function ScoreBoard({ items, onAdd, watched, onUnwatch, onRemove, onRescan, rescanning }: Props) {
   const navigate = useNavigate();
   const [q, setQ] = useState('');
   const needle = q.trim().toLowerCase();
@@ -87,6 +91,18 @@ export function ScoreBoard({ items, onAdd, watched, onUnwatch, onRemove }: Props
                     >
                       {saved ? '★' : '☆'}
                     </button>
+                    {onRescan && (
+                      <button
+                        type="button"
+                        className={`rescan-btn${rescanning === s.ticker ? ' spinning' : ''}`}
+                        disabled={rescanning === s.ticker}
+                        aria-label={rescanning === s.ticker ? `Rescanning ${s.ticker}` : `Rescan ${s.ticker}`}
+                        title={rescanning === s.ticker ? `Rescanning ${s.ticker}…` : `Rescan ${s.ticker} — re-score this one company`}
+                        onClick={(e) => { e.stopPropagation(); onRescan(s.ticker); }}
+                      >
+                        ⟳
+                      </button>
+                    )}
                     {onRemove && !s.in_sp500 && (
                       <button className="secondary" title="Remove this custom company"
                               onClick={(e) => { e.stopPropagation(); onRemove(s.ticker); }}>

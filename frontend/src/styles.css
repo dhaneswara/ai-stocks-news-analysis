@@ -436,6 +436,20 @@ input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; v
   box-shadow: none;
 }
 .star-btn:hover { filter: brightness(1.2); transform: none; box-shadow: none; }
+.rescan-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 15px;
+  line-height: 1;
+  color: var(--ink-faint);
+  box-shadow: none;
+}
+.rescan-btn:hover:not(:disabled) { filter: brightness(1.4); transform: none; box-shadow: none; }
+.rescan-btn:disabled { cursor: default; opacity: 0.8; }
+.rescan-btn.spinning { display: inline-block; animation: rescan-spin 0.8s linear infinite; }
+@keyframes rescan-spin { to { transform: rotate(360deg); } }
 
 /* Collapsible watchlist menu (replaces the inline chip row when the list grows long) */
 .watch-menu { position: relative; }
