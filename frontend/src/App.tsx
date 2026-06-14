@@ -5,9 +5,11 @@ import Portfolio from './pages/Portfolio';
 import Discover from './pages/Discover';
 import Settings from './pages/Settings';
 import Evaluation from './pages/Evaluation';
+import Chat from './pages/Chat';
 import { RunIndicator } from './components/RunIndicator';
 import { DashboardStateProvider } from './state/dashboardState';
 import { WatchlistRunProvider } from './state/watchlistRunState';
+import { ChatProvider } from './state/chatState';
 
 const Graph = lazy(() => import('./pages/Graph'));
 
@@ -18,6 +20,7 @@ export default function App() {
   return (
     <DashboardStateProvider>
     <WatchlistRunProvider>
+    <ChatProvider>
       <div className="app">
         <header className="masthead">
           <Link className="brand" to="/">
@@ -33,6 +36,7 @@ export default function App() {
             <NavLink to="/discover" className={navClass}>Discover</NavLink>
             <NavLink to="/graph" className={navClass}>Graph</NavLink>
             <NavLink to="/evaluation" className={navClass}>Evaluation</NavLink>
+            <NavLink to="/chat" className={navClass}>Chat</NavLink>
             <NavLink to="/settings" className={navClass}>Settings</NavLink>
           </nav>
         </header>
@@ -44,10 +48,12 @@ export default function App() {
             <Route path="/discover" element={<Discover />} />
             <Route path="/graph" element={<Suspense fallback={<p className="muted">Loading graph…</p>}><Graph /></Suspense>} />
             <Route path="/evaluation" element={<Evaluation />} />
+            <Route path="/chat" element={<Chat />} />
             <Route path="/settings" element={<Settings />} />
           </Routes>
         </main>
       </div>
+    </ChatProvider>
     </WatchlistRunProvider>
     </DashboardStateProvider>
   );
