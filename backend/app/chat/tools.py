@@ -159,10 +159,13 @@ def _tool_network_signal(args: dict, ctx: ChatContext) -> str:
     graph = active_graph(ctx.cache)
     if not graph.edges:
         return "(no active ontology — no network relationships)"
-    edges = incident_edges(ticker, graph.edges, set(ncfg.symmetric_types))
-    if not edges:
-        return f"({ticker} has no relationships in the active ontology)"
-    sig = compute_network_signal(ticker, edges, combined_base_index(ctx.cache), ncfg)
+    try:
+        edges = incident_edges(ticker, graph.edges, set(ncfg.symmetric_types))
+        if not edges:
+            return f"({ticker} has no relationships in the active ontology)"
+        sig = compute_network_signal(ticker, edges, combined_base_index(ctx.cache), ncfg)
+    except Exception as exc:  # noqa: BLE001 — network is best-effort; never break the loop
+        return f"(network signal unavailable for {ticker}: {exc})"
     if not sig.influences:
         return f"({ticker}: no scored network influences)"
     lines = [f"{ticker} network signal (signed {sig.signed:+.2f}, intensity {sig.intensity:.2f}):"]
@@ -176,11 +179,14 @@ def _tool_geopolitics(args: dict, ctx: ChatContext) -> str:
     ts = ctx.settings.truth_signal
     if not ts.enabled:
         return "(geopolitics / Truth-Social signal is disabled in Settings)"
-    posts = truth_social.fetch_recent_posts_cached(ts.lookback_hours, ts.source_url, ctx.cache)
-    if not posts:
-        return "(no recent Truth Social posts available)"
-    mood = political.summarize_market_mood(
-        posts, ctx.provider, _model(ctx), ctx.settings.active_provider, ctx.cache)
+    try:
+        posts = truth_social.fetch_recent_posts_cached(ts.lookback_hours, ts.source_url, ctx.cache)
+        if not posts:
+            return "(no recent Truth Social posts available)"
+        mood = political.summarize_market_mood(
+            posts, ctx.provider, _model(ctx), ctx.settings.active_provider, ctx.cache)
+    except Exception as exc:  # noqa: BLE001 — best-effort; never break the loop
+        return f"(geopolitics signal unavailable: {exc})"
     lines = [f"Market mood: {mood.lean} (confidence {mood.confidence:.0%}). {mood.summary}".strip()]
     for t in mood.themes[:4]:
         lines.append(f"- {t.label} [{t.lean}]: {t.quote}")

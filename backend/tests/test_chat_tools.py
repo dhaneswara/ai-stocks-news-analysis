@@ -142,3 +142,22 @@ def test_track_record_none_when_no_history(monkeypatch):
     ctx = ChatContext(settings=Settings(), cache=Cache(":memory:"),
                       provider=FakeProvider([]), prediction_store=object())
     assert "no matured evaluation history" in chat_tools._tool_track_record({"ticker": "NVDA"}, ctx)
+
+
+def test_network_signal_unavailable_on_error(monkeypatch):
+    graph = KnowledgeGraph(nodes=["NVDA"],
+                           edges=[GraphEdge(source="NVDA", target="AMD", type="competitor")])
+    monkeypatch.setattr(chat_tools, "active_graph", lambda c: graph)
+    def _boom(*a, **k):
+        raise RuntimeError("db down")
+    monkeypatch.setattr(chat_tools, "incident_edges", _boom)
+    out = chat_tools._tool_network_signal({"ticker": "NVDA"}, _ctx())
+    assert "network signal unavailable" in out
+
+
+def test_geopolitics_unavailable_on_error(monkeypatch):
+    def _boom(*a, **k):
+        raise RuntimeError("archive down")
+    monkeypatch.setattr(chat_tools.truth_social, "fetch_recent_posts_cached", _boom)
+    out = chat_tools._tool_geopolitics({}, _ctx())
+    assert "geopolitics signal unavailable" in out
