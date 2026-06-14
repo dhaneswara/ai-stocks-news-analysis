@@ -62,7 +62,7 @@ from app.models.schemas import UniverseEntry
 
 
 def _stub_universe(monkeypatch):
-    monkeypatch.setattr(routes.universe, "load_universe", lambda: [
+    monkeypatch.setattr(routes.universe, "load_universe", lambda *a, **k: [
         UniverseEntry(ticker="AAPL", name="Apple", sector="Tech"),
         UniverseEntry(ticker="MSFT", name="Microsoft", sector="Tech"),
     ])

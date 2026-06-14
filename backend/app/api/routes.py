@@ -740,7 +740,7 @@ def import_graph(payload: dict, cache: Cache = Depends(get_cache)) -> ImportRepo
     body = payload or {}
     name = str(body.get("name", ""))
     model = body.get("payload", body)  # accept {name, payload} or a bare model
-    resolver = TickerResolver(universe.load_universe())
+    resolver = TickerResolver(universe.load_universe(cache=cache))  # custom companies resolve too
     graph, report = normalize_import(model, resolver)
     created_at = datetime.now(timezone.utc).isoformat()
     summary = add_import_set(name, graph, cache, created_at=created_at)

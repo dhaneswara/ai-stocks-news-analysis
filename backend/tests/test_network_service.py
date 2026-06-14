@@ -19,7 +19,7 @@ class _FakeNews:
 
 def _wire(monkeypatch, edges_for):
     monkeypatch.setattr(service, "build_provider", lambda s: object())
-    monkeypatch.setattr(service, "load_universe", lambda: [])
+    monkeypatch.setattr(service, "load_universe", lambda *a, **k: [])
     monkeypatch.setattr(service, "get_stock_data", lambda t, *a, **k: _stock(t))
     monkeypatch.setattr(service, "build_news_provider", lambda s: _FakeNews())  # no real network
     monkeypatch.setattr(service, "extract_relationships",
@@ -33,6 +33,28 @@ def test_company_graph_one_hop(tmp_path, monkeypatch):
     assert g.scope == "company:AAPL"
     assert set(g.nodes) == {"AAPL", "TSM"} and g.built == 1
     assert g.edges[0].target == "TSM"
+
+
+def test_company_graph_resolver_includes_custom_companies(tmp_path, monkeypatch):
+    # The ego-build must resolve edges to custom (non-S&P) companies, like the screener does —
+    # so a relationship the LLM finds to a custom ticker isn't silently dropped. Uses the REAL
+    # load_universe so the resolver is built from the cache (S&P + custom), not a stub.
+    from app.data import universe
+    from app.models.schemas import UniverseEntry
+
+    cache = Cache(str(tmp_path / "c.db"))
+    universe.add_custom(
+        UniverseEntry(ticker="SPCX", name="Space Exploration Technologies Corp", sector="Industrials", exchange="NASDAQ"),
+        cache,
+    )
+    captured = {}
+    monkeypatch.setattr(service, "build_provider", lambda s: object())
+    monkeypatch.setattr(service, "get_stock_data", lambda t, *a, **k: _stock(t))
+    monkeypatch.setattr(service, "build_news_provider", lambda s: _FakeNews())
+    monkeypatch.setattr(service, "extract_relationships",
+                        lambda stock, resolver, *a, **k: captured.setdefault("resolver", resolver) and [])
+    service.build_company_graph("AAPL", Settings(), cache)
+    assert captured["resolver"].resolve("Space Exploration Technologies Corp", "SPCX") == "SPCX"
 
 
 def test_company_graph_no_edges_returns_lone_node(tmp_path, monkeypatch):
@@ -62,7 +84,7 @@ def test_company_graph_disabled_returns_lone_node(tmp_path, monkeypatch):
 def test_company_graph_forwards_refresh(tmp_path, monkeypatch):
     captured = {}
     monkeypatch.setattr(service, "build_provider", lambda s: object())
-    monkeypatch.setattr(service, "load_universe", lambda: [])
+    monkeypatch.setattr(service, "load_universe", lambda *a, **k: [])
     monkeypatch.setattr(service, "get_stock_data", lambda t, *a, **k: _stock(t))
     monkeypatch.setattr(service, "build_news_provider", lambda s: _FakeNews())
 

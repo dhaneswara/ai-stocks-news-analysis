@@ -35,7 +35,7 @@ def build_company_graph(
         provider = build_provider(settings)
         provider_id = settings.active_provider
         model = settings.providers[provider_id].model
-        resolver = TickerResolver(load_universe())
+        resolver = TickerResolver(load_universe(cache=cache))  # include custom (non-S&P) companies as edge targets
     except Exception:  # noqa: BLE001 — bad provider/settings/universe -> degrade, don't crash
         return KnowledgeGraph(as_of=now.isoformat(), scope=scope, nodes=[t])
 
