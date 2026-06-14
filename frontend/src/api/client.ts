@@ -2,6 +2,8 @@ import type {
   AddCustomResult,
   AgentEvent,
   AnalysisResult,
+  ChatEvent,
+  ChatMessage,
   CustomCompany,
   EvaluationBoard,
   ImportReport,
@@ -226,4 +228,70 @@ export function streamWatchlistRun(
     es.close();
   }) as EventListener);
   return () => es.close();
+}
+
+export interface ChatStreamHandlers {
+  onEvent: (event: ChatEvent) => void;
+  onError: (message: string) => void;
+}
+
+/** Parse one SSE frame ("event: <type>\ndata: <json>"). The JSON payload already carries the
+ *  `type`, so we trust it and ignore the redundant event-name line. */
+function parseChatFrame(frame: string): ChatEvent | null {
+  const data = frame
+    .split('\n')
+    .filter((l) => l.startsWith('data:'))
+    .map((l) => l.slice(5).trim())
+    .join('\n');
+  if (!data) return null;
+  try {
+    return JSON.parse(data) as ChatEvent;
+  } catch {
+    return null;
+  }
+}
+
+/** Stream a chat turn. EventSource is GET-only, but the conversation history must travel in a
+ *  POST body, so this uses fetch + a ReadableStream SSE parser. Returns a closer the caller MUST
+ *  keep and invoke on unmount/stop — it aborts the in-flight request. */
+export function streamChat(messages: ChatMessage[], handlers: ChatStreamHandlers): () => void {
+  const controller = new AbortController();
+  (async () => {
+    let resp: Response;
+    try {
+      resp = await fetch(`${BASE}/chat/stream`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages }),
+        signal: controller.signal,
+      });
+    } catch {
+      if (!controller.signal.aborted) handlers.onError('Connection error');
+      return;
+    }
+    if (!resp.ok || !resp.body) {
+      handlers.onError(`Server error (${resp.status})`);
+      return;
+    }
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let sep: number;
+        while ((sep = buffer.indexOf('\n\n')) !== -1) {
+          const frame = buffer.slice(0, sep);
+          buffer = buffer.slice(sep + 2);
+          const event = parseChatFrame(frame);
+          if (event) handlers.onEvent(event);
+        }
+      }
+    } catch {
+      if (!controller.signal.aborted) handlers.onError('Connection error');
+    }
+  })();
+  return () => controller.abort();
 }

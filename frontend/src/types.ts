@@ -327,3 +327,24 @@ export interface AgentEvent {
   trace?: AgentTrace | null;
   message?: string;
 }
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatEvent {
+  type: 'step' | 'final' | 'error';
+  step?: AgentStep | null;
+  answer?: string;
+  message?: string;
+}
+
+/** A rendered conversation turn. For an assistant turn, `content` is the final markdown
+ *  answer, `steps` is the live ReAct trace, and `error` is a per-turn transport/LLM error. */
+export interface ChatTurn {
+  role: 'user' | 'assistant';
+  content: string;
+  steps?: AgentStep[];
+  error?: string;
+}
