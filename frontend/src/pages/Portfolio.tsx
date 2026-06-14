@@ -64,7 +64,7 @@ export default function Portfolio() {
         </p>
       )}
 
-      {data && mine.length > 0 && (
+      {mine.length > 0 && (
         <section className="panel">
           <div className="panel-head">
             <span className="section-label">Watchlist ({mine.length}) — click a row to deep-dive</span>
@@ -72,7 +72,7 @@ export default function Portfolio() {
           <ScoreBoard items={mine} onAdd={watch.add} watched={watch.list} onUnwatch={watch.remove} />
         </section>
       )}
-      {data && extended.length > 0 && (
+      {extended.length > 0 && (
         <section className="panel">
           <div className="panel-head">
             <span className="section-label">
