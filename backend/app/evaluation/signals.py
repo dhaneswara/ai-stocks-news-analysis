@@ -30,6 +30,7 @@ from app.models.schemas import (
     SourceSignal,
     SourceTrack,
     StockData,
+    StockScore,
 )
 from app.screener.service import SCAN_PERIOD, portfolio_universe, score_one
 from app.services.stock_service import get_stock_data
@@ -40,13 +41,16 @@ _SENTIMENT_FOR = {"buy": "bullish", "sell": "bearish", "hold": "neutral"}
 
 
 def record_deterministic_pair(stock: StockData, settings: Settings, cache: Cache,
-                              store: PredictionStore) -> None:
+                              store: PredictionStore, *, score: StockScore | None = None) -> None:
     """Record the technical call (pre-network base vote) and — when a network signal actually
     influenced the score — the network-blended call, keyed to the same last-candle
-    call_date/entry convention record_prediction uses."""
+    call_date/entry convention record_prediction uses.
+
+    Pass a precomputed `score` (e.g. from the single-ticker rescan) to avoid re-running
+    score_one; otherwise it is computed here as before."""
     if not stock.candles:
         return
-    score = score_one(stock.ticker, settings, cache)
+    score = score if score is not None else score_one(stock.ticker, settings, cache)
     last = stock.candles[-1]
     tech = direction_for(score.base_net)  # pre-network vote; score.direction is the blended call
     store.upsert_prediction(

@@ -243,3 +243,15 @@ def test_build_signals_winner_tiebreak_prefers_more_matured(tmp_path):
         _signal_eval(store, "llm_fast", d, 70.0, 1)
     out = build_signals("AAPL", store, today=date(2026, 6, 10))
     assert out.winner == "technical"   # equal avg -> larger matured count takes the crown
+
+
+def test_pair_uses_precomputed_score_without_rescoring(tmp_path, monkeypatch):
+    store = PredictionStore(str(tmp_path / "p.db"))
+
+    def boom(*a, **k):  # score_one must NOT be called when a score is supplied
+        raise AssertionError("score_one should not be called when score= is given")
+
+    monkeypatch.setattr(signals, "score_one", boom)
+    record_deterministic_pair(_stock(), Settings(), Cache(str(tmp_path / "c.db")), store,
+                              score=_score(base_net=0.3, net=0.3, direction="buy"))
+    assert store.get_prediction("AAPL", "2026-06-05", "technical") is not None
