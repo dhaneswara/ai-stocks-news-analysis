@@ -82,9 +82,14 @@ your portfolio).
 - **Portfolio — your focused board** — a **Portfolio** tab scores just your own universe:
   your **watchlist plus the ticker nodes in your active ontology** (non-ticker `ext:`/`man:`
   nodes are excluded). Because it covers only those names instead of all ~503 S&P 500
-  constituents, a rescan takes **seconds, not minutes**. The board reuses the same shared
-  `ScoreBoard` UI as Discover — each row shows score, call, and reason chips; click any row
-  to open the full Dashboard deep-dive. An as-of line, a **Rescan portfolio** button (which
+  constituents, a rescan takes **seconds, not minutes**. The results are split into two
+  boards: a **Watchlist** board (the names you actively watch) and an **Extended via
+  ontology** board (names pulled into the universe *only* by an active-graph relationship);
+  each board is shown only when it has rows, and a ticker in both lists appears under
+  Watchlist. Both reuse the same shared `ScoreBoard` UI as Discover — each row shows score,
+  call, and reason chips plus a **★ / ☆ watch toggle** (★ = in your watchlist, click to
+  remove; ☆ = add), and clicking a row opens the full Dashboard deep-dive. An as-of line, a
+  **Rescan portfolio** button (which
   also chains the technical/network snapshot), and a **Stop** button while scanning complete
   the bar; when the portfolio is empty an inline prompt directs you to add to your watchlist
   or activate an ontology. The portfolio board is cached separately under scope `"portfolio"`.
@@ -106,8 +111,9 @@ your portfolio).
   companies** can be added via an **"Add company"** form — enter a ticker and the app
   auto-fetches the name, exchange, sector, and current price from market data and saves it
   permanently; it is then scanned on the Discover board alongside the S&P 500 and flagged
-  **Custom**, removable via an × on its row. Clicking a row deep-links into the existing
-  per-ticker LLM analysis. Filter by sector/direction and use the **Show** control
+  **Custom**, removable via an × on its row. Each row also carries a **★ / ☆ watch toggle**
+  (★ = already in your watchlist, click to remove; ☆ = add) that reflects current membership.
+  Clicking a row deep-links into the existing per-ticker LLM analysis. Filter by sector/direction and use the **Show** control
   (25 / 50 / 100 / All) to set how many ranked names appear; **Update S&P 500 list** rescrapes
   the current constituents from Wikipedia (validated, atomic write). A **Rescan** button
   triggers a fresh scan on demand; the daily snapshot can also be refreshed automatically via
