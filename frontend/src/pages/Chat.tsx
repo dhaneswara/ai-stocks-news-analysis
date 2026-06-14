@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
-import { useChatContext } from '../state/chatState';
+import { useChatContext } from '../state/chatContext';
 import { TracePanel } from '../components/TracePanel';
 import { Markdown } from '../components/Markdown';
 

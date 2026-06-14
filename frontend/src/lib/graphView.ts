@@ -130,14 +130,14 @@ export function resolveManualTarget(input: string, graph: KnowledgeGraph, board:
   const named = board.find((s) => normalizeName(s.name) === normalizeName(raw));
   if (named) return { id: named.ticker, label: named.ticker, external: false, isNew: !has(named.ticker) };
 
-  if (raw.length <= 10 && raw === raw.toUpperCase() && /^[A-Z0-9.\-]+$/.test(raw) && /[A-Z]/.test(raw)) {
+  if (raw.length <= 10 && raw === raw.toUpperCase() && /^[A-Z0-9.-]+$/.test(raw) && /[A-Z]/.test(raw)) {
     return { id: raw, label: raw, external: false, isNew: !has(raw) };
   }
   const id = `man:${slug(raw)}`;
   return { id, label: raw, external: true, isNew: !has(id) };
 }
 
-export const COMPANY_TICKER_RE = /^[A-Za-z][A-Za-z0-9.\-]{0,9}$/;
+export const COMPANY_TICKER_RE = /^[A-Za-z][A-Za-z0-9.-]{0,9}$/;
 
 /** Add a manual COMPANY node (id = upper-cased ticker, expandable + scoreable), unlike the
  *  `man:` concept nodes. No-op on invalid ticker or existing id. */

@@ -3,7 +3,7 @@ import { ScoreBoard } from '../components/ScoreBoard';
 import { MarketHint } from '../components/MarketHint';
 import { AddCompanyForm } from '../components/AddCompanyForm';
 import { useRefreshUniverse, useScreen, useSectors, useWatchlist, useDeleteCustomCompany, useRescanTicker } from '../hooks/queries';
-import { useWatchlistRunContext } from '../state/watchlistRunState';
+import { useWatchlistRunContext } from '../state/watchlistRunContext';
 
 export default function Discover() {
   const [sector, setSector] = useState('');

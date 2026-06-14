@@ -12,7 +12,7 @@ import { TracePanel } from '../components/TracePanel';
 import { useDeepAnalyze } from '../hooks/useDeepAnalyze';
 import { SignalsStrip } from '../components/SignalsStrip';
 import { useAnalyze, useLastAnalysis, useScore, useSignals, useStock, useWatchlist } from '../hooks/queries';
-import { useDashboardState } from '../state/dashboardState';
+import { useDashboardState } from '../state/dashboardContext';
 
 const RANGES: ChartRange[] = ['1M', '3M', '6M', '1Y', '2Y', '5Y'];
 // Each chart range maps to the yfinance period the LLM analyzes over.

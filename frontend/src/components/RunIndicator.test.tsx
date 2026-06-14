@@ -4,7 +4,8 @@ import { act } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RunIndicator } from './RunIndicator';
-import { WatchlistRunProvider, useWatchlistRunContext } from '../state/watchlistRunState';
+import { WatchlistRunProvider } from '../state/watchlistRunState';
+import { useWatchlistRunContext } from '../state/watchlistRunContext';
 import type { RescanStreamHandlers, WatchlistStreamHandlers } from '../api/client';
 
 const handlers: { current?: WatchlistStreamHandlers } = {};

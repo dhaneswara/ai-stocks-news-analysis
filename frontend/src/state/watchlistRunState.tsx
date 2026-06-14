@@ -1,23 +1,8 @@
-import { createContext, useCallback, useContext, type ReactNode } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import { useSnapshotEvaluation } from '../hooks/queries';
 import { useRescanRun } from '../hooks/useRescanRun';
 import { useWatchlistRun } from '../hooks/useWatchlistRun';
-
-interface ProcessesValue {
-  /** The fast/deep LLM batch stream. */
-  run: ReturnType<typeof useWatchlistRun>;
-  /** The watchlist technical/network snapshot mutation. */
-  snapshot: ReturnType<typeof useSnapshotEvaluation>;
-  /** The Discover board rescan stream (live per-ticker progress). */
-  rescan: ReturnType<typeof useRescanRun>;
-  /** Start a fast/deep batch, clearing the other processes' leftover status first. */
-  startRun: (mode: 'fast' | 'deep') => void;
-  /** Rescan with the snapshot chained — the chain lives HERE so it survives
-   *  page navigation (a call-site onSuccess dies with the page that registered it). */
-  rescanAndSnapshot: (scope?: string) => void;
-}
-
-const RunContext = createContext<ProcessesValue | null>(null);
+import { RunContext } from './watchlistRunContext';
 
 /** Hosts every watchlist-wide evaluation process ABOVE the page router, so in-flight
  *  work survives navigating between pages: the fast/deep batch SSE stream (previously
@@ -56,10 +41,4 @@ export function WatchlistRunProvider({ children }: { children: ReactNode }) {
       {children}
     </RunContext.Provider>
   );
-}
-
-export function useWatchlistRunContext(): ProcessesValue {
-  const ctx = useContext(RunContext);
-  if (!ctx) throw new Error('useWatchlistRunContext must be used within WatchlistRunProvider');
-  return ctx;
 }

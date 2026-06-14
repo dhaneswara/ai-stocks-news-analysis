@@ -1,19 +1,7 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import type { ChartRange } from '../components/PriceChart';
 import type { AnalysisResult, Signal } from '../types';
-
-interface DashboardState {
-  ticker: string;
-  setTicker: (t: string) => void;
-  range: ChartRange;
-  setRange: (r: ChartRange) => void;
-  analysis: AnalysisResult | null;
-  setAnalysis: (a: AnalysisResult | null) => void;
-  selected: Signal | null;
-  setSelected: (s: Signal | null) => void;
-}
-
-const DashboardStateContext = createContext<DashboardState | null>(null);
+import { DashboardStateContext } from './dashboardContext';
 
 // Holds the Dashboard's view-state (ticker, chart range, the LLM analysis, and the
 // selected signal) ABOVE the router. React Router unmounts the Dashboard route when
@@ -31,10 +19,4 @@ export function DashboardStateProvider({ children }: { children: ReactNode }) {
       {children}
     </DashboardStateContext.Provider>
   );
-}
-
-export function useDashboardState(): DashboardState {
-  const ctx = useContext(DashboardStateContext);
-  if (!ctx) throw new Error('useDashboardState must be used within a DashboardStateProvider');
-  return ctx;
 }

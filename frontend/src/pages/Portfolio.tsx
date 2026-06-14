@@ -1,7 +1,7 @@
 import { ScoreBoard } from '../components/ScoreBoard';
 import { MarketHint } from '../components/MarketHint';
 import { usePortfolioTickers, useScreen, useWatchlist, useRescanTicker } from '../hooks/queries';
-import { useWatchlistRunContext } from '../state/watchlistRunState';
+import { useWatchlistRunContext } from '../state/watchlistRunContext';
 
 export default function Portfolio() {
   const board = useScreen(undefined, undefined, 0, 'portfolio'); // uncapped, the focused set

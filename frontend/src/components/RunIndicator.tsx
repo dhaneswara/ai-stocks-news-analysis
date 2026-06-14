@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { useWatchlistRunContext } from '../state/watchlistRunState';
+import { useWatchlistRunContext } from '../state/watchlistRunContext';
 
 /** A link only when it actually goes somewhere: on the chip's own target page it renders
  *  as a plain pill (default cursor), so the pointer never promises a no-op navigation. */

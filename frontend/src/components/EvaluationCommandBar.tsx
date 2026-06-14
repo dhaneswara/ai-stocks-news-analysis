@@ -1,5 +1,5 @@
 import { usePortfolioTickers, useSettings } from '../hooks/queries';
-import { useWatchlistRunContext } from '../state/watchlistRunState';
+import { useWatchlistRunContext } from '../state/watchlistRunContext';
 import { MarketHint } from './MarketHint';
 import type { TickerRunStatus } from '../types';
 

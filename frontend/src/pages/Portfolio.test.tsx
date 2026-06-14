@@ -10,7 +10,7 @@ vi.mock('../hooks/queries', () => ({
   useWatchlist: vi.fn(),
   useRescanTicker: vi.fn(),
 }));
-vi.mock('../state/watchlistRunState', () => ({
+vi.mock('../state/watchlistRunContext', () => ({
   useWatchlistRunContext: () => ({
     rescan: { phase: 'idle', scanned: 0, total: 0, skipped: 0, summary: null, stopped: false, stop: vi.fn() },
     snapshot: { data: null },
