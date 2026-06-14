@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api/client';
-import type { OntologyVersion, Settings, Source } from '../types';
+import type { OntologyVersion, ScreenBoard, Settings, Source } from '../types';
 
 export function useStock(ticker: string, period = '5y') {
   return useQuery({
@@ -85,6 +85,27 @@ export function useScore(ticker: string) {
     queryFn: () => api.getScore(ticker),
     enabled: ticker.length > 0,
     retry: false,
+  });
+}
+
+export function useRescanTicker(scope?: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ticker: string) => api.rescanTicker(ticker, scope),
+    onSuccess: (fresh) => {
+      // Patch the one row in every cached board view (no refetch); re-sort to match the server.
+      qc.setQueriesData<ScreenBoard>({ queryKey: ['screen'] }, (board) => {
+        if (!board) return board;
+        const i = board.items.findIndex(
+          (s) => s.ticker.toUpperCase() === fresh.ticker.toUpperCase(),
+        );
+        if (i === -1) return board;
+        const items = [...board.items];
+        items[i] = fresh;
+        items.sort((a, b) => b.score - a.score);
+        return { ...board, items };
+      });
+    },
   });
 }
 
