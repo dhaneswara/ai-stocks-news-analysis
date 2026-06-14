@@ -38,6 +38,25 @@ def combined_base_index(cache: Cache) -> dict[str, StockScore]:
     return out
 
 
+def upsert_score(score: StockScore, scope: str | None, cache: Cache) -> ScreenBoard:
+    """Write one freshly re-scored row into the scope's saved snapshot, then re-rank.
+
+    Replaces the row with a matching ticker (case-insensitive) or appends it; the board-level
+    as_of/scanned/skipped are left untouched because only one row was rescanned. Creates a fresh
+    empty board when no snapshot exists. `scope="portfolio"` targets the portfolio snapshot; any
+    other scope (a sector name or None) targets the broad "all" snapshot, matching how the rescan
+    stream persists.
+    """
+    snap_scope = "portfolio" if scope == "portfolio" else "all"
+    board = load_snapshot(cache, snap_scope) or ScreenBoard(scope=snap_scope)
+    kept = [i for i in board.items if i.ticker.upper() != score.ticker.upper()]
+    items = kept + [score]
+    items.sort(key=lambda s: s.score, reverse=True)
+    board = board.model_copy(update={"items": items})
+    save_snapshot(board, cache)
+    return board
+
+
 def merge_sector(full: ScreenBoard, fresh: ScreenBoard) -> ScreenBoard:
     """Replace the rows belonging to fresh.scope inside the full board, then re-rank by score.
 

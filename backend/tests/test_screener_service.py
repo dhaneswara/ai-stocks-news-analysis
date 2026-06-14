@@ -193,3 +193,37 @@ def test_combined_base_index_portfolio_overrides_all(tmp_path):
     assert set(idx) == {"AAA", "BBB"}
     assert idx["BBB"].score == 99   # portfolio wins on conflict
     assert idx["AAA"].score == 10   # all-only ticker retained
+
+
+def test_upsert_score_appends_when_absent_and_sorts(tmp_path):
+    from app.screener.store import upsert_score, load_snapshot
+    cache = Cache(str(tmp_path / "c.db"))
+    save_snapshot(ScreenBoard(scope="all", items=[
+        StockScore(ticker="AAA", name="A", sector="Tech", price=1, change_pct=0, score=50, direction="hold"),
+    ]), cache)
+    fresh = StockScore(ticker="BBB", name="B", sector="Energy", price=1, change_pct=0, score=90, direction="buy")
+    board = upsert_score(fresh, None, cache)
+    assert [i.ticker for i in board.items] == ["BBB", "AAA"]            # re-sorted by score desc
+    assert [i.ticker for i in load_snapshot(cache, "all").items] == ["BBB", "AAA"]  # persisted
+
+
+def test_upsert_score_replaces_existing_case_insensitively(tmp_path):
+    from app.screener.store import upsert_score, load_snapshot
+    cache = Cache(str(tmp_path / "c.db"))
+    save_snapshot(ScreenBoard(scope="all", items=[
+        StockScore(ticker="AAA", name="A", sector="Tech", price=1, change_pct=0, score=90, direction="buy"),
+        StockScore(ticker="BBB", name="B", sector="Energy", price=1, change_pct=0, score=80, direction="sell"),
+    ]), cache)
+    fresh = StockScore(ticker="aaa", name="A", sector="Tech", price=2, change_pct=1, score=10, direction="sell")
+    board = upsert_score(fresh, None, cache)
+    assert [i.ticker for i in board.items] == ["BBB", "aaa"]           # AAA re-scored to 10, sinks below BBB
+    assert len([i for i in board.items if i.ticker.upper() == "AAA"]) == 1  # no duplicate
+
+
+def test_upsert_score_routes_portfolio_scope_to_portfolio_snapshot(tmp_path):
+    from app.screener.store import upsert_score, load_snapshot
+    cache = Cache(str(tmp_path / "c.db"))
+    fresh = StockScore(ticker="AAA", name="A", sector="Tech", price=1, change_pct=0, score=50, direction="hold")
+    upsert_score(fresh, "portfolio", cache)
+    assert load_snapshot(cache, "portfolio").items[0].ticker == "AAA"  # created under portfolio
+    assert load_snapshot(cache, "all") is None                          # all untouched
