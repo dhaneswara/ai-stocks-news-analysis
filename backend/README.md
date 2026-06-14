@@ -52,6 +52,7 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 - `GET  /api/screen?sector=&direction=&limit=&scope=` — read the latest opportunity board; `scope=portfolio` reads the portfolio board (watchlist + active-ontology tickers)
 - `POST /api/screen/rescan?scope=` — trigger a fresh scan and persist the result; `scope=` accepts `portfolio`, a sector name, or none (full S&P 500); `sector=` still accepted
 - `GET  /api/screen/rescan/stream?scope=` — the same scan as SSE with live per-ticker progress (one `tick` per ticker, terminal `done`; the UI's rescan buttons use this); same `scope=` values
+- `POST /api/screen/rescan/{ticker}?scope=` — re-score ONE ticker (no LLM), upsert it into the scope's saved board snapshot (`all` default, or `portfolio`) re-ranked, and record its technical/network signal for evaluation; returns the fresh `StockScore`. Backs the per-row ⟳ button on the Discover/Portfolio boards. 404 when the ticker has no data
 - `GET  /api/screen/sectors` — list available sectors from the universe file
 - `GET  /api/portfolio/tickers` — the portfolio universe (watchlist ∪ active-ontology tickers); drives the Portfolio page empty-state and the Evaluation command-bar count
 - `POST /api/universe/refresh` — rescrape the S&P 500 constituents from Wikipedia (validated, atomic)
