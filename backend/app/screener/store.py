@@ -50,8 +50,7 @@ def upsert_score(score: StockScore, scope: str | None, cache: Cache) -> ScreenBo
     snap_scope = "portfolio" if scope == "portfolio" else "all"
     board = load_snapshot(cache, snap_scope) or ScreenBoard(scope=snap_scope)
     kept = [i for i in board.items if i.ticker.upper() != score.ticker.upper()]
-    items = kept + [score]
-    items.sort(key=lambda s: s.score, reverse=True)
+    items = sorted(kept + [score], key=lambda s: s.score, reverse=True)
     board = board.model_copy(update={"items": items})
     save_snapshot(board, cache)
     return board

@@ -214,6 +214,7 @@ def test_upsert_score_replaces_existing_case_insensitively(tmp_path):
         StockScore(ticker="AAA", name="A", sector="Tech", price=1, change_pct=0, score=90, direction="buy"),
         StockScore(ticker="BBB", name="B", sector="Energy", price=1, change_pct=0, score=80, direction="sell"),
     ]), cache)
+    # The new row keeps the caller's casing ("aaa"); normalisation is the caller's responsibility.
     fresh = StockScore(ticker="aaa", name="A", sector="Tech", price=2, change_pct=1, score=10, direction="sell")
     board = upsert_score(fresh, None, cache)
     assert [i.ticker for i in board.items] == ["BBB", "aaa"]           # AAA re-scored to 10, sinks below BBB
@@ -227,3 +228,12 @@ def test_upsert_score_routes_portfolio_scope_to_portfolio_snapshot(tmp_path):
     upsert_score(fresh, "portfolio", cache)
     assert load_snapshot(cache, "portfolio").items[0].ticker == "AAA"  # created under portfolio
     assert load_snapshot(cache, "all") is None                          # all untouched
+
+
+def test_upsert_score_routes_sector_scope_to_all_snapshot(tmp_path):
+    from app.screener.store import upsert_score, load_snapshot
+    cache = Cache(str(tmp_path / "c.db"))
+    fresh = StockScore(ticker="AAA", name="A", sector="Tech", price=1, change_pct=0, score=50, direction="hold")
+    upsert_score(fresh, "Tech", cache)                                  # a sector name, not "portfolio"
+    assert load_snapshot(cache, "all").items[0].ticker == "AAA"        # routed to the broad board
+    assert load_snapshot(cache, "Tech") is None                         # never keyed by sector
