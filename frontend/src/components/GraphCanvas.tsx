@@ -44,9 +44,23 @@ export function GraphCanvas({
     return () => ro.disconnect();
   }, []);
 
+  // The graph's shape: node ids + edge endpoints/type. A background board refetch hands us
+  // fresh nodes/links arrays with identical shape (only scores differ) — rebuilding `data` on
+  // those churns the force layout and re-fits the view, throwing away the user's zoom/pan.
+  const topoSig = useMemo(
+    // JSON of [node ids, [source,target,type] per edge] — unambiguous (quotes/brackets delimit),
+    // so distinct shapes can't collide into one signature and a real change is never missed.
+    () => JSON.stringify([nodes.map((n) => n.id), links.map((l) => [l.source, l.target, l.type])]),
+    [nodes, links],
+  );
+
+  // Rebuild (and therefore re-layout + fit) only when the shape actually changes — expand,
+  // add/remove a node or edge, a type-filter toggle, or loading a different ontology. Score-only
+  // updates keep the same `data` reference, so the live zoom survives a board refetch.
   const data = useMemo(
     () => ({ nodes: nodes.map((n) => ({ ...n })), links: links.map((l) => ({ ...l })) }),
-    [nodes, links],
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on shape, not array identity
+    [topoSig],
   );
 
   // Spread nodes out so edges overlap less: stronger repulsion + longer links than
@@ -167,8 +181,9 @@ export function GraphCanvas({
         onEngineStop={() => {
           if (fitNext.current) { fitNext.current = false; fgRef.current?.zoomToFit(400, 40); }
         }}
-        onNodeClick={(n: any) => onSelect(n.id)}
-        onBackgroundClick={() => onBackgroundClick()}
+        onNodeClick={(n: any) => { setMenu(null); onSelect(n.id); }}
+        onBackgroundClick={() => { setMenu(null); onBackgroundClick(); }}
+        onLinkClick={() => setMenu(null)}
         onNodeRightClick={(n: any, e: MouseEvent) => {
           e.preventDefault();
           const items: MenuItem[] = [
