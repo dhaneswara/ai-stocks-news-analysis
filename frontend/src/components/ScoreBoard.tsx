@@ -51,6 +51,7 @@ export function ScoreBoard({ items, onAdd, watched, onUnwatch, onRemove, onResca
           <tbody>
             {shown.map((s, i) => {
               const saved = watchedSet.has(s.ticker.toUpperCase());
+              const isRescanning = rescanning?.toUpperCase() === s.ticker.toUpperCase();
               return (
                 <tr key={s.ticker} className="board-row"
                     onClick={() => navigate(`/?ticker=${encodeURIComponent(s.ticker)}`)}>
@@ -94,10 +95,10 @@ export function ScoreBoard({ items, onAdd, watched, onUnwatch, onRemove, onResca
                     {onRescan && (
                       <button
                         type="button"
-                        className={`rescan-btn${rescanning === s.ticker ? ' spinning' : ''}`}
-                        disabled={rescanning === s.ticker}
-                        aria-label={rescanning === s.ticker ? `Rescanning ${s.ticker}` : `Rescan ${s.ticker}`}
-                        title={rescanning === s.ticker ? `Rescanning ${s.ticker}…` : `Rescan ${s.ticker} — re-score this one company`}
+                        className={`rescan-btn${isRescanning ? ' spinning' : ''}`}
+                        disabled={isRescanning}
+                        aria-label={isRescanning ? `Rescanning ${s.ticker}` : `Rescan ${s.ticker}`}
+                        title={isRescanning ? `Rescanning ${s.ticker}…` : `Rescan ${s.ticker} — re-score this one company`}
                         onClick={(e) => { e.stopPropagation(); onRescan(s.ticker); }}
                       >
                         ⟳
