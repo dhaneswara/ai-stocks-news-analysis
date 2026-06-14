@@ -1,6 +1,6 @@
 import { ScoreBoard } from '../components/ScoreBoard';
 import { MarketHint } from '../components/MarketHint';
-import { usePortfolioTickers, useScreen, useWatchlist } from '../hooks/queries';
+import { usePortfolioTickers, useScreen, useWatchlist, useRescanTicker } from '../hooks/queries';
 import { useWatchlistRunContext } from '../state/watchlistRunState';
 
 export default function Portfolio() {
@@ -8,6 +8,8 @@ export default function Portfolio() {
   const tickers = usePortfolioTickers();
   const { rescan, snapshot, rescanAndSnapshot } = useWatchlistRunContext();
   const watch = useWatchlist();
+  const rescanOne = useRescanTicker('portfolio');
+  const rescanning = rescanOne.isPending ? rescanOne.variables ?? null : null;
 
   const data = board.data;
   const items = data?.items ?? [];
@@ -69,7 +71,7 @@ export default function Portfolio() {
           <div className="panel-head">
             <span className="section-label">Watchlist ({mine.length}) — click a row to deep-dive</span>
           </div>
-          <ScoreBoard items={mine} onAdd={watch.add} watched={watch.list} onUnwatch={watch.remove} />
+          <ScoreBoard items={mine} onAdd={watch.add} watched={watch.list} onUnwatch={watch.remove} onRescan={(t) => rescanOne.mutate(t)} rescanning={rescanning} />
         </section>
       )}
       {extended.length > 0 && (
@@ -79,7 +81,7 @@ export default function Portfolio() {
               Extended via ontology ({extended.length}) — related companies pulled in by your active graph
             </span>
           </div>
-          <ScoreBoard items={extended} onAdd={watch.add} watched={watch.list} onUnwatch={watch.remove} />
+          <ScoreBoard items={extended} onAdd={watch.add} watched={watch.list} onUnwatch={watch.remove} onRescan={(t) => rescanOne.mutate(t)} rescanning={rescanning} />
         </section>
       )}
     </>

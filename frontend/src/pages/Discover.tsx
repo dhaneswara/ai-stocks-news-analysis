@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { ScoreBoard } from '../components/ScoreBoard';
 import { MarketHint } from '../components/MarketHint';
 import { AddCompanyForm } from '../components/AddCompanyForm';
-import { useRefreshUniverse, useScreen, useSectors, useWatchlist, useDeleteCustomCompany } from '../hooks/queries';
+import { useRefreshUniverse, useScreen, useSectors, useWatchlist, useDeleteCustomCompany, useRescanTicker } from '../hooks/queries';
 import { useWatchlistRunContext } from '../state/watchlistRunState';
 
 export default function Discover() {
@@ -16,6 +16,7 @@ export default function Discover() {
   const refreshList = useRefreshUniverse();
   const watch = useWatchlist();
   const delCustom = useDeleteCustomCompany();
+  const rescanOne = useRescanTicker(); // scope "all"
 
   const data = board.data;
   const empty = data && data.items.length === 0 && data.as_of === '';
@@ -117,6 +118,8 @@ export default function Discover() {
             watched={watch.list}
             onUnwatch={watch.remove}
             onRemove={(t) => delCustom.mutate(t)}
+            onRescan={(t) => rescanOne.mutate(t)}
+            rescanning={rescanOne.isPending ? rescanOne.variables ?? null : null}
           />
         )}
       </section>

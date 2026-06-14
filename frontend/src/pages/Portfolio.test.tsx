@@ -8,6 +8,7 @@ vi.mock('../hooks/queries', () => ({
   useScreen: vi.fn(),
   usePortfolioTickers: vi.fn(),
   useWatchlist: vi.fn(),
+  useRescanTicker: vi.fn(),
 }));
 vi.mock('../state/watchlistRunState', () => ({
   useWatchlistRunContext: () => ({
@@ -18,7 +19,7 @@ vi.mock('../state/watchlistRunState', () => ({
 }));
 vi.mock('../components/MarketHint', () => ({ MarketHint: () => null }));
 
-import { useScreen, usePortfolioTickers, useWatchlist } from '../hooks/queries';
+import { useScreen, usePortfolioTickers, useWatchlist, useRescanTicker } from '../hooks/queries';
 import Portfolio from './Portfolio';
 
 function wrap(ui: ReactNode) {
@@ -29,6 +30,7 @@ function wrap(ui: ReactNode) {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(useWatchlist).mockReturnValue({ add: vi.fn(), remove: vi.fn(), list: [] } as never);
+  vi.mocked(useRescanTicker).mockReturnValue({ mutate: vi.fn(), isPending: false, variables: undefined } as never);
 });
 
 it('prompts to build a portfolio when empty', () => {
