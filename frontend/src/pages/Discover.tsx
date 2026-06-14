@@ -110,7 +110,15 @@ export default function Discover() {
         <div className="panel-head">
           <span className="section-label">Opportunity board — click a row to deep-dive</span>
         </div>
-        {data && <ScoreBoard items={data.items} onAdd={watch.add} onRemove={(t) => delCustom.mutate(t)} />}
+        {data && (
+          <ScoreBoard
+            items={data.items}
+            onAdd={watch.add}
+            watched={watch.list}
+            onUnwatch={watch.remove}
+            onRemove={(t) => delCustom.mutate(t)}
+          />
+        )}
       </section>
     </>
   );
