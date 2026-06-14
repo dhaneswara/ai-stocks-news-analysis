@@ -15,9 +15,9 @@ from app.evaluation.signals import build_track_record_block
 from app.evaluation.store import PredictionStore
 from app.llm.base import LLMProvider
 from app.models.schemas import Settings
-from app.network.store import active_graph
+from app.network.store import active_graph, get_active_ontology
 from app.screener.service import score_one
-from app.screener.store import combined_base_index
+from app.screener.store import combined_base_index, load_snapshot
 from app.services.stock_service import get_stock_data
 
 
@@ -208,5 +208,118 @@ def _tool_track_record(args: dict, ctx: ChatContext) -> str:
     return block or f"(no matured evaluation history for {ticker} yet)"
 
 
-TOOLS: list[ChatTool] = []
-TOOL_BY_NAME: dict[str, ChatTool] = {}
+def _tool_portfolio_board(args: dict, ctx: ChatContext) -> str:
+    scope = str(args.get("scope") or "portfolio").strip().lower()
+    snap_scope = "portfolio" if scope == "portfolio" else "all"
+    board = load_snapshot(ctx.cache, snap_scope)
+    if board is None or not board.items:
+        return ("(no scan results yet — ask the user to run a scan on the Portfolio "
+                "or Discover page first)")
+    items = board.items
+    sector = str(args.get("sector") or "").strip()
+    if sector and snap_scope == "all":
+        items = [i for i in items if i.sector.lower() == sector.lower()]
+    direction = str(args.get("direction") or "").strip().lower()
+    if direction in ("buy", "sell", "hold"):
+        items = [i for i in items if i.direction == direction]
+    limit = max(1, min(25, _int_arg(args, "limit", 10)))
+    items = items[:limit]
+    if not items:
+        return "(no matching companies on the board)"
+    return "\n".join(f"- {i.ticker} {i.score:.0f}/100 {i.direction} ({i.sector or '?'})"
+                     for i in items)
+
+
+def _tool_ontology_overview(args: dict, ctx: ChatContext) -> str:
+    name = get_active_ontology(ctx.cache)
+    graph = active_graph(ctx.cache)
+    if not name or not graph.nodes:
+        return "(no active ontology — the knowledge graph is empty)"
+    tickers = [n for n in graph.nodes if ":" not in n]
+    types = sorted({e.type for e in graph.edges})
+    return (f"Active ontology '{name}': {len(graph.nodes)} nodes ({len(tickers)} companies), "
+            f"{len(graph.edges)} relationships.\n"
+            f"Companies: {', '.join(tickers[:40]) or '(none)'}\n"
+            f"Relationship types: {', '.join(types) or '(none)'}")
+
+
+def _tool_watchlist(args: dict, ctx: ChatContext) -> str:
+    wl = [t.upper().strip() for t in ctx.settings.watchlist if t.strip()]
+    return "Watchlist: " + (", ".join(wl) if wl else "(empty)")
+
+
+TOOLS: list[ChatTool] = [
+    ChatTool(
+        "get_stock",
+        "Snapshot of one company: latest price & change, fundamentals (market cap, P/E, EPS, "
+        "dividend, 52-week high/low), and current technicals (RSI, SMA50/200, distance from "
+        "52-week high). Use first whenever the user asks about a specific ticker's current "
+        "state, valuation, or technicals.",
+        '{"ticker": str, "period": str (optional)}',
+        _tool_get_stock),
+    ChatTool(
+        "price_window",
+        "Summarize a stock's recent price action over the last N trading days, with optional RSI "
+        "or SMA on that window. Use for trend/momentum, a pullback or rally, or a specific "
+        "indicator over a timeframe — not the full snapshot (use get_stock for that).",
+        '{"ticker": str, "lookback_days": int=21, "indicator": "rsi|sma" (optional), "period": int (optional)}',
+        _tool_price_window),
+    ChatTool(
+        "search_news",
+        "Search recent news headlines for a company, sector, or free-text topic (e.g. "
+        "'semiconductor export controls'). Use when the user asks what's happening, why a stock "
+        "moved, or about an event or theme. Returns headlines with dates and sources.",
+        '{"query": str, "limit": int=5}',
+        _tool_search_news),
+    ChatTool(
+        "geopolitics",
+        "Current political/geopolitical market mood derived from Trump's Truth Social posts, plus "
+        "any posts mentioning a given company. Use for questions about political risk, "
+        "tariffs/policy, Trump, or how geopolitics affects a stock.",
+        '{"ticker": str (optional)}',
+        _tool_geopolitics),
+    ChatTool(
+        "opportunity_score",
+        "The app's deterministic (non-LLM) opportunity score for one ticker: 0-100 score, a "
+        "buy/sell/hold call, and the reasons (technical + network blend). Use for a quick 'is "
+        "this a buy/sell?' verdict on a single named stock.",
+        '{"ticker": str}',
+        _tool_opportunity_score),
+    ChatTool(
+        "network_signal",
+        "A company's relationships from the active ontology graph (competitors, suppliers, "
+        "customers, partners...) and the network signal its neighbours contribute. Use for "
+        "questions about connections, supply chain, rivals, or how related companies' news "
+        "affects it.",
+        '{"ticker": str}',
+        _tool_network_signal),
+    ChatTool(
+        "portfolio_board",
+        "Scan and rank many companies by opportunity score, returning the top buy or sell "
+        "candidates. Use when the user wants the best opportunities or a ranked list across "
+        "their watchlist/portfolio or a sector — rather than one named ticker.",
+        '{"scope": "portfolio|all" (optional), "sector": str (optional), "direction": "buy|sell|hold" (optional), "limit": int=10}',
+        _tool_portfolio_board),
+    ChatTool(
+        "track_record",
+        "The LLM's own past recommendation accuracy for a ticker (hit rate / grade across "
+        "matured 1/5/20-day horizons, overconfidence flag). Use when the user asks how reliable "
+        "past calls were or whether to trust the model on this stock.",
+        '{"ticker": str}',
+        _tool_track_record),
+    ChatTool(
+        "ontology_overview",
+        "List the active ontology: its name and the companies and relationship types it "
+        "contains. Use when the user asks what the knowledge graph knows, or to ground a network "
+        "question before drilling into one ticker.",
+        "{}",
+        _tool_ontology_overview),
+    ChatTool(
+        "watchlist",
+        "Return the user's current watchlist tickers. Use when the user says 'my watchlist', "
+        "'my stocks', or 'my portfolio' without naming tickers, so you know which companies they "
+        "mean.",
+        "{}",
+        _tool_watchlist),
+]
+TOOL_BY_NAME: dict[str, ChatTool] = {t.name: t for t in TOOLS}

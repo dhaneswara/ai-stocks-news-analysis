@@ -161,3 +161,53 @@ def test_geopolitics_unavailable_on_error(monkeypatch):
     monkeypatch.setattr(chat_tools.truth_social, "fetch_recent_posts_cached", _boom)
     out = chat_tools._tool_geopolitics({}, _ctx())
     assert "geopolitics signal unavailable" in out
+
+
+from app.models.schemas import ScreenBoard
+
+
+def test_portfolio_board_no_snapshot(monkeypatch):
+    monkeypatch.setattr(chat_tools, "load_snapshot", lambda c, scope: None)
+    assert "no scan results yet" in chat_tools._tool_portfolio_board({}, _ctx())
+
+
+def test_portfolio_board_ranks_and_filters(monkeypatch):
+    board = ScreenBoard(scope="portfolio", items=[
+        StockScore(ticker="NVDA", name="NVIDIA", price=120.0, change_pct=1.0, score=80.0,
+                   direction="buy", sector="Technology"),
+        StockScore(ticker="KO", name="Coca-Cola", price=60.0, change_pct=0.1, score=40.0,
+                   direction="hold", sector="Consumer"),
+    ])
+    monkeypatch.setattr(chat_tools, "load_snapshot", lambda c, scope: board)
+    out = chat_tools._tool_portfolio_board({"direction": "buy"}, _ctx())
+    assert "NVDA 80/100 buy" in out
+    assert "KO" not in out  # filtered out by direction
+
+
+def test_ontology_overview_empty(monkeypatch):
+    monkeypatch.setattr(chat_tools, "get_active_ontology", lambda c: None)
+    monkeypatch.setattr(chat_tools, "active_graph", lambda c: KnowledgeGraph())
+    assert "no active ontology" in chat_tools._tool_ontology_overview({}, _ctx())
+
+
+def test_ontology_overview_lists_companies(monkeypatch):
+    graph = KnowledgeGraph(nodes=["NVDA", "AMD", "ext:TSMC"],
+                           edges=[GraphEdge(source="NVDA", target="AMD", type="competitor")])
+    monkeypatch.setattr(chat_tools, "get_active_ontology", lambda c: "Semis")
+    monkeypatch.setattr(chat_tools, "active_graph", lambda c: graph)
+    out = chat_tools._tool_ontology_overview({}, _ctx())
+    assert "Semis" in out and "NVDA" in out and "competitor" in out
+
+
+def test_watchlist_lists_tickers():
+    ctx = _ctx()
+    ctx.settings.watchlist = ["AAPL", "msft"]
+    assert "AAPL, MSFT" in chat_tools._tool_watchlist({}, ctx)
+
+
+def test_registry_has_ten_tools():
+    assert {t.name for t in TOOLS} == {
+        "get_stock", "price_window", "search_news", "geopolitics", "opportunity_score",
+        "network_signal", "portfolio_board", "track_record", "ontology_overview", "watchlist",
+    }
+    assert TOOL_BY_NAME["get_stock"].run is chat_tools._tool_get_stock
