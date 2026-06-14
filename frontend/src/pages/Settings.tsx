@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useListModels, useNewsProviders, useProviders, useSaveSettings, useSettings } from '../hooks/queries';
+import { useTheme } from '../lib/theme';
 import type { AlertConfig, NewsConfig, NewsProviderId, ProviderId, Settings as SettingsT, TestResult, TruthSignalConfig } from '../types';
 
 const DEFAULT_NEWS: NewsConfig = {
@@ -29,6 +30,7 @@ export default function Settings() {
   const listModels = useListModels();
   const [models, setModels] = useState<Record<string, string[]>>({});
   const [modelsMsg, setModelsMsg] = useState<TestResult | null>(null);
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     if (settingsQuery.data) setForm(structuredClone(settingsQuery.data));
@@ -98,6 +100,31 @@ export default function Settings() {
 
   return (
     <div className="settings">
+        <section className="settings-card">
+          <h3>Appearance</h3>
+          <div className="field">
+            <label>Theme</label>
+            <div className="theme-seg" role="group" aria-label="Theme">
+              <button
+                type="button"
+                className={theme === 'gold' ? 'active' : ''}
+                aria-pressed={theme === 'gold'}
+                onClick={() => setTheme('gold')}
+              >
+                Gold · Quiet Luxury
+              </button>
+              <button
+                type="button"
+                className={theme === 'neon' ? 'active' : ''}
+                aria-pressed={theme === 'neon'}
+                onClick={() => setTheme('neon')}
+              >
+                Neon · Terminal
+              </button>
+            </div>
+            <p className="note muted">Applies instantly and is saved on this device.</p>
+          </div>
+        </section>
       <section className="panel settings-card">
       <h3>Provider settings</h3>
 

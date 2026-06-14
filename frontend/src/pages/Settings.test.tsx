@@ -19,6 +19,7 @@ vi.mock('../api/client', () => ({
 }));
 
 import { api } from '../api/client';
+import { applyTheme } from '../lib/theme';
 
 const SETTINGS: SettingsT = {
   active_provider: 'anthropic',
@@ -103,5 +104,16 @@ describe('Settings fetch models', () => {
     // Switching the active provider must clear the stale "✓ N models" status.
     fireEvent.change(document.querySelector('select')!, { target: { value: 'openai' } });
     await waitFor(() => expect(screen.queryByText(/2 models/)).not.toBeInTheDocument());
+  });
+});
+
+describe('Settings appearance', () => {
+  it('switches theme from the Appearance picker', async () => {
+    applyTheme('gold');
+    renderSettings();
+    const neonBtn = await screen.findByRole('button', { name: /^neon/i });
+    fireEvent.click(neonBtn);
+    expect(document.documentElement.getAttribute('data-theme')).toBe('neon');
+    applyTheme('gold'); // reset module + DOM state for other tests
   });
 });
