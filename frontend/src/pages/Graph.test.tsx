@@ -192,6 +192,36 @@ it('adds a manual relationship via the form', async () => {
   await waitFor(() => expect(screen.getByText(/2 nodes/)).toBeInTheDocument());
 });
 
+// A revalidate fetches fresh news-extracted relationships; a private/untracked ticker
+// (e.g. SPCX/SpaceX) has no price history, so the ego graph comes back with zero edges.
+// Revalidate keeps imported/manual links — the notice must not imply they were lost.
+it('revalidating a node with kept imported/manual links says they are unchanged', async () => {
+  renderGraph();
+  await addCompany('SPCX');
+  // give SPCX a manual relationship so revalidate has a non-extracted link to keep
+  fireEvent.click(screen.getByRole('button', { name: 'add-SPCX' }));
+  fireEvent.change(await screen.findByPlaceholderText(/ticker or company/i), { target: { value: 'ACME' } });
+  fireEvent.click(screen.getByRole('button', { name: /^add$/i }));
+  await waitFor(() => expect(screen.getByText(/2 nodes/)).toBeInTheDocument());
+  vi.mocked(api.getCompanyGraph).mockResolvedValue(
+    { as_of: 't', scope: 'company:SPCX', built: 0, skipped: 0, nodes: ['SPCX'], edges: [] },
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'sel-SPCX' }));
+  fireEvent.click(await screen.findByRole('button', { name: /revalidate relationships/i }));
+  expect(await screen.findByText(/imported\/manual links are unchanged/i)).toBeInTheDocument();
+});
+
+it('revalidating a node with no links shows the plain "none found" notice', async () => {
+  renderGraph();
+  await addCompany('SPCX');
+  vi.mocked(api.getCompanyGraph).mockResolvedValue(
+    { as_of: 't', scope: 'company:SPCX', built: 0, skipped: 0, nodes: ['SPCX'], edges: [] },
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'sel-SPCX' }));
+  fireEvent.click(await screen.findByRole('button', { name: /revalidate relationships/i }));
+  expect(await screen.findByText(/no relationships found in spcx's recent news/i)).toBeInTheDocument();
+});
+
 it('boots into the active ontology when nothing restored', async () => {
   vi.mocked(api.getActiveOntology).mockResolvedValue({ name: 'Tech' });
   vi.mocked(api.loadOntology).mockResolvedValue({ name: 'Tech', saved_at: 't', expanded: [], graph: AAPL_GRAPH });

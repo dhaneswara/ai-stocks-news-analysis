@@ -110,12 +110,22 @@ export default function Graph() {
     setNotice(null);
     try {
       const frag = await ego.mutateAsync({ ticker, refresh: true });
+      // Revalidate re-extracts news-derived links and keeps imported/manual ones. A private/
+      // untracked ticker (e.g. SPCX) has no price history, so the ego graph comes back empty —
+      // check the pre-refresh graph for surviving links so the notice doesn't imply they were lost.
+      const keptLinks = (working ?? EMPTY_GRAPH).edges.some(
+        (e) => (e.source === ticker || e.target === ticker) && (e.origin ?? 'extracted') !== 'extracted',
+      );
       setWorking((w) => revalidateGraph(w ?? EMPTY_GRAPH, ticker, frag));
       setExpanded((s) => new Set(s).add(ticker));
       setDirty(true);
-      setNotice(frag.edges.length === 0
-        ? `No current relationships found for ${ticker}.`
-        : `Refreshed relationships for ${ticker}.`);
+      setNotice(
+        frag.edges.length > 0
+          ? `Refreshed relationships for ${ticker}.`
+          : keptLinks
+            ? `No new relationships in ${ticker}'s recent news — its imported/manual links are unchanged.`
+            : `No relationships found in ${ticker}'s recent news.`,
+      );
     } catch { /* surfaced via the load-error banner */ }
   };
 
