@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { ColorType, createChart, type IChartApi } from 'lightweight-charts';
 import type { Signal, StockData } from '../types';
 import { signalsToMarkers } from '../lib/markers';
+import { PALETTES, useTheme } from '../lib/theme';
 
 export type ChartRange = '1M' | '3M' | '6M' | '1Y' | '2Y' | '5Y';
 
@@ -53,52 +54,55 @@ export function PriceChart({
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
 
+  const { theme } = useTheme();
+
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+
+    const p = PALETTES[theme];
 
     const chart: IChartApi = createChart(el, {
       autoSize: true,
       height: 406,
       layout: {
-        background: { type: ColorType.Solid, color: '#08080f' },
-        textColor: '#7d8ab5',
+        background: { type: ColorType.Solid, color: p.chartBg },
+        textColor: p.chartText,
         fontFamily: '"JetBrains Mono", ui-monospace, monospace',
         fontSize: 11,
       },
       grid: {
-        vertLines: { color: 'rgba(150,175,255,0.05)' },
-        horzLines: { color: 'rgba(150,175,255,0.055)' },
+        vertLines: { color: p.chartGridV },
+        horzLines: { color: p.chartGridH },
       },
-      rightPriceScale: { borderColor: 'rgba(150,175,255,0.10)' },
-      timeScale: { borderColor: 'rgba(150,175,255,0.10)' },
+      rightPriceScale: { borderColor: p.chartBorder },
+      timeScale: { borderColor: p.chartBorder },
       crosshair: {
-        vertLine: { color: 'rgba(34,224,255,0.45)', width: 1, labelBackgroundColor: '#0a93b8' },
-        horzLine: { color: 'rgba(34,224,255,0.45)', width: 1, labelBackgroundColor: '#0a93b8' },
+        vertLine: { color: p.crosshair, width: 1, labelBackgroundColor: p.crosshairLabel },
+        horzLine: { color: p.crosshair, width: 1, labelBackgroundColor: p.crosshairLabel },
       },
     });
     chartRef.current = chart;
 
     const candles = chart.addCandlestickSeries({
-      // Slightly muted candle bodies so the vivid neon buy/sell markers stand out.
-      upColor: '#27c98b', downColor: '#e0517a', borderVisible: false,
-      wickUpColor: '#27c98b', wickDownColor: '#e0517a',
+      upColor: p.candleUp, downColor: p.candleDown, borderVisible: false,
+      wickUpColor: p.candleUp, wickDownColor: p.candleDown,
     });
     candles.setData(
       data.candles.map((c) => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })),
     );
 
     if (data.indicators.sma50.length) {
-      const s = chart.addLineSeries({ color: '#22e0ff', lineWidth: 2, priceLineVisible: false, crosshairMarkerVisible: false });
-      s.setData(data.indicators.sma50.map((p) => ({ time: p.time, value: p.value })));
+      const s = chart.addLineSeries({ color: p.sma50, lineWidth: 2, priceLineVisible: false, crosshairMarkerVisible: false });
+      s.setData(data.indicators.sma50.map((pt) => ({ time: pt.time, value: pt.value })));
     }
     if (data.indicators.sma200.length) {
-      const s = chart.addLineSeries({ color: '#a96bff', lineWidth: 2, priceLineVisible: false, crosshairMarkerVisible: false });
-      s.setData(data.indicators.sma200.map((p) => ({ time: p.time, value: p.value })));
+      const s = chart.addLineSeries({ color: p.sma200, lineWidth: 2, priceLineVisible: false, crosshairMarkerVisible: false });
+      s.setData(data.indicators.sma200.map((pt) => ({ time: pt.time, value: pt.value })));
     }
 
     candles.setMarkers(
-      signalsToMarkers(signals).map((m) => ({
+      signalsToMarkers(signals, { buy: p.markerBuy, sell: p.markerSell }).map((m) => ({
         time: m.time,
         position: m.position,
         color: m.color,
@@ -133,7 +137,7 @@ export function PriceChart({
       chart.remove();
       chartRef.current = null;
     };
-  }, [data, signals, onSelectSignal]);
+  }, [data, signals, onSelectSignal, theme]);
 
   // Apply the selected window — re-applying on resize AND after the chart is rebuilt.
   // The build effect above recreates the chart whenever `signals` change (e.g. clicking

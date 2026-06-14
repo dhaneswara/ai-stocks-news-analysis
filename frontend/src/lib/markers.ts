@@ -9,15 +9,17 @@ export interface ChartMarker {
 }
 
 // lightweight-charts requires markers sorted by time ascending.
-export function signalsToMarkers(signals: Signal[]): ChartMarker[] {
+export function signalsToMarkers(
+  signals: Signal[],
+  colors: { buy: string; sell: string } = { buy: '#2bff9e', sell: '#ff3b6b' },
+): ChartMarker[] {
   return [...signals]
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((s) => ({
       time: s.date,
       position: s.action === 'buy' ? 'belowBar' : 'aboveBar',
-      // Vivid neon marker colors that stand apart from the muted candle
-      // bodies (up #27c98b / down #e0517a) so buys aren't camouflaged.
-      color: s.action === 'buy' ? '#2bff9e' : '#ff3b6b',
+      // Vivid markers stand apart from the muted candle bodies so buys aren't camouflaged.
+      color: s.action === 'buy' ? colors.buy : colors.sell,
       shape: s.action === 'buy' ? 'arrowUp' : 'arrowDown',
       text: `${s.action.toUpperCase()} @ ${s.price}`,
     }));
