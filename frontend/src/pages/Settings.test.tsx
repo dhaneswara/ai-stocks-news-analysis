@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Settings from './Settings';
 import type { ProviderInfo, Settings as SettingsT } from '../types';
@@ -108,12 +108,12 @@ describe('Settings fetch models', () => {
 });
 
 describe('Settings appearance', () => {
+  afterEach(() => { cleanup(); applyTheme('gold'); }); // unmount first, then reset module + DOM state
   it('switches theme from the Appearance picker', async () => {
     applyTheme('gold');
     renderSettings();
     const neonBtn = await screen.findByRole('button', { name: /^neon/i });
     fireEvent.click(neonBtn);
     expect(document.documentElement.getAttribute('data-theme')).toBe('neon');
-    applyTheme('gold'); // reset module + DOM state for other tests
   });
 });
