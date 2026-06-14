@@ -12,19 +12,19 @@ export function GraphLegend() {
         <div className="graph-legend-body">
           <div className="legend-group">
             <span className="legend-title">Company</span>
-            <span><i className="dot" style={{ background: '#3fb950' }} />buy</span>
-            <span><i className="dot" style={{ background: '#f85149' }} />sell</span>
-            <span><i className="dot" style={{ background: '#e8c87e' }} />hold</span>
-            <span><i className="dot" style={{ background: '#484f58' }} />unknown</span>
-            <span><i className="dot" style={{ background: '#ab9df2' }} />external</span>
-            <span><i className="dot" style={{ background: 'transparent', border: '2px solid #e8c87e', boxSizing: 'border-box' }} />selected</span>
+            <span><i className="dot" style={{ background: '#2bff9e' }} />buy</span>
+            <span><i className="dot" style={{ background: '#ff3b6b' }} />sell</span>
+            <span><i className="dot" style={{ background: '#22e0ff' }} />hold</span>
+            <span><i className="dot" style={{ background: '#4a5280' }} />unknown</span>
+            <span><i className="dot" style={{ background: '#a96bff' }} />external</span>
+            <span><i className="dot" style={{ background: 'transparent', border: '2px solid #ff2bd6', boxSizing: 'border-box' }} />selected</span>
             <span className="legend-note">size = score</span>
           </div>
           <div className="legend-group">
             <span className="legend-title">Line colour · news effect</span>
-            <span><i className="bar" style={{ background: '#3fb950' }} />positive</span>
-            <span><i className="bar" style={{ background: '#f85149' }} />negative</span>
-            <span><i className="bar" style={{ background: '#6e7681' }} />neutral</span>
+            <span><i className="bar" style={{ background: '#2bff9e' }} />positive</span>
+            <span><i className="bar" style={{ background: '#ff3b6b' }} />negative</span>
+            <span><i className="bar" style={{ background: '#5f6b91' }} />neutral</span>
           </div>
           <div className="legend-group">
             <span className="legend-title">Line style · source</span>

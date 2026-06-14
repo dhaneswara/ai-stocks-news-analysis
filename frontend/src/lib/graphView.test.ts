@@ -55,11 +55,11 @@ describe('applyFilters', () => {
 
 describe('encoders', () => {
   it('maps colours and radius', () => {
-    expect(directionColor('buy')).toBe('#3fb950');
-    expect(directionColor('hold')).toBe('#e8c87e');
+    expect(directionColor('buy')).toBe('#2bff9e');
+    expect(directionColor('hold')).toBe('#22e0ff');
     expect(directionColor('hold')).not.toBe(directionColor('unknown'));
-    expect(directionColor('unknown')).toBe('#484f58');
-    expect(sentimentColor('negative')).toBe('#f85149');
+    expect(directionColor('unknown')).toBe('#4a5280');
+    expect(sentimentColor('negative')).toBe('#ff3b6b');
     expect(nodeRadius(0)).toBeLessThan(nodeRadius(100));
   });
 });
