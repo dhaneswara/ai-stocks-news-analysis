@@ -10,7 +10,10 @@ on just your own **portfolio** (your watchlist plus the companies in your active
 graph), scored the same way but in seconds — map inter-company relationships as a
 **knowledge graph**, run an **agentic Deep Analysis** that
 pulls evidence on demand, and **grade how accurate its own past calls turn out to be — for
-every signal source it produces** (fast LLM, deep LLM, technical screen, network-blended).
+every signal source it produces** (fast LLM, deep LLM, technical screen, network-blended). Or
+just **chat with it** — a multi-turn assistant that reasons step-by-step across any stock or
+theme and pulls whatever the question needs (prices, news, geopolitics, the knowledge graph,
+your portfolio).
 
 > ⚠️ **Decision support, not financial advice.** The LLM can be confidently wrong, and the
 > on-chart/alert signals are mechanical heuristics + retrospective reasoning — **not** a
@@ -46,6 +49,17 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   agent derails, and each run's trace is persisted for later review. Both paths feed the
   Evaluation scoreboard, and both prompts include the model's **own scored track record** on
   that ticker (recent hits/misses + an overconfidence note) so it can calibrate itself.
+- **AI Chat assistant** — a **Chat** tab for free-form, multi-turn conversation about your
+  stocks. Unlike the per-ticker analysis it isn't bound to one symbol: ask about any company,
+  sector, or theme ("how does geopolitics affect NVDA?", "compare AMD vs NVDA using the
+  ontology", "what's the strongest opportunity in my watchlist?") and the assistant runs an
+  **agentic ReAct loop**, pulling exactly the data it needs from the app — price/fundamentals/
+  technicals, news search, the Trump/Truth-Social mood, the ontology graph + network signal, the
+  no-LLM opportunity score, the portfolio board, and the model's own evaluation track record —
+  with its **Thought → Action → Observation steps streamed live** and a Markdown answer. The
+  conversation remembers prior turns so you can ask follow-ups; it is **exploratory only** —
+  nothing it does is recorded to the evaluation scoreboard. (History is kept in the browser for
+  the session and clears on reload.)
 - **Per-stock news** — recent headlines via Google News RSS.
 - **Multi-provider, switchable in the UI** — Anthropic, OpenAI, Gemini, DeepSeek, or local
   Ollama; API keys are stored locally and masked in the UI.
@@ -173,7 +187,7 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
 ┌─────────────────────────┐      REST/JSON      ┌──────────────────────────────┐
 │ Frontend (React+Vite+TS) │  ───────────────▶  │ Backend (FastAPI, Python)      │
 │  Dashboard · Portfolio · │  ◀───────────────  │  data · indicators · news      │
-│  Discover · Graph        │                    │  LLM providers · analyzer      │
+│  Discover · Graph · Chat │                    │  LLM providers · analyzer      │
 │  Evaluation · Settings   │                    │  settings/cache (SQLite)       │
 └─────────────────────────┘                    │  alerts·screener·network·eval  │
                                                 └──────────────────────────────┘
@@ -183,7 +197,7 @@ every signal source it produces** (fast LLM, deep LLM, technical screen, network
   `python -m app.screener`, `python -m app.network`, and `python -m app.evaluation` CLIs.
   See [backend/README.md](backend/README.md).
 - **Frontend** (`frontend/`) — React app (Dashboard · Portfolio · Discover · Graph · Evaluation ·
-  Settings). See [frontend/README.md](frontend/README.md).
+  Chat · Settings). See [frontend/README.md](frontend/README.md).
 - **Design docs** — specs and implementation plans under [docs/superpowers/](docs/superpowers/).
 
 ## Prerequisites
@@ -266,6 +280,12 @@ npm run dev                        # http://localhost:5173
    ontology)**: click **Rescan portfolio** (re-scores and snapshots), **Fast LLM analysis**,
    or **Deep LLM analysis** — all without visiting the other pages. For unattended scoring,
    schedule `python -m app.evaluation` (see [backend/README.md](backend/README.md)).
+8. **Chat (optional):** open the **Chat** tab and ask anything about your stocks in plain
+   language — e.g. *"How does geopolitics affect NVDA?"*, *"Compare AMD vs NVDA using the
+   ontology"*, or *"What's the strongest opportunity in my watchlist?"*. The assistant streams
+   its reasoning steps as it pulls the data it needs and answers in Markdown; follow-up
+   questions keep the conversation's context. It's exploratory — nothing it does is recorded —
+   and the conversation clears on reload.
 
 ## Testing
 

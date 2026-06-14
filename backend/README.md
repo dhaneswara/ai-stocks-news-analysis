@@ -3,7 +3,8 @@
 FastAPI service: US-stock data + indicators + news + multi-provider LLM analysis (single-shot
 **and** agentic Deep Analysis), opportunity screening (broad S&P 500 board **and** a focused
 **portfolio board** for your watchlist + active ontology — the primary scoring source),
-a company knowledge graph, and a **multi-source recommendation-accuracy scoreboard**.
+a company knowledge graph, a **multi-source recommendation-accuracy scoreboard**, and a
+multi-turn **AI chat assistant** (agentic ReAct over the app's own data).
 
 ## Setup
 
@@ -40,6 +41,7 @@ and pull a model (e.g. `ollama pull llama3.1`); no API key needed.
 - `POST /api/analyze/{ticker}?period=2y` — runs the fast LLM analysis (and records the call **plus a technical/network baseline** for evaluation)
 - `GET  /api/analyze/{ticker}/deep/stream?period=2y` — agentic **Deep Analysis** streamed as Server-Sent Events (records as `llm_deep`; persists the agent trace)
 - `GET  /api/analyze/watchlist/stream?mode=fast|deep&period=2y` — run the fast/deep analysis for **every portfolio ticker (watchlist + active ontology)** as one SSE batch (per-ticker progress events; a ticker whose matching-source call already exists for its latest trading day is skipped)
+- `POST /api/chat/stream` — multi-turn, ticker-agnostic **AI chat assistant** (agentic ReAct) streamed as SSE; body `{messages:[{role,content}]}` (last must be `user`); **stateless — records nothing**
 - `GET  /api/analysis/{ticker}` — the most recent persisted **analysis snapshot** for a ticker (the full result), for the Dashboard's read-only restore; returns `null` when none exists. Pure read — no compute, no recording, no evaluation impact
 - `GET  /api/traces/{ticker}?limit=5` — recent persisted deep-analysis reasoning traces (newest first)
 - `GET  /api/score/{ticker}` — no-LLM opportunity score for one ticker (Discover parity, network-blended)
@@ -255,6 +257,32 @@ completed run persists its full reasoning trace to the `agent_traces` table
 (`GET /api/traces/{ticker}`) and records its prediction for evaluation — as `llm_deep`, or
 honestly as `llm_fast` when the run fell back, so the deep-vs-fast accuracy comparison is
 never polluted. The fast `POST /api/analyze` path is unchanged and remains the default.
+
+## AI Chat assistant
+
+`POST /api/chat/stream` is a multi-turn, **ticker-agnostic** chat assistant — a sibling to Deep
+Analysis. It runs the same prompted-**ReAct** loop (Thought → Action → Observation, streamed as
+SSE `step` events then a terminal `final` or `error`) but over a **conversation history** instead
+of a single ticker, and answers in **free-form Markdown** rather than the analysis schema. It
+lives in its own `backend/app/chat/` package (`ChatAgent` + a 10-tool registry), separate from
+the single-ticker `ReActAgent` so Deep Analysis is untouched.
+
+- **Transport — POST, not GET/EventSource.** The other streams use `EventSource` (GET only), but
+  the full conversation history must travel in the request body — `{messages: [{role, content},
+  …]}` (the last message must be `user`, else 422). The frontend reads the SSE response via
+  `fetch` + a `ReadableStream`.
+- **Tools** (each wraps existing code, never raises into the loop → `ERROR:`/`(…)` observations):
+  `get_stock`, `price_window`, `search_news`, `geopolitics` (Truth-Social mood + mentions),
+  `opportunity_score`, `network_signal`, `portfolio_board`, `track_record`, `ontology_overview`,
+  `watchlist`.
+- **Stateless / exploratory.** The endpoint records **nothing** — no predictions, traces, or
+  snapshots — so chat never affects the evaluation scoreboard. The server keeps no session; the
+  browser owns the conversation (kept for the session, cleared on reload).
+- **Limits & errors.** Capped at 10 steps; tool failures and missing prerequisites (no active
+  ontology, no API key, no Truth-Social data) become observations the model can reason about; on
+  an unrecoverable step it returns a graceful message, and a provider/LLM failure surfaces as an
+  in-stream `error` event. There is **no single-shot fallback** — chat has no structured contract
+  to fall back to.
 
 ## Recommendation evaluation — the signal-source scoreboard
 
