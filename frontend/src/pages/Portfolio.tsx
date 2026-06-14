@@ -10,6 +10,10 @@ export default function Portfolio() {
   const watch = useWatchlist();
 
   const data = board.data;
+  const items = data?.items ?? [];
+  const watchSet = new Set(watch.list.map((t) => t.toUpperCase()));
+  const mine = items.filter((s) => watchSet.has(s.ticker.toUpperCase()));
+  const extended = items.filter((s) => !watchSet.has(s.ticker.toUpperCase()));
   const scanning = rescan.phase === 'running';
   const empty = (tickers.data?.tickers.length ?? 0) === 0;
 
@@ -60,12 +64,24 @@ export default function Portfolio() {
         </p>
       )}
 
-      <section className="panel">
-        <div className="panel-head">
-          <span className="section-label">Portfolio board — click a row to deep-dive</span>
-        </div>
-        {data && <ScoreBoard items={data.items} onAdd={watch.add} />}
-      </section>
+      {data && mine.length > 0 && (
+        <section className="panel">
+          <div className="panel-head">
+            <span className="section-label">Watchlist ({mine.length}) — click a row to deep-dive</span>
+          </div>
+          <ScoreBoard items={mine} onAdd={watch.add} watched={watch.list} onUnwatch={watch.remove} />
+        </section>
+      )}
+      {data && extended.length > 0 && (
+        <section className="panel">
+          <div className="panel-head">
+            <span className="section-label">
+              Extended via ontology ({extended.length}) — related companies pulled in by your active graph
+            </span>
+          </div>
+          <ScoreBoard items={extended} onAdd={watch.add} watched={watch.list} onUnwatch={watch.remove} />
+        </section>
+      )}
     </>
   );
 }
