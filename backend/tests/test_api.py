@@ -133,3 +133,37 @@ def test_list_providers(tmp_path):
     assert resp.status_code == 200
     ids = {p["id"] for p in resp.json()}
     assert ids == {"anthropic", "openai", "gemini", "ollama", "deepseek"}
+
+
+from app.api import routes as api_routes
+
+
+def test_chat_stream_emits_steps_then_final(tmp_path, monkeypatch):
+    # Fake provider: one tool call (watchlist), then a markdown final answer.
+    outputs = ['Thought: check\nAction: watchlist({})', "Thought: done\nFinal Answer: **Done.**"]
+
+    class _FakeProvider:
+        name = "fake"
+
+        def complete(self, system, user, json_mode=True, stop=None):
+            return outputs.pop(0)
+
+        def list_models(self):
+            return []
+
+    monkeypatch.setattr(api_routes, "build_provider", lambda settings: _FakeProvider())
+    client, _ = _client(tmp_path)
+
+    resp = client.post("/api/chat/stream",
+                       json={"messages": [{"role": "user", "content": "What's in my watchlist?"}]})
+    assert resp.status_code == 200
+    body = resp.text
+    assert "event: step" in body
+    assert "event: final" in body
+    assert "Done." in body
+
+
+def test_chat_stream_rejects_empty_messages(tmp_path):
+    client, _ = _client(tmp_path)
+    resp = client.post("/api/chat/stream", json={"messages": []})
+    assert resp.status_code == 422

@@ -7,6 +7,7 @@ from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 from app.alerts.notifier import build_notifier
 from app.config.cache import Cache
@@ -65,6 +66,8 @@ from app.evaluation.signals import build_signals, record_deterministic_pair, sna
 from app.evaluation.store import SOURCE_LLM_DEEP, SOURCE_LLM_FAST, PredictionStore
 from app.analysis.agent import AgentEvent, AgentTrace, ReActAgent, ToolContext
 from app.analysis.trace_store import AgentTraceStore
+from app.chat.agent import ChatAgent, ChatEvent, ChatMessage
+from app.chat.tools import ChatContext
 from app.services.analysis_service import gather_stock_context, run_analysis
 from app.services.analysis_snapshot_store import AnalysisSnapshotStore
 from app.services.stock_service import get_stock_data
@@ -164,7 +167,7 @@ def get_last_analysis(
                         created_at=row.created_at)
 
 
-def _sse(event: AgentEvent | WatchlistRunEvent | RescanEvent) -> str:
+def _sse(event: AgentEvent | WatchlistRunEvent | RescanEvent | ChatEvent) -> str:
     return f"event: {event.type}\ndata: {event.model_dump_json()}\n\n"
 
 
@@ -274,6 +277,47 @@ def get_traces(
         except Exception:  # noqa: BLE001 — one corrupt row must not take the endpoint down
             logger.warning("corrupt trace row for %s, skipping", ticker)
     return results
+
+
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage] = Field(default_factory=list)
+
+
+@router.post("/chat/stream")
+def chat_stream(
+    body: ChatRequest,
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+    prediction_store: PredictionStore = Depends(get_prediction_store),
+) -> StreamingResponse:
+    """Multi-turn ReAct chat assistant, streamed step-by-step as Server-Sent Events over POST
+    (the conversation history travels in the body, so this is POST + fetch-stream, not
+    EventSource). The frontend owns the conversation; the server is stateless and records
+    nothing. Provider/LLM failures surface as an in-stream `event: error`."""
+    settings = store.load()
+    provider_id = settings.active_provider
+    cfg = settings.providers.get(provider_id)
+    if cfg is None:
+        raise HTTPException(status_code=502, detail=f"No configuration for provider '{provider_id}'")
+    if not body.messages or body.messages[-1].role != "user":
+        raise HTTPException(status_code=422, detail="The last message must be from the user.")
+    try:
+        provider = build_provider(settings)
+    except LLMError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    ctx = ChatContext(settings=settings, cache=cache, provider=provider,
+                      prediction_store=prediction_store)
+    agent = ChatAgent()
+
+    def event_stream():
+        try:
+            for event in agent.stream(provider, cfg.model, provider_id, body.messages, ctx):
+                yield _sse(event)
+        except LLMError as exc:  # provider/LLM failure -> usable in-stream error
+            yield _sse(ChatEvent(type="error", message=str(exc)))
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream", headers=_SSE_HEADERS)
 
 
 @router.get("/analyze/watchlist/stream")
