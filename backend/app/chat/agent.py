@@ -82,3 +82,88 @@ def parse_chat_step(text: str) -> ParsedChatStep:
                               _extract_args(text[action_m.end():]), None)
 
     return ParsedChatStep(thought, None, {}, None)
+
+
+def _render_history(messages: list[ChatMessage]) -> str:
+    return "\n".join(
+        f"{'User' if m.role == 'user' else 'Assistant'}: {m.content}" for m in messages)
+
+
+def _initial_transcript(messages: list[ChatMessage]) -> str:
+    return (
+        "Conversation so far (the last User message is the question to answer now):\n"
+        f"{_render_history(messages)}\n\n"
+        "Work step by step. Begin with your first Thought."
+    )
+
+
+class ChatAgent:
+    def __init__(self, tools: Optional[list[ChatTool]] = None,
+                 max_steps: int = DEFAULT_MAX_STEPS) -> None:
+        self.tools = tools if tools is not None else TOOLS
+        self.tool_by_name = {t.name: t for t in self.tools}
+        self.max_steps = max_steps
+
+    def stream(self, provider: LLMProvider, model: str, provider_name: str,
+               messages: list[ChatMessage], ctx: ChatContext) -> Iterator[ChatEvent]:
+        """Yields a `step` ChatEvent per completed step, then a terminal `final` carrying the
+        markdown answer. An LLMError from the provider propagates to the caller (the endpoint
+        turns it into an `error` event) — chat has no structured single-shot fallback."""
+        system = build_chat_system(self.tools)
+        transcript = _initial_transcript(messages)
+        tool_calls = 0
+        nudged = False
+        for i in range(self.max_steps):
+            t0 = time.monotonic()
+            raw = provider.complete(system, transcript, json_mode=False, stop=_REACT_STOP)
+            parsed = parse_chat_step(raw)
+            step = AgentStep(index=i, thought=parsed.thought, raw=raw,
+                             elapsed_ms=int((time.monotonic() - t0) * 1000))
+            if parsed.final_text is not None:
+                step.is_final = True
+                yield ChatEvent(type="step", step=step)
+                yield ChatEvent(type="final", answer=parsed.final_text)
+                return
+            if parsed.action in self.tool_by_name and tool_calls < MAX_TOOL_CALLS:
+                tool_calls += 1
+                obs = self._run_tool(parsed.action, parsed.action_args, ctx)
+                step.action = parsed.action
+                step.action_args = parsed.action_args
+                step.observation = obs
+                yield ChatEvent(type="step", step=step)
+                transcript += (
+                    f"\n\nThought: {parsed.thought}\nAction: {parsed.action}"
+                    f"({json.dumps(parsed.action_args)})\nObservation: {obs}\n"
+                )
+                continue
+            yield ChatEvent(type="step", step=step)
+            if not nudged:
+                nudged = True
+                transcript += (
+                    "\n\nYour reply had no valid Action or Final Answer. Reply with exactly one "
+                    "'Action: <tool>({json})' or 'Final Answer: <markdown>'."
+                )
+                continue
+            yield ChatEvent(type="final",
+                            answer="I couldn't complete that — try narrowing the question or "
+                                   "asking about a specific ticker.")
+            return
+        yield ChatEvent(type="final",
+                        answer="I reached my step limit before finishing. Try a more specific "
+                               "question (e.g. about one ticker or one factor).")
+
+    def run(self, provider: LLMProvider, model: str, provider_name: str,
+            messages: list[ChatMessage], ctx: ChatContext) -> str:
+        """Drain stream() to the final answer (CLI / non-streaming / tests)."""
+        answer = ""
+        for ev in self.stream(provider, model, provider_name, messages, ctx):
+            if ev.type in ("final", "error"):
+                answer = ev.answer or ev.message
+        return answer
+
+    def _run_tool(self, name: str, args: dict, ctx: ChatContext) -> str:
+        try:
+            obs = self.tool_by_name[name].run(args, ctx)
+        except Exception as exc:  # noqa: BLE001 — tool errors must never break the loop
+            return f"ERROR: {name} failed: {exc}"
+        return obs if len(obs) <= _MAX_OBS_CHARS else obs[:_MAX_OBS_CHARS] + " …(truncated)"
