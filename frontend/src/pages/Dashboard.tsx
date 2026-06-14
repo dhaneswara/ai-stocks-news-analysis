@@ -13,6 +13,7 @@ import { useDeepAnalyze } from '../hooks/useDeepAnalyze';
 import { SignalsStrip } from '../components/SignalsStrip';
 import { useAnalyze, useLastAnalysis, useScore, useSignals, useStock, useWatchlist } from '../hooks/queries';
 import { useDashboardState } from '../state/dashboardContext';
+import { PALETTES, useTheme } from '../lib/theme';
 
 const RANGES: ChartRange[] = ['1M', '3M', '6M', '1Y', '2Y', '5Y'];
 // Each chart range maps to the yfinance period the LLM analyzes over.
@@ -80,6 +81,8 @@ export default function Dashboard() {
       qc.invalidateQueries({ queryKey: ['analysis', ticker] });
     }
   }, [deep.result, setAnalysis, qc, ticker]);
+
+  const p = PALETTES[useTheme().theme];
 
   const d = stock.data;
   const up = d ? d.price.change >= 0 : false;
@@ -153,8 +156,8 @@ export default function Dashboard() {
                   ))}
                 </div>
                 <span className="legend">
-                  <span><i className="dot" style={{ background: '#22e0ff' }} />SMA 50</span>
-                  <span><i className="dot" style={{ background: '#a96bff' }} />SMA 200</span>
+                  <span><i className="dot" style={{ background: p.sma50 }} />SMA 50</span>
+                  <span><i className="dot" style={{ background: p.sma200 }} />SMA 200</span>
                 </span>
               </div>
               <PriceChart data={d} signals={shown?.signals ?? []} range={range} onSelectSignal={setSelected} />
