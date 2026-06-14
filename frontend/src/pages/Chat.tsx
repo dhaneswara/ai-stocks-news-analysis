@@ -85,9 +85,9 @@ export default function Chat() {
           disabled={running}
         />
         {running ? (
-          <button type="button" className="btn" onClick={stop}>Stop</button>
+          <button type="button" className="secondary" onClick={stop}>Stop</button>
         ) : (
-          <button type="submit" className="btn gold" disabled={!input.trim()}>Send</button>
+          <button type="submit" disabled={!input.trim()}>Send</button>
         )}
       </form>
     </section>
