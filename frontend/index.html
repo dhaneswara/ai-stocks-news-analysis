@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#08080f" />
+    <meta name="theme-color" content="#0a0a0b" />
     <meta name="color-scheme" content="dark" />
     <title>MarketCortex</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -18,12 +18,13 @@
     <script>
       // Apply the saved theme before first paint to avoid a flash. Default: gold.
       (function () {
+        var theme = 'gold';
         try {
-          var t = localStorage.getItem('mc-theme');
-          document.documentElement.dataset.theme = t === 'neon' ? 'neon' : 'gold';
-        } catch (e) {
-          document.documentElement.dataset.theme = 'gold';
-        }
+          if (localStorage.getItem('mc-theme') === 'neon') theme = 'neon';
+        } catch (e) { /* private mode — fall back to gold */ }
+        document.documentElement.dataset.theme = theme;
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.content = theme === 'neon' ? '#08080f' : '#0a0a0b';
       })();
     </script>
     <div id="root"></div>
