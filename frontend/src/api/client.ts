@@ -81,6 +81,11 @@ export const api = {
   getPortfolioTickers: () => http<{ tickers: string[] }>('/portfolio/tickers'),
   getSectors: () => http<string[]>('/screen/sectors'),
   getScore: (ticker: string) => http<StockScore>(`/score/${encodeURIComponent(ticker)}`),
+  rescanTicker: (ticker: string, scope?: string) =>
+    http<StockScore>(
+      `/screen/rescan/${encodeURIComponent(ticker)}${scope ? `?scope=${encodeURIComponent(scope)}` : ''}`,
+      { method: 'POST' },
+    ),
   getSignals: (ticker: string) => http<SignalsSummary>(`/signals/${encodeURIComponent(ticker)}`),
   snapshotEvaluation: () => http<SnapshotResult>('/evaluation/snapshot', { method: 'POST' }),
   getCompanyGraph: (ticker: string, refresh = false) =>

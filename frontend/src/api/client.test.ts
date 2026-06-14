@@ -197,6 +197,23 @@ describe('api client', () => {
     expect(Array.isArray(data)).toBe(true);
     expect(fetchMock.mock.calls[0][0] as string).toContain('/news/providers');
   });
+
+  it('rescanTicker POSTs and includes the scope query when given', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ticker: 'BBB' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.rescanTicker('BBB', 'portfolio');
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toContain('/screen/rescan/BBB');
+    expect(url).toContain('scope=portfolio');
+    expect(init).toMatchObject({ method: 'POST' });
+  });
+
+  it('rescanTicker omits the scope query when not given', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ ticker: 'BBB' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    await api.rescanTicker('BBB');
+    expect(fetchMock.mock.calls[0][0]).not.toContain('scope=');
+  });
 });
 
 describe('signals / snapshot / explainPrediction with source', () => {
