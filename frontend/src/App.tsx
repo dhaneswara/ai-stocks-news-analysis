@@ -7,6 +7,7 @@ import Settings from './pages/Settings';
 import Evaluation from './pages/Evaluation';
 import Chat from './pages/Chat';
 import { RunIndicator } from './components/RunIndicator';
+import { ThemeToggle } from './components/ThemeToggle';
 import { DashboardStateProvider } from './state/dashboardState';
 import { WatchlistRunProvider } from './state/watchlistRunState';
 import { ChatProvider } from './state/chatState';
@@ -39,6 +40,7 @@ export default function App() {
             <NavLink to="/chat" className={navClass}>Chat</NavLink>
             <NavLink to="/settings" className={navClass}>Settings</NavLink>
           </nav>
+          <ThemeToggle />
         </header>
         <div className="masthead-rule" />
         <main className="content">
