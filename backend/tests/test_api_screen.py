@@ -5,9 +5,19 @@ from fastapi.testclient import TestClient
 from app.api import routes
 from app.config.cache import Cache
 from app.main import app
-from app.models.schemas import ScreenBoard, Settings, StockScore
+from app.evaluation.store import PredictionStore
+from app.models.schemas import (
+    Candle,
+    Fundamentals,
+    Indicators,
+    PriceSummary,
+    ScreenBoard,
+    Settings,
+    StockData,
+    StockScore,
+)
 from app.screener.service import ScanProgress
-from app.screener.store import save_snapshot
+from app.screener.store import load_snapshot, save_snapshot
 
 
 class _Store:
@@ -203,11 +213,6 @@ def test_portfolio_tickers_endpoint(tmp_path, monkeypatch):
 # POST /api/screen/rescan/{ticker} — single-row rescan
 # ---------------------------------------------------------------------------
 
-from app.evaluation.store import PredictionStore
-from app.models.schemas import Candle, Fundamentals, Indicators, PriceSummary, StockData
-from app.screener.store import load_snapshot
-
-
 def _stock(ticker="BBB"):
     return StockData(
         ticker=ticker, company_name="B", as_of="2026-06-05T00:00:00Z",
@@ -228,15 +233,17 @@ def test_rescan_ticker_persists_and_returns_fresh_score(tmp_path, monkeypatch):
     pstore = PredictionStore(str(tmp_path / "p.db"))
     monkeypatch.setattr(routes, "get_stock_data", lambda *a, **k: _stock("BBB"))
     monkeypatch.setattr(routes, "score_one", lambda *a, **k: _fresh("BBB", 99.0))
-    app.dependency_overrides[routes.get_prediction_store] = lambda: pstore
-    client = _client(cache)
-    body = client.post("/api/screen/rescan/BBB").json()
-    app.dependency_overrides.clear()
+    try:
+        app.dependency_overrides[routes.get_prediction_store] = lambda: pstore
+        client = _client(cache)
+        body = client.post("/api/screen/rescan/BBB").json()
 
-    assert body["ticker"] == "BBB" and body["score"] == 99.0
-    items = load_snapshot(cache, "all").items
-    assert [i.ticker for i in items] == ["BBB", "AAA", "CCC"]          # BBB re-scored to 99, re-sorted
-    assert pstore.get_prediction("BBB", "2026-06-05", "technical") is not None  # eval recorded
+        assert body["ticker"] == "BBB" and body["score"] == 99.0
+        items = load_snapshot(cache, "all").items
+        assert [i.ticker for i in items] == ["BBB", "AAA", "CCC"]          # BBB re-scored to 99, re-sorted
+        assert pstore.get_prediction("BBB", "2026-06-05", "technical") is not None  # eval recorded
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_rescan_ticker_skips_eval_when_disabled(tmp_path, monkeypatch):
@@ -251,13 +258,15 @@ def test_rescan_ticker_skips_eval_when_disabled(tmp_path, monkeypatch):
     pstore = PredictionStore(str(tmp_path / "p.db"))
     monkeypatch.setattr(routes, "get_stock_data", lambda *a, **k: _stock("BBB"))
     monkeypatch.setattr(routes, "score_one", lambda *a, **k: _fresh("BBB", 99.0))
-    app.dependency_overrides[routes.get_settings_store] = lambda: _OffStore()
-    app.dependency_overrides[routes.get_cache] = lambda: cache
-    app.dependency_overrides[routes.get_prediction_store] = lambda: pstore
-    client = TestClient(app)
-    client.post("/api/screen/rescan/BBB")
-    app.dependency_overrides.clear()
-    assert pstore.all_predictions() == []                              # nothing recorded
+    try:
+        app.dependency_overrides[routes.get_settings_store] = lambda: _OffStore()
+        app.dependency_overrides[routes.get_cache] = lambda: cache
+        app.dependency_overrides[routes.get_prediction_store] = lambda: pstore
+        client = TestClient(app)
+        client.post("/api/screen/rescan/BBB")
+        assert pstore.all_predictions() == []                              # nothing recorded
+    finally:
+        app.dependency_overrides.clear()
 
 
 def test_rescan_ticker_404_on_no_data(tmp_path, monkeypatch):
@@ -268,8 +277,10 @@ def test_rescan_ticker_404_on_no_data(tmp_path, monkeypatch):
         raise ValueError("no price history")
 
     monkeypatch.setattr(routes, "get_stock_data", boom)
-    app.dependency_overrides[routes.get_prediction_store] = lambda: pstore
-    client = _client(cache)
-    resp = client.post("/api/screen/rescan/NOPE")
-    app.dependency_overrides.clear()
-    assert resp.status_code == 404
+    try:
+        app.dependency_overrides[routes.get_prediction_store] = lambda: pstore
+        client = _client(cache)
+        resp = client.post("/api/screen/rescan/NOPE")
+        assert resp.status_code == 404
+    finally:
+        app.dependency_overrides.clear()

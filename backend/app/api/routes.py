@@ -625,9 +625,9 @@ def rescan_ticker(
     sym = ticker.upper().strip()
     try:
         stock = get_stock_data(sym, SCAN_PERIOD, settings.indicator_params, cache)
+        score = score_one(sym, settings, cache)
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    score = score_one(sym, settings, cache)
     upsert_score(score, scope, cache)
     if settings.evaluation.enabled and stock.candles:
         try:
