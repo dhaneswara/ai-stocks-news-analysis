@@ -75,8 +75,8 @@ from app.analysis.relationships import TickerResolver
 from app.network.import_model import normalize_import
 from app.data import universe
 from app.data.universe import list_sectors
-from app.screener.service import iter_scan, portfolio_universe, run_scan, score_one
-from app.screener.store import load_snapshot, merge_sector, save_snapshot
+from app.screener.service import SCAN_PERIOD, iter_scan, portfolio_universe, run_scan, score_one
+from app.screener.store import load_snapshot, merge_sector, save_snapshot, upsert_score
 
 router = APIRouter(prefix="/api")
 
@@ -608,6 +608,33 @@ def screen_rescan_stream(
             yield _sse(RescanEvent(type="error", message=str(exc)))
 
     return StreamingResponse(event_stream(), media_type="text/event-stream", headers=_SSE_HEADERS)
+
+
+@router.post("/screen/rescan/{ticker}", response_model=StockScore)
+def rescan_ticker(
+    ticker: str,
+    scope: str | None = None,
+    cache: Cache = Depends(get_cache),
+    store: SettingsStore = Depends(get_settings_store),
+    prediction_store: PredictionStore = Depends(get_prediction_store),
+) -> StockScore:
+    """Re-score one ticker (no LLM), persist it into the scope's saved snapshot, and record its
+    technical/network signal for evaluation. Returns the fresh score so the board patches the
+    single row in place. 404 when the ticker has no data, matching GET /score/{ticker}."""
+    settings = store.load()
+    sym = ticker.upper().strip()
+    try:
+        stock = get_stock_data(sym, SCAN_PERIOD, settings.indicator_params, cache)
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    score = score_one(sym, settings, cache)
+    upsert_score(score, scope, cache)
+    if settings.evaluation.enabled and stock.candles:
+        try:
+            record_deterministic_pair(stock, settings, cache, prediction_store, score=score)
+        except Exception:  # noqa: BLE001 — eval recording is best-effort
+            logger.warning("single-rescan eval recording failed for %s", sym)
+    return score
 
 
 @router.get("/screen/sectors", response_model=list[str])

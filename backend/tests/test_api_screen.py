@@ -197,3 +197,79 @@ def test_portfolio_tickers_endpoint(tmp_path, monkeypatch):
         assert r.status_code == 200 and r.json()["tickers"] == ["AAPL", "MSFT"]
     finally:
         app.dependency_overrides.clear()
+
+
+# ---------------------------------------------------------------------------
+# POST /api/screen/rescan/{ticker} — single-row rescan
+# ---------------------------------------------------------------------------
+
+from app.evaluation.store import PredictionStore
+from app.models.schemas import Candle, Fundamentals, Indicators, PriceSummary, StockData
+from app.screener.store import load_snapshot
+
+
+def _stock(ticker="BBB"):
+    return StockData(
+        ticker=ticker, company_name="B", as_of="2026-06-05T00:00:00Z",
+        price=PriceSummary(current=10.0, change=1.0, change_pct=1.0),
+        candles=[Candle(time="2026-06-05", open=1, high=1, low=1, close=10.0, volume=1)],
+        fundamentals=Fundamentals(), indicators=Indicators(), news=[],
+    )
+
+
+def _fresh(ticker="BBB", score=99.0):
+    return StockScore(ticker=ticker, name="B", sector="Energy", price=10.0, change_pct=1.0,
+                      score=score, direction="buy", net=0.4, base_net=0.4, base_score=score, as_of="new")
+
+
+def test_rescan_ticker_persists_and_returns_fresh_score(tmp_path, monkeypatch):
+    cache = Cache(str(tmp_path / "c.db"))
+    save_snapshot(_board(), cache)  # AAA 90, BBB 80, CCC 70
+    pstore = PredictionStore(str(tmp_path / "p.db"))
+    monkeypatch.setattr(routes, "get_stock_data", lambda *a, **k: _stock("BBB"))
+    monkeypatch.setattr(routes, "score_one", lambda *a, **k: _fresh("BBB", 99.0))
+    app.dependency_overrides[routes.get_prediction_store] = lambda: pstore
+    client = _client(cache)
+    body = client.post("/api/screen/rescan/BBB").json()
+    app.dependency_overrides.clear()
+
+    assert body["ticker"] == "BBB" and body["score"] == 99.0
+    items = load_snapshot(cache, "all").items
+    assert [i.ticker for i in items] == ["BBB", "AAA", "CCC"]          # BBB re-scored to 99, re-sorted
+    assert pstore.get_prediction("BBB", "2026-06-05", "technical") is not None  # eval recorded
+
+
+def test_rescan_ticker_skips_eval_when_disabled(tmp_path, monkeypatch):
+    class _OffStore:
+        def load(self):
+            s = Settings()
+            s.evaluation.enabled = False
+            return s
+
+    cache = Cache(str(tmp_path / "c.db"))
+    save_snapshot(_board(), cache)
+    pstore = PredictionStore(str(tmp_path / "p.db"))
+    monkeypatch.setattr(routes, "get_stock_data", lambda *a, **k: _stock("BBB"))
+    monkeypatch.setattr(routes, "score_one", lambda *a, **k: _fresh("BBB", 99.0))
+    app.dependency_overrides[routes.get_settings_store] = lambda: _OffStore()
+    app.dependency_overrides[routes.get_cache] = lambda: cache
+    app.dependency_overrides[routes.get_prediction_store] = lambda: pstore
+    client = TestClient(app)
+    client.post("/api/screen/rescan/BBB")
+    app.dependency_overrides.clear()
+    assert pstore.all_predictions() == []                              # nothing recorded
+
+
+def test_rescan_ticker_404_on_no_data(tmp_path, monkeypatch):
+    cache = Cache(str(tmp_path / "c.db"))
+    pstore = PredictionStore(str(tmp_path / "p.db"))
+
+    def boom(*a, **k):
+        raise ValueError("no price history")
+
+    monkeypatch.setattr(routes, "get_stock_data", boom)
+    app.dependency_overrides[routes.get_prediction_store] = lambda: pstore
+    client = _client(cache)
+    resp = client.post("/api/screen/rescan/NOPE")
+    app.dependency_overrides.clear()
+    assert resp.status_code == 404
