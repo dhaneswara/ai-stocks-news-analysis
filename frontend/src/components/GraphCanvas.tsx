@@ -156,7 +156,7 @@ export function GraphCanvas({
         graphData={data}
         nodeRelSize={1}
         nodeVal={(n: FGNode) => nodeRadius(n.score) ** 2}
-        nodeColor={(n: FGNode) => (n.external ? '#ab9df2' : directionColor(n.direction))}
+        nodeColor={(n: FGNode) => (n.external ? '#a96bff' : directionColor(n.direction))}
         nodeCanvasObjectMode={() => 'after'}
         nodeCanvasObject={(n: FGNode, ctx: CanvasRenderingContext2D, scale: number) => {
           const r = nodeRadius(n.score);
@@ -166,18 +166,18 @@ export function GraphCanvas({
             ctx.beginPath();
             ctx.arc(x, y, r + 3 / scale, 0, 2 * Math.PI);
             ctx.lineWidth = 2.5 / scale;
-            ctx.strokeStyle = '#58a6ff';                   // accent blue — distinct from every node state (incl. gold HOLD)
-            ctx.shadowColor = 'rgba(88, 166, 255, 0.9)';
-            ctx.shadowBlur = 9 / scale;
+            ctx.strokeStyle = '#ff2bd6';                   // neon magenta — distinct from every node state (incl. cyan HOLD)
+            ctx.shadowColor = 'rgba(255, 43, 214, 0.9)';
+            ctx.shadowBlur = 11 / scale;
             ctx.stroke();
             ctx.shadowBlur = 0;                            // reset so the label isn't blurred
           }
-          ctx.fillStyle = '#e6edf3';
-          ctx.font = `${(n.id === selectedId ? 11 : 10) / scale}px sans-serif`;
+          ctx.fillStyle = '#eaf0ff';
+          ctx.font = `${(n.id === selectedId ? 11 : 10) / scale}px "Exo 2", sans-serif`;
           ctx.textAlign = 'center';
           ctx.fillText(n.label, x, y - r - 2 / scale);
         }}
-        linkColor={(l: FGLink) => (!selectedId || isIncident(l) ? sentimentColor(l.sentiment) : 'rgba(110, 118, 129, 0.18)')}
+        linkColor={(l: FGLink) => (!selectedId || isIncident(l) ? sentimentColor(l.sentiment) : 'rgba(95, 110, 160, 0.16)')}
         linkWidth={(l: FGLink) => {
           const w = 0.5 + l.weight * l.confidence * 2;
           return selectedId && isIncident(l) ? w + 1.5 : w;   // emphasise the focused node's edges

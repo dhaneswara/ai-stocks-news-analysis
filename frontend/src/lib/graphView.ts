@@ -88,12 +88,12 @@ export function searchNodes(nodes: ViewNode[], query: string, limit = 8): ViewNo
 }
 
 export function directionColor(d: NodeDirection): string {
-  // hold mirrors --gold, the app-wide HOLD colour (badges/verdicts)
-  return d === 'buy' ? '#3fb950' : d === 'sell' ? '#f85149' : d === 'hold' ? '#e8c87e' : '#484f58';
+  // neon palette: hold mirrors --neon (the app-wide accent), buy/sell mirror --buy/--sell
+  return d === 'buy' ? '#2bff9e' : d === 'sell' ? '#ff3b6b' : d === 'hold' ? '#22e0ff' : '#4a5280';
 }
 
 export function sentimentColor(s: ViewLink['sentiment']): string {
-  return s === 'positive' ? '#3fb950' : s === 'negative' ? '#f85149' : '#6e7681';
+  return s === 'positive' ? '#2bff9e' : s === 'negative' ? '#ff3b6b' : '#5f6b91';
 }
 
 export function nodeRadius(score: number): number {

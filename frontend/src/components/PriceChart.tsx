@@ -61,39 +61,39 @@ export function PriceChart({
       autoSize: true,
       height: 406,
       layout: {
-        background: { type: ColorType.Solid, color: '#0b0b0d' },
-        textColor: '#8b8780',
-        fontFamily: '"IBM Plex Mono", ui-monospace, monospace',
+        background: { type: ColorType.Solid, color: '#08080f' },
+        textColor: '#7d8ab5',
+        fontFamily: '"JetBrains Mono", ui-monospace, monospace',
         fontSize: 11,
       },
       grid: {
-        vertLines: { color: 'rgba(244,241,234,0.04)' },
-        horzLines: { color: 'rgba(244,241,234,0.045)' },
+        vertLines: { color: 'rgba(150,175,255,0.05)' },
+        horzLines: { color: 'rgba(150,175,255,0.055)' },
       },
-      rightPriceScale: { borderColor: 'rgba(244,241,234,0.09)' },
-      timeScale: { borderColor: 'rgba(244,241,234,0.09)' },
+      rightPriceScale: { borderColor: 'rgba(150,175,255,0.10)' },
+      timeScale: { borderColor: 'rgba(150,175,255,0.10)' },
       crosshair: {
-        vertLine: { color: 'rgba(232,200,126,0.40)', width: 1, labelBackgroundColor: '#caa86a' },
-        horzLine: { color: 'rgba(232,200,126,0.40)', width: 1, labelBackgroundColor: '#caa86a' },
+        vertLine: { color: 'rgba(34,224,255,0.45)', width: 1, labelBackgroundColor: '#0a93b8' },
+        horzLine: { color: 'rgba(34,224,255,0.45)', width: 1, labelBackgroundColor: '#0a93b8' },
       },
     });
     chartRef.current = chart;
 
     const candles = chart.addCandlestickSeries({
-      // Slightly muted candle bodies so the vivid buy/sell markers stand out.
-      upColor: '#3f9d77', downColor: '#cf6f6a', borderVisible: false,
-      wickUpColor: '#3f9d77', wickDownColor: '#cf6f6a',
+      // Slightly muted candle bodies so the vivid neon buy/sell markers stand out.
+      upColor: '#27c98b', downColor: '#e0517a', borderVisible: false,
+      wickUpColor: '#27c98b', wickDownColor: '#e0517a',
     });
     candles.setData(
       data.candles.map((c) => ({ time: c.time, open: c.open, high: c.high, low: c.low, close: c.close })),
     );
 
     if (data.indicators.sma50.length) {
-      const s = chart.addLineSeries({ color: '#e8c87e', lineWidth: 2, priceLineVisible: false, crosshairMarkerVisible: false });
+      const s = chart.addLineSeries({ color: '#22e0ff', lineWidth: 2, priceLineVisible: false, crosshairMarkerVisible: false });
       s.setData(data.indicators.sma50.map((p) => ({ time: p.time, value: p.value })));
     }
     if (data.indicators.sma200.length) {
-      const s = chart.addLineSeries({ color: '#9c8246', lineWidth: 2, priceLineVisible: false, crosshairMarkerVisible: false });
+      const s = chart.addLineSeries({ color: '#a96bff', lineWidth: 2, priceLineVisible: false, crosshairMarkerVisible: false });
       s.setData(data.indicators.sma200.map((p) => ({ time: p.time, value: p.value })));
     }
 

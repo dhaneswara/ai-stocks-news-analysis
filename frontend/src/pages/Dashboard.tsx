@@ -153,8 +153,8 @@ export default function Dashboard() {
                   ))}
                 </div>
                 <span className="legend">
-                  <span><i className="dot" style={{ background: '#e8c87e' }} />SMA 50</span>
-                  <span><i className="dot" style={{ background: '#9c8246' }} />SMA 200</span>
+                  <span><i className="dot" style={{ background: '#22e0ff' }} />SMA 50</span>
+                  <span><i className="dot" style={{ background: '#a96bff' }} />SMA 200</span>
                 </span>
               </div>
               <PriceChart data={d} signals={shown?.signals ?? []} range={range} onSelectSignal={setSelected} />
