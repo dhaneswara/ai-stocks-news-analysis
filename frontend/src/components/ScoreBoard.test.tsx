@@ -1,4 +1,4 @@
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ScoreBoard } from './ScoreBoard';
@@ -38,4 +38,30 @@ it('renders a remove (×) button only for custom rows when onRemove is given', (
   const items = [row({}), row({ ticker: 'PRIV', in_sp500: false })];
   render(<MemoryRouter><ScoreBoard items={items} onAdd={() => {}} onRemove={() => {}} /></MemoryRouter>);
   expect(screen.getAllByTitle(/remove this custom company/i)).toHaveLength(1);
+});
+
+it('shows a filled ★ for watched rows and a hollow ☆ otherwise (case-insensitive)', () => {
+  const items = [row({ ticker: 'AAPL' }), row({ ticker: 'TSLA', name: 'Tesla' })];
+  render(
+    <MemoryRouter>
+      <ScoreBoard items={items} onAdd={() => {}} watched={['aapl']} onUnwatch={() => {}} />
+    </MemoryRouter>,
+  );
+  expect(screen.getByTitle(/remove AAPL from watchlist/i)).toHaveTextContent('★');
+  expect(screen.getByTitle(/add TSLA to watchlist/i)).toHaveTextContent('☆');
+});
+
+it('routes a ☆ click to onAdd and a ★ click to onUnwatch', () => {
+  const onAdd = vi.fn();
+  const onUnwatch = vi.fn();
+  const items = [row({ ticker: 'AAPL' }), row({ ticker: 'TSLA', name: 'Tesla' })];
+  render(
+    <MemoryRouter>
+      <ScoreBoard items={items} onAdd={onAdd} watched={['AAPL']} onUnwatch={onUnwatch} />
+    </MemoryRouter>,
+  );
+  fireEvent.click(screen.getByTitle(/add TSLA to watchlist/i));
+  fireEvent.click(screen.getByTitle(/remove AAPL from watchlist/i));
+  expect(onAdd).toHaveBeenCalledWith('TSLA');
+  expect(onUnwatch).toHaveBeenCalledWith('AAPL');
 });
