@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 import pandas as pd
 
@@ -164,3 +164,85 @@ def test_fetch_yf_recent_empty_on_exception(monkeypatch):
         raise RuntimeError("network down")
     monkeypatch.setattr(market.yf, "download", boom)
     assert market.fetch_yf_recent("AAPL").empty
+
+
+TARGET = date(2026, 6, 15)
+
+
+def _patch_target(monkeypatch):
+    monkeypatch.setattr(market, "latest_completed_trading_day", lambda *a, **k: TARGET)
+
+
+def test_fetch_history_fresh_skips_recovery(monkeypatch):
+    _patch_target(monkeypatch)
+    fresh = _bars(["2026-06-12", "2026-06-15"])
+    monkeypatch.setattr(market, "fetch_yf_history", lambda t, p="2y": fresh)
+    called = []
+    monkeypatch.setattr(market, "fetch_yf_recent", lambda t: called.append("recent") or pd.DataFrame())
+    out = market.fetch_history("AAPL", "1y")
+    assert market._last_date(out) == TARGET and called == []  # no recovery attempted
+
+
+def test_fetch_history_recovers_via_alternate_path(monkeypatch):
+    _patch_target(monkeypatch)
+    stale = _bars(["2026-06-11", "2026-06-12"])
+    recent = _bars(["2026-06-12", "2026-06-15"], close_start=200.0)
+    monkeypatch.setattr(market, "fetch_yf_history", lambda t, p="2y": stale)
+    monkeypatch.setattr(market, "fetch_yf_recent", lambda t: recent)
+    tii = []
+    monkeypatch.setattr(market, "fetch_tiingo_eod", lambda t, s: tii.append("tii") or pd.DataFrame())
+    out = market.fetch_history("AAPL", "1y")
+    assert market._last_date(out) == TARGET and tii == []  # tiingo not reached
+
+
+def test_fetch_history_falls_back_to_tiingo(monkeypatch):
+    _patch_target(monkeypatch)
+    monkeypatch.setenv("TIINGO_API_KEY", "secret")
+    stale = _bars(["2026-06-11", "2026-06-12"])
+    monkeypatch.setattr(market, "fetch_yf_history", lambda t, p="2y": stale)
+    monkeypatch.setattr(market, "fetch_yf_recent", lambda t: pd.DataFrame())
+    monkeypatch.setattr(market, "fetch_tiingo_eod",
+                        lambda t, s: _bars(["2026-06-15"], close_start=200.0))
+    out = market.fetch_history("AAPL", "1y")
+    assert market._last_date(out) == TARGET and out["Close"].iloc[-1] == 200.0
+
+
+def test_fetch_history_returns_stale_without_key(monkeypatch):
+    _patch_target(monkeypatch)
+    monkeypatch.delenv("TIINGO_API_KEY", raising=False)
+    stale = _bars(["2026-06-11", "2026-06-12"])
+    monkeypatch.setattr(market, "fetch_yf_history", lambda t, p="2y": stale)
+    monkeypatch.setattr(market, "fetch_yf_recent", lambda t: pd.DataFrame())
+    out = market.fetch_history("AAPL", "1y")
+    assert market._last_date(out) == date(2026, 6, 12)  # still stale, no crash
+
+
+def test_fetch_history_drops_intraday_bar_from_tiingo(monkeypatch):
+    _patch_target(monkeypatch)
+    monkeypatch.setenv("TIINGO_API_KEY", "secret")
+    stale = _bars(["2026-06-11", "2026-06-12"])
+    monkeypatch.setattr(market, "fetch_yf_history", lambda t, p="2y": stale)
+    monkeypatch.setattr(market, "fetch_yf_recent", lambda t: pd.DataFrame())
+    # Tiingo returns the finalized 06-15 AND today's in-progress 06-16
+    monkeypatch.setattr(market, "fetch_tiingo_eod",
+                        lambda t, s: _bars(["2026-06-15", "2026-06-16"], close_start=200.0))
+    out = market.fetch_history("AAPL", "1y")
+    dates = [pd.Timestamp(t).strftime("%Y-%m-%d") for t in out.index]
+    assert "2026-06-16" not in dates and market._last_date(out) == TARGET
+
+
+def test_fetch_history_empty_primary_tiingo_uses_7day_window(monkeypatch):
+    _patch_target(monkeypatch)
+    monkeypatch.setenv("TIINGO_API_KEY", "secret")
+    monkeypatch.setattr(market, "fetch_yf_history", lambda t, p="2y": pd.DataFrame())
+    monkeypatch.setattr(market, "fetch_yf_recent", lambda t: pd.DataFrame())
+    starts = []
+
+    def capture_tiingo(t, s):
+        starts.append(s)
+        return _bars(["2026-06-15"], close_start=200.0)
+
+    monkeypatch.setattr(market, "fetch_tiingo_eod", capture_tiingo)
+    out = market.fetch_history("AAPL", "1y")
+    assert starts == [TARGET - timedelta(days=7)]
+    assert market._last_date(out) == TARGET

@@ -126,9 +126,33 @@ def fetch_yf_recent(ticker: str) -> pd.DataFrame:
     return drop_incomplete(df)
 
 
-def fetch_history(ticker: str, period: str = "2y") -> pd.DataFrame:
+def fetch_yf_history(ticker: str, period: str = "2y") -> pd.DataFrame:
+    """The primary source: a yfinance daily-history pull with the not-yet-closed bar dropped."""
     df = yf.Ticker(ticker).history(period=period, interval="1d", auto_adjust=False)
     return drop_incomplete(df)
+
+
+def fetch_history(ticker: str, period: str = "2y") -> pd.DataFrame:
+    """Primary yfinance fetch with latest-finalized-bar recovery. When yfinance drops the latest
+    completed trading day (NaN Close -> drop_incomplete), recover it via an alternate yfinance path,
+    then via Tiingo EOD. Only finalized bars are spliced (never today's in-progress bar), so the
+    series stays safe to score and evaluate. Best-effort: returns the freshest series it can and
+    never raises for a recovery failure (a still-stale series surfaces via the frontend badge)."""
+    df = fetch_yf_history(ticker, period)
+    target = latest_completed_trading_day()
+    last = _last_date(df)
+    if last is not None and last >= target:
+        return df
+
+    df = _splice_tail(df, fetch_yf_recent(ticker), target)
+    last = _last_date(df)
+    if last is not None and last >= target:
+        return df
+
+    if _tiingo_key():
+        start = (last + timedelta(days=1)) if last else (target - timedelta(days=7))
+        df = _splice_tail(df, fetch_tiingo_eod(ticker, start), target)
+    return df
 
 
 def fetch_close_series(ticker: str, period: str = "2y") -> list[tuple[str, float]]:
