@@ -55,7 +55,7 @@ independent EOD vendor (Tiingo).**
 | `fetch_yf_history(ticker, period)` | Today's `fetch_history` body verbatim: `yf.Ticker(t).history(period, interval="1d", auto_adjust=False)` → `drop_incomplete`. The primary source; independently patchable. |
 | `fetch_yf_recent(ticker)` | Alternate-path best-effort fetch of a short recent window via `yf.download(ticker, period="5d", interval="1d", auto_adjust=False)` → `drop_incomplete`. A genuinely different request than the long `Ticker.history`, so it can dodge a transient NaN. Returns empty on error. |
 | `fetch_tiingo_eod(ticker, start_date)` | New independent vendor. `httpx.get("https://api.tiingo.com/tiingo/daily/{ticker}/prices", params={startDate, token}, timeout=20)` → DataFrame of **raw** OHLCV (Tiingo `open/high/low/close/volume`, **not** `adjClose`). Returns empty when no key / HTTP error / empty payload. (`httpx` is already the app's HTTP client — `data/news.py`, `data/truth_social.py`, `alerts/notifier.py`, `llm/ollama_provider.py`.) |
-| `latest_completed_trading_day(now=None)` | The most recent weekday **strictly before** today's date in **US Eastern** (stdlib `zoneinfo.ZoneInfo("America/New_York")`), as a `date`. Weekday-only; holidays not modeled (same accepted trade-off as the frontend `marketClock.ts`). `now` injectable for deterministic tests. |
+| `latest_completed_trading_day(now=None)` | The most recent weekday **strictly before** today's date in **US Eastern**, as a `date`. Uses pandas' tz conversion (`pd.Timestamp(...).tz_convert("America/New_York")`) — **not** stdlib `zoneinfo`, which needs `tzdata` on Windows; pandas resolves NY via `pytz` (already vendored by yfinance, and already how the candle index is NY-tz). Weekday-only; holidays not modeled (same accepted trade-off as the frontend `marketClock.ts`). `now` injectable for deterministic tests. |
 | `fetch_history(ticker, period)` | New orchestrator (public API unchanged). |
 
 ### Orchestrator algorithm
@@ -138,4 +138,5 @@ and `fetch_tiingo_eod` (and `latest_completed_trading_day` via injected `now`).
 
 No live-quote display feature. No Settings UI for Tiingo. No holiday calendar. No historical-bar
 repair. No change to `drop_incomplete`, scoring, the evaluation store, or the staleness badge. No new
-dependency — reuses the already-vendored `httpx` and stdlib `zoneinfo`.
+dependency — reuses the already-vendored `httpx` and pandas' pytz-backed tz conversion (no
+`tzdata`/`zoneinfo`).
