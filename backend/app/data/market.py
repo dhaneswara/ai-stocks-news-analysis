@@ -110,6 +110,22 @@ def fetch_tiingo_eod(ticker: str, start_date: date) -> pd.DataFrame:
         return pd.DataFrame()
 
 
+def fetch_yf_recent(ticker: str) -> pd.DataFrame:
+    """Alternate-path best-effort fetch of the recent window via `yf.download` — a genuinely
+    different request than the long `Ticker.history`, so it can return a finalized tail bar that
+    the primary call dropped as NaN. Empty on any failure."""
+    try:
+        df = yf.download(ticker, period="5d", interval="1d", auto_adjust=False, progress=False)
+    except Exception:  # noqa: BLE001 — best-effort; degrade to no data
+        return pd.DataFrame()
+    if df is None or len(df) == 0:
+        return pd.DataFrame()
+    if isinstance(df.columns, pd.MultiIndex):
+        df = df.copy()
+        df.columns = df.columns.get_level_values(0)
+    return drop_incomplete(df)
+
+
 def fetch_history(ticker: str, period: str = "2y") -> pd.DataFrame:
     df = yf.Ticker(ticker).history(period=period, interval="1d", auto_adjust=False)
     return drop_incomplete(df)

@@ -139,3 +139,28 @@ def test_fetch_tiingo_eod_empty_on_malformed_payload(monkeypatch):
     bad_payload = [{"date": "2026-06-15T00:00:00.000Z", "close": 10.5}]  # missing open/high/low/volume
     monkeypatch.setattr(market.httpx, "get", lambda *a, **k: _FakeResp(bad_payload))
     assert market.fetch_tiingo_eod("AAPL", date(2026, 6, 13)).empty
+
+
+def test_fetch_yf_recent_drops_incomplete_and_flattens_multiindex(monkeypatch):
+    idx = pd.to_datetime(["2026-06-12", "2026-06-15", "2026-06-16"])
+    cols = pd.MultiIndex.from_product([["Open", "High", "Low", "Close", "Volume"], ["AAPL"]])
+    df = pd.DataFrame(
+        [
+            [10, 10.5, 9.5, 10.2, 100],
+            [11, 11.5, 10.5, 11.0, 200],
+            [12, 12.5, 11.5, float("nan"), 300],  # not-yet-closed bar -> dropped
+        ],
+        index=idx, columns=cols,
+    )
+    monkeypatch.setattr(market.yf, "download", lambda *a, **k: df)
+    out = market.fetch_yf_recent("AAPL")
+    assert list(out.columns) == ["Open", "High", "Low", "Close", "Volume"]
+    assert len(out) == 2  # the NaN-Close 06-16 row was dropped by drop_incomplete
+    assert out["Close"].iloc[-1] == 11.0
+
+
+def test_fetch_yf_recent_empty_on_exception(monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("network down")
+    monkeypatch.setattr(market.yf, "download", boom)
+    assert market.fetch_yf_recent("AAPL").empty
