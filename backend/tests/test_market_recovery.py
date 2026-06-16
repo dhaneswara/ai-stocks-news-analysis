@@ -90,3 +90,52 @@ def test_splice_tail_tz_aware_base_with_naive_extra():
     assert len(out) == 3
     assert pd.Timestamp(out.index[-1]).date() == date(2026, 6, 15)   # 06-16 dropped
     assert out["Close"].iloc[-1] == 15.0
+
+
+class _FakeResp:
+    def __init__(self, payload, status_ok=True):
+        self._payload = payload
+        self._ok = status_ok
+
+    def raise_for_status(self):
+        if not self._ok:
+            raise RuntimeError("HTTP 500")
+
+    def json(self):
+        return self._payload
+
+
+_TIINGO_PAYLOAD = [
+    {"date": "2026-06-15T00:00:00.000Z", "open": 10.0, "high": 11.0, "low": 9.0,
+     "close": 10.5, "volume": 1234, "adjClose": 9.9},
+]
+
+
+def test_fetch_tiingo_eod_parses_raw_ohlcv(monkeypatch):
+    monkeypatch.setenv("TIINGO_API_KEY", "secret")
+    monkeypatch.setattr(market.httpx, "get", lambda *a, **k: _FakeResp(_TIINGO_PAYLOAD))
+    df = market.fetch_tiingo_eod("AAPL", date(2026, 6, 13))
+    assert list(df.columns) == ["Open", "High", "Low", "Close", "Volume"]
+    assert df["Close"].iloc[0] == 10.5  # raw close, not adjClose 9.9
+    assert df.index[0].strftime("%Y-%m-%d") == "2026-06-15"
+
+
+def test_fetch_tiingo_eod_empty_without_key(monkeypatch):
+    monkeypatch.delenv("TIINGO_API_KEY", raising=False)
+    called = []
+    monkeypatch.setattr(market.httpx, "get", lambda *a, **k: called.append(1) or _FakeResp([]))
+    df = market.fetch_tiingo_eod("AAPL", date(2026, 6, 13))
+    assert df.empty and called == []  # no key -> no HTTP call
+
+
+def test_fetch_tiingo_eod_empty_on_http_error(monkeypatch):
+    monkeypatch.setenv("TIINGO_API_KEY", "secret")
+    monkeypatch.setattr(market.httpx, "get", lambda *a, **k: _FakeResp([], status_ok=False))
+    assert market.fetch_tiingo_eod("AAPL", date(2026, 6, 13)).empty
+
+
+def test_fetch_tiingo_eod_empty_on_malformed_payload(monkeypatch):
+    monkeypatch.setenv("TIINGO_API_KEY", "secret")
+    bad_payload = [{"date": "2026-06-15T00:00:00.000Z", "close": 10.5}]  # missing open/high/low/volume
+    monkeypatch.setattr(market.httpx, "get", lambda *a, **k: _FakeResp(bad_payload))
+    assert market.fetch_tiingo_eod("AAPL", date(2026, 6, 13)).empty

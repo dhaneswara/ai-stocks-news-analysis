@@ -70,6 +70,46 @@ def _splice_tail(base: pd.DataFrame, extra: pd.DataFrame | None, target: date) -
     return out[~out.index.duplicated(keep="first")].sort_index()
 
 
+def _tiingo_key() -> str:
+    """Tiingo API key from the environment (mirrors the news-provider env-key fallback)."""
+    return os.environ.get("TIINGO_API_KEY", "")
+
+
+def fetch_tiingo_eod(ticker: str, start_date: date) -> pd.DataFrame:
+    """Independent daily-OHLCV fallback. Returns raw (split/dividend-unadjusted) OHLCV from
+    `start_date` onward, indexed by tz-naive normalized dates — matching the `auto_adjust=False`
+    yfinance series so a tail bar splices cleanly. Best-effort: returns an empty frame when the
+    key is unset, or the request, payload, or parse is unusable (a missing field included) — the
+    orchestrator relies on this never raising."""
+    key = _tiingo_key()
+    if not key:
+        return pd.DataFrame()
+    try:
+        resp = httpx.get(
+            f"https://api.tiingo.com/tiingo/daily/{ticker}/prices",
+            params={"startDate": start_date.isoformat(), "token": key},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        rows = resp.json()
+        if not rows:
+            return pd.DataFrame()
+        src = pd.DataFrame(rows)
+        idx = pd.to_datetime(src["date"], utc=True).dt.tz_convert(None).dt.normalize()
+        return pd.DataFrame(
+            {
+                "Open": src["open"].astype("float64").to_numpy(),
+                "High": src["high"].astype("float64").to_numpy(),
+                "Low": src["low"].astype("float64").to_numpy(),
+                "Close": src["close"].astype("float64").to_numpy(),
+                "Volume": src["volume"].astype("float64").to_numpy(),
+            },
+            index=pd.DatetimeIndex(idx),
+        )
+    except Exception:  # noqa: BLE001 — best-effort fallback; degrade to no data
+        return pd.DataFrame()
+
+
 def fetch_history(ticker: str, period: str = "2y") -> pd.DataFrame:
     df = yf.Ticker(ticker).history(period=period, interval="1d", auto_adjust=False)
     return drop_incomplete(df)
