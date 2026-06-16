@@ -39,6 +39,37 @@ def latest_completed_trading_day(now: datetime | None = None) -> date:
     return cur
 
 
+def _last_date(df: pd.DataFrame | None) -> date | None:
+    """The date of the last row, or None for an empty/None frame."""
+    if df is None or len(df) == 0:
+        return None
+    return pd.Timestamp(df.index[-1]).date()
+
+
+def _splice_tail(base: pd.DataFrame, extra: pd.DataFrame | None, target: date) -> pd.DataFrame:
+    """Append rows from `extra` that fall strictly after `base`'s last date and on/before
+    `target` (the latest completed trading day). Existing rows are never replaced (base wins on a
+    date clash), and any row after `target` — e.g. today's in-progress bar — is dropped. This is
+    the single enforcement point of the finalized-only invariant."""
+    if extra is None or len(extra) == 0:
+        return base
+    base_last = _last_date(base)
+    if len(base.columns):
+        cols = [c for c in base.columns if c in extra.columns]
+    else:
+        cols = list(extra.columns)
+    keep = [ts for ts in extra.index
+            if (base_last is None or pd.Timestamp(ts).date() > base_last)
+            and pd.Timestamp(ts).date() <= target]
+    if not keep:
+        return base
+    add = extra.loc[keep, cols].copy()
+    tz = getattr(base.index, "tz", None)
+    add.index = pd.DatetimeIndex([pd.Timestamp(pd.Timestamp(ts).date(), tz=tz) for ts in add.index])
+    out = pd.concat([base, add]) if len(base) else add
+    return out[~out.index.duplicated(keep="first")].sort_index()
+
+
 def fetch_history(ticker: str, period: str = "2y") -> pd.DataFrame:
     df = yf.Ticker(ticker).history(period=period, interval="1d", auto_adjust=False)
     return drop_incomplete(df)
