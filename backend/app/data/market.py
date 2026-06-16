@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import os
+from datetime import date, datetime, timedelta
+
+import httpx
 import pandas as pd
 import yfinance as yf
 
@@ -17,6 +21,22 @@ def drop_incomplete(df: pd.DataFrame) -> pd.DataFrame:
     JSON null when StockData is cached, which then fails to re-validate on read."""
     cols = [c for c in _OHLCV if c in df.columns]
     return df.dropna(subset=cols) if cols else df
+
+
+def latest_completed_trading_day(now: datetime | None = None) -> date:
+    """The most recent weekday strictly before `now`'s US-Eastern calendar date — the latest
+    *completed* trading day. Holidays are not modeled (mirrors the frontend marketClock), so on a
+    market holiday this is a mild, rare over-report. `now` may be tz-aware or naive-UTC; default is
+    the current instant. Uses pandas' tz conversion (pytz, vendored via yfinance) — not stdlib
+    zoneinfo, which would need `tzdata` on Windows."""
+    ts = pd.Timestamp(now) if now is not None else pd.Timestamp.now(tz="UTC")
+    if ts.tz is None:
+        ts = ts.tz_localize("UTC")
+    et_date = ts.tz_convert("America/New_York").date()
+    cur = et_date - timedelta(days=1)
+    while cur.weekday() >= 5:  # 5 = Saturday, 6 = Sunday
+        cur -= timedelta(days=1)
+    return cur
 
 
 def fetch_history(ticker: str, period: str = "2y") -> pd.DataFrame:
