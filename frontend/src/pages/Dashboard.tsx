@@ -11,6 +11,7 @@ import { TickerBar } from '../components/TickerBar';
 import { TracePanel } from '../components/TracePanel';
 import { useDeepAnalyze } from '../hooks/useDeepAnalyze';
 import { SignalsStrip } from '../components/SignalsStrip';
+import { StaleBadge } from '../components/StaleBadge';
 import { useAnalyze, useLastAnalysis, useScore, useSignals, useStock, useWatchlist } from '../hooks/queries';
 import { useDashboardState } from '../state/dashboardContext';
 import { PALETTES, useTheme } from '../lib/theme';
@@ -120,6 +121,7 @@ export default function Dashboard() {
             <div className="summary-head">
               <div className="summary-id">
                 <span className="section-label">{d.ticker} · {d.price.currency} · {d.as_of}</span>
+                <StaleBadge lastDate={d.candles[d.candles.length - 1]?.time ?? null} />
                 <h1 className="hero-name">{d.company_name}</h1>
                 <div className="hero-quote">
                   <span className="hero-price">

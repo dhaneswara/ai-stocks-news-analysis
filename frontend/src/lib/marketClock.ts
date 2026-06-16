@@ -58,6 +58,34 @@ export interface MarketStatus {
   nextCloseLabel: string;
 }
 
+/** The NY calendar date of an instant as a sortable `YYYY-MM-DD` string. */
+function nyDate(p: NyParts): string {
+  return `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`;
+}
+
+/** The most recent weekday strictly before `now`'s New York calendar date, as `YYYY-MM-DD`.
+ *
+ * This is the latest *completed* US trading day: it ignores today (whose bar may not be
+ * published yet) and skips weekends. Holidays are not modeled — see the module header — so on a
+ * market holiday this returns a day the market never traded (a mild, rare over-report for the
+ * staleness badge). */
+export function latestTradingDay(now: Date = new Date()): string {
+  const today = nyDate(nyParts(now));
+  let t = now;
+  for (let i = 0; i < 8; i++) {
+    t = new Date(t.getTime() - DAY_MS);
+    const p = nyParts(t);
+    if (WEEKDAYS.has(p.weekday) && nyDate(p) < today) return nyDate(p);
+  }
+  return today; // unreachable: a weekday always exists within 8 prior days
+}
+
+/** Is a stored price bar behind the latest completed trading day? `lastBar` is a `YYYY-MM-DD`
+ * NY trading date (e.g. `StockData.candles[-1].time` or an Evaluation `latest_call_date`). */
+export function isStale(lastBar: string | null | undefined, now: Date = new Date()): boolean {
+  return !!lastBar && lastBar < latestTradingDay(now);
+}
+
 export function usMarketStatus(now: Date = new Date()): MarketStatus {
   const p = nyParts(now);
   const minutes = p.hour * 60 + p.minute;

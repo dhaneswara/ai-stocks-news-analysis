@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
@@ -160,6 +160,38 @@ describe('Dashboard no-LLM score', () => {
     expect(within(strip as HTMLElement).getByText('72')).toBeInTheDocument();
     // SIGNALS fixture has a technical source — its chip label should appear in the strip.
     expect(within(strip as HTMLElement).getByText(/TECH/)).toBeInTheDocument();
+  });
+});
+
+describe('Dashboard staleness badge', () => {
+  beforeEach(() => {
+    // Tue 2026-06-16 → latest completed trading day is Mon 2026-06-15.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-06-16T18:00:00Z'));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('flags a ticker whose latest price bar is behind the last trading day', async () => {
+    vi.mocked(api.getStock).mockResolvedValue({
+      ...STOCK,
+      candles: [{ time: '2026-06-12', open: 1, high: 1, low: 1, close: 1, volume: 1 }],
+    });
+    renderApp();
+    expect(await screen.findByText(/data lagging/i)).toBeInTheDocument();
+  });
+
+  it('shows no badge when the latest bar is current', async () => {
+    vi.mocked(api.getStock).mockResolvedValue({
+      ...STOCK,
+      candles: [{ time: '2026-06-15', open: 1, high: 1, low: 1, close: 1, volume: 1 }],
+    });
+    renderApp();
+    // The summary header (and its as_of line) renders…
+    await screen.findByText(/Apple Inc\./);
+    // …but no staleness pill.
+    expect(screen.queryByText(/data lagging/i)).not.toBeInTheDocument();
   });
 });
 

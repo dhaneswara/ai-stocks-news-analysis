@@ -640,6 +640,28 @@ input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; v
 .badge.sell, .badge.bearish { background: var(--sell-tint); color: var(--sell); border-color: rgba(255, 59, 107, 0.3); }
 .badge.hold, .badge.neutral { background: var(--gold-tint); color: var(--gold); border-color: var(--gold-line); }
 
+/* "Data lagging" pill — the latest price bar is behind the last completed trading day
+   (provider hasn't published a newer close). Amber = caution, distinct from the buy/sell/hold
+   verdict badges; theme-independent. */
+.stale-badge {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start; /* don't stretch full-width inside the summary's flex column */
+  width: fit-content;
+  margin-left: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  padding: 3px 9px;
+  border-radius: 999px;
+  color: #f5b942;
+  background: rgba(245, 185, 66, 0.10);
+  border: 1px solid rgba(245, 185, 66, 0.28);
+  cursor: help;
+}
+
 /* ----- Reasoning / analysis ----------------------------------------------- */
 .verdict {
   display: flex;

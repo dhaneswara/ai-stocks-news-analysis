@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
@@ -152,5 +152,36 @@ describe('Evaluation page', () => {
     expect(await screen.findByRole('button', { name: /fast llm analysis/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /deep llm analysis/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /rescan portfolio/i })).toBeInTheDocument();
+  });
+});
+
+describe('Evaluation staleness badge', () => {
+  beforeEach(() => {
+    // Tue 2026-06-16 → latest completed trading day is Mon 2026-06-15.
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-06-16T18:00:00Z'));
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('flags a company whose latest call is behind the last trading day', async () => {
+    // BOARD's AAPL latest_call_date is 2026-06-01 — well behind 2026-06-15.
+    renderPage();
+    expect(await screen.findByText(/data lagging/i)).toBeInTheDocument();
+  });
+
+  it('shows no badge when the latest call is current', async () => {
+    const fresh: EvaluationBoard = {
+      ...BOARD,
+      companies: [{
+        ...BOARD.companies[0],
+        rollup: { ...BOARD.companies[0].rollup, latest_call_date: '2026-06-15' },
+      }],
+    };
+    vi.mocked(api.getEvaluation).mockResolvedValue(fresh);
+    renderPage();
+    await screen.findByText('AAPL');
+    expect(screen.queryByText(/data lagging/i)).not.toBeInTheDocument();
   });
 });

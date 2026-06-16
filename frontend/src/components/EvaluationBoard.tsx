@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode } from 'react';
 import type { CompanyEvaluation, Grade } from '../types';
+import { StaleBadge } from './StaleBadge';
 
 const GRADE_CLASS: Record<Grade, string> = { Strong: 'buy', Mixed: 'hold', Weak: 'sell' };
 
@@ -67,6 +68,7 @@ export function EvaluationBoard({
                     {r.latest_recommendation && (
                       <span className={`badge ${r.latest_recommendation}`}>{r.latest_recommendation.toUpperCase()}</span>
                     )}
+                    <StaleBadge lastDate={r.latest_call_date} />
                   </td>
                 </tr>
                 {selected === r.ticker && renderDetail && (
