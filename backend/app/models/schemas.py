@@ -499,6 +499,7 @@ class MarketDataConfig(BaseModel):
     """Market-data source settings. Today: the Tiingo EOD fallback key used by the stale-bar
     recovery in app/data/market.py (env var TIINGO_API_KEY remains the fallback)."""
     tiingo_api_key: str = ""
+    tiingo_enabled: bool = True
 
 
 class Settings(BaseModel):

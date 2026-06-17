@@ -47,3 +47,11 @@ def test_market_data_default_and_legacy_blob():
     # a legacy settings blob lacking `market_data` deserializes with the default (no error)
     s = Settings.model_validate_json('{"active_provider": "anthropic"}')
     assert s.market_data.tiingo_api_key == ""
+
+
+def test_market_data_tiingo_enabled_defaults_true():
+    from app.models.schemas import Settings
+    assert Settings().market_data.tiingo_enabled is True
+    # legacy blobs (market_data without the field, and no market_data) deserialize to True
+    assert Settings.model_validate_json('{"market_data": {"tiingo_api_key": "x"}}').market_data.tiingo_enabled is True
+    assert Settings.model_validate_json('{}').market_data.tiingo_enabled is True
