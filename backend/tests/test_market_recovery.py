@@ -301,3 +301,36 @@ def test_tiingo_test_reports_failure(monkeypatch):
     monkeypatch.setattr(market.httpx, "get", lambda *a, **k: _FakeResp({}, status_ok=False))
     ok, msg = market.tiingo_test("any-key")
     assert ok is False and msg  # non-empty message
+
+
+def test_tiingo_enabled_reads_settings(monkeypatch):
+    import app.deps as deps
+
+    class _Store:
+        def __init__(self, enabled):
+            self._enabled = enabled
+
+        def load(self):
+            s = Settings()
+            s.market_data.tiingo_enabled = self._enabled
+            return s
+
+    monkeypatch.setattr(deps, "get_settings_store", lambda: _Store(False))
+    assert market._tiingo_enabled() is False
+    monkeypatch.setattr(deps, "get_settings_store", lambda: _Store(True))
+    assert market._tiingo_enabled() is True
+
+
+def test_fetch_history_skips_tiingo_when_disabled(monkeypatch):
+    _patch_target(monkeypatch)
+    monkeypatch.setenv("TIINGO_API_KEY", "secret")          # key present...
+    monkeypatch.setattr(market, "_tiingo_enabled", lambda: False)  # ...but toggle off
+    stale = _bars(["2026-06-11", "2026-06-12"])
+    monkeypatch.setattr(market, "fetch_yf_history", lambda t, p="2y": stale)
+    monkeypatch.setattr(market, "fetch_yf_recent", lambda t: pd.DataFrame())
+    called = []
+    monkeypatch.setattr(market, "fetch_tiingo_eod",
+                        lambda t, s: called.append("x") or _bars(["2026-06-15"], close_start=200.0))
+    out = market.fetch_history("AAPL", "1y")
+    assert called == []                                     # Tiingo NOT used when disabled
+    assert market._last_date(out) == date(2026, 6, 12)      # stays stale (Yahoo-only)

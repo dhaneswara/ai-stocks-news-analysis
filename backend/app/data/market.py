@@ -79,6 +79,13 @@ def _tiingo_key() -> str:
     return saved or os.environ.get("TIINGO_API_KEY", "")
 
 
+def _tiingo_enabled() -> bool:
+    """Whether the Tiingo EOD fallback is enabled in settings (default True). Settings-only —
+    the toggle gates *usage* in recovery; the key keeps its TIINGO_API_KEY env fallback."""
+    from app.deps import get_settings_store
+    return get_settings_store().load().market_data.tiingo_enabled
+
+
 def tiingo_test(api_key: str) -> tuple[bool, str]:
     """Best-effort connectivity/entitlement check for a Tiingo key: an authenticated GET to the
     Tiingo daily metadata endpoint (same host/auth as the EOD fallback). Never raises."""
@@ -168,7 +175,7 @@ def fetch_history(ticker: str, period: str = "2y") -> pd.DataFrame:
     if last is not None and last >= target:
         return df
 
-    if _tiingo_key():
+    if _tiingo_enabled() and _tiingo_key():
         start = (last + timedelta(days=1)) if last else (target - timedelta(days=7))
         df = _splice_tail(df, fetch_tiingo_eod(ticker, start), target)
     return df
