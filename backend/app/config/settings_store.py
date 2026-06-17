@@ -51,6 +51,8 @@ def mask_settings(settings: Settings) -> Settings:
     for cfg in masked.news.providers.values():
         if cfg.api_key:
             cfg.api_key = MASK
+    if masked.market_data.tiingo_api_key:
+        masked.market_data.tiingo_api_key = MASK
     return masked
 
 
@@ -64,4 +66,6 @@ def merge_settings(existing: Settings, incoming: Settings) -> Settings:
     for name, cfg in merged.news.providers.items():
         if cfg.api_key == MASK:
             cfg.api_key = existing.news.providers.get(name, type(cfg)()).api_key
+    if merged.market_data.tiingo_api_key == MASK:
+        merged.market_data.tiingo_api_key = existing.market_data.tiingo_api_key
     return merged

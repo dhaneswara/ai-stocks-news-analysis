@@ -49,3 +49,29 @@ def test_merge_restores_masked_news_key():
     existing = Settings(news=NewsConfig(providers={"tavily": NewsProviderConfig(api_key="secret")}))
     incoming = Settings(news=NewsConfig(providers={"tavily": NewsProviderConfig(api_key=MASK)}))
     assert merge_settings(existing, incoming).news.providers["tavily"].api_key == "secret"
+
+
+def test_mask_hides_market_data_key():
+    s = Settings()
+    s.market_data.tiingo_api_key = "secret"
+    masked = mask_settings(s)
+    assert masked.market_data.tiingo_api_key == MASK
+    assert s.market_data.tiingo_api_key == "secret"  # original untouched
+
+
+def test_merge_restores_masked_market_data_key():
+    existing = Settings()
+    existing.market_data.tiingo_api_key = "real-key"
+    incoming = Settings()
+    incoming.market_data.tiingo_api_key = MASK
+    merged = merge_settings(existing, incoming)
+    assert merged.market_data.tiingo_api_key == "real-key"
+
+
+def test_merge_keeps_new_market_data_key():
+    existing = Settings()
+    existing.market_data.tiingo_api_key = "old"
+    incoming = Settings()
+    incoming.market_data.tiingo_api_key = "new"
+    merged = merge_settings(existing, incoming)
+    assert merged.market_data.tiingo_api_key == "new"
