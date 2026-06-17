@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Settings from './Settings';
 import type { ProviderInfo, Settings as SettingsT } from '../types';
@@ -14,6 +14,7 @@ vi.mock('../api/client', () => ({
     testAlert: vi.fn(),
     getMood: vi.fn(),
     testNews: vi.fn(),
+    testTiingo: vi.fn(),
     getNewsProviders: vi.fn(),
   },
 }));
@@ -115,5 +116,19 @@ describe('Settings appearance', () => {
     const neonBtn = await screen.findByRole('button', { name: /^neon/i });
     fireEvent.click(neonBtn);
     expect(document.documentElement.getAttribute('data-theme')).toBe('neon');
+  });
+});
+
+describe('Settings market data', () => {
+  it('tests the Tiingo connection (save-first)', async () => {
+    const testTiingo = vi.spyOn(api, 'testTiingo').mockResolvedValue({ ok: true, message: 'Connected' });
+    vi.spyOn(api, 'saveSettings').mockResolvedValue(SETTINGS);
+    renderSettings();
+    const key = await screen.findByLabelText(/Tiingo API key/i);
+    fireEvent.change(key, { target: { value: 'tok' } });
+    // scope to the Market data section to avoid matching the other "Test connection" buttons
+    const section = screen.getByRole('heading', { name: 'Market data' }).closest('section')!;
+    fireEvent.click(within(section).getByRole('button', { name: /Test connection/i }));
+    await waitFor(() => expect(testTiingo).toHaveBeenCalled());
   });
 });

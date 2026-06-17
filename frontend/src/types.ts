@@ -258,6 +258,7 @@ export interface EvaluationConfig {
   hold_band_pct: number;
   score_scale_pct: number;
 }
+export interface MarketDataConfig { tiingo_api_key: string; }
 export interface ProviderConfig { model: string; api_key: string; base_url: string; }
 export interface IndicatorParams { sma_windows: number[]; rsi_length: number; }
 export interface AlertConfig {
@@ -288,6 +289,7 @@ export interface Settings {
   network: NetworkConfig;
   evaluation: EvaluationConfig;
   news?: NewsConfig;
+  market_data?: MarketDataConfig;
 }
 export interface ProviderInfo { id: string; label: string; configured: boolean; default_model: string; }
 export interface TestResult { ok: boolean; message: string; }

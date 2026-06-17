@@ -65,6 +65,7 @@ export const api = {
   getNewsProviders: () => http<NewsProviderInfo[]>('/news/providers'),
   testNews: (provider: string) =>
     http<TestResult>(`/news/test?provider=${encodeURIComponent(provider)}`),
+  testTiingo: () => http<TestResult>('/market/tiingo/test', { method: 'POST' }),
   listModels: (id: string) =>
     http<{ models: string[]; error: string }>(`/providers/${encodeURIComponent(id)}/models`),
   testAlert: () => http<TestResult>('/alerts/test', { method: 'POST' }),

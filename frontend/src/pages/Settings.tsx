@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { useListModels, useNewsProviders, useProviders, useSaveSettings, useSettings } from '../hooks/queries';
 import { useTheme } from '../lib/theme';
-import type { AlertConfig, NewsConfig, NewsProviderId, ProviderId, Settings as SettingsT, TestResult, TruthSignalConfig } from '../types';
+import type { AlertConfig, MarketDataConfig, NewsConfig, NewsProviderId, ProviderId, Settings as SettingsT, TestResult, TruthSignalConfig } from '../types';
+
+const DEFAULT_MARKET_DATA: MarketDataConfig = { tiingo_api_key: '' };
 
 const DEFAULT_NEWS: NewsConfig = {
   active_provider: 'google',
@@ -26,6 +28,7 @@ export default function Settings() {
   const [test, setTest] = useState<TestResult | null>(null);
   const [alertTest, setAlertTest] = useState<TestResult | null>(null);
   const [newsTest, setNewsTest] = useState<TestResult | null>(null);
+  const [tiingoTest, setTiingoTest] = useState<TestResult | null>(null);
   const [saved, setSaved] = useState(false);
   const listModels = useListModels();
   const [models, setModels] = useState<Record<string, string[]>>({});
@@ -66,6 +69,10 @@ export default function Settings() {
   const updateNewsKey = (key: string) =>
     updateNews({ providers: { ...news.providers, [news.active_provider]: { ...news.providers[news.active_provider], api_key: key } } });
 
+  const marketData = form.market_data ?? DEFAULT_MARKET_DATA;
+  const updateMarketData = (patch: Partial<MarketDataConfig>) =>
+    update({ market_data: { ...marketData, ...patch } });
+
   const onSave = () => save.mutate(form, { onSuccess: () => setSaved(true) });
   const onTest = async () => {
     setTest(null);
@@ -82,6 +89,11 @@ export default function Settings() {
     await save.mutateAsync(form);
     setNewsTest(await api.testNews(news.active_provider));
     void newsProviders.refetch();   // the just-saved key flips `configured` -> show the ✓
+  };
+  const onTestTiingo = async () => {
+    setTiingoTest(null);
+    await save.mutateAsync(form);
+    setTiingoTest(await api.testTiingo());
   };
   const onFetchModels = async () => {
     setModelsMsg(null);
@@ -282,6 +294,20 @@ export default function Settings() {
         <input id="news-recency" type="number" value={news.news_recency_days}
                onChange={(e) => updateNews({ news_recency_days: Number(e.target.value) })} />
       </div>
+      </section>
+
+      <section className="panel settings-card">
+        <h3>Market data</h3>
+        <div className="field">
+          <label htmlFor="tiingo-key">Tiingo API key (leave as **** to keep the saved key)</label>
+          <input id="tiingo-key" type="password"
+                 value={marketData.tiingo_api_key}
+                 onChange={(e) => updateMarketData({ tiingo_api_key: e.target.value })}
+                 placeholder="****" />
+          <p className="muted">Optional fallback for fresh daily prices when Yahoo lags. Free key at tiingo.com; the TIINGO_API_KEY env var also works.</p>
+        </div>
+        <button className="secondary" onClick={onTestTiingo} disabled={save.isPending}>Test connection</button>
+        {tiingoTest && <span className={`note ${tiingoTest.ok ? 'muted' : 'error'}`} style={{ marginLeft: 8 }}>{tiingoTest.ok ? '✓ ' : '✗ '}{tiingoTest.message}</span>}
       </section>
 
       <div className="settings-actions">
