@@ -863,10 +863,11 @@ def delete_custom_company(ticker: str, cache: Cache = Depends(get_cache)) -> dic
 def get_evaluation(
     store: SettingsStore = Depends(get_settings_store),
     prediction_store: PredictionStore = Depends(get_prediction_store),
+    cache: Cache = Depends(get_cache),
 ) -> EvaluationBoard:
     settings = store.load()
     evaluate_pending(prediction_store, settings)
-    return build_board(prediction_store, settings)
+    return build_board(prediction_store, settings, cache)
 
 
 @router.post("/evaluation/{ticker}/{call_date}/explain")

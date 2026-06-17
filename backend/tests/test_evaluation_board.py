@@ -125,3 +125,18 @@ def test_board_sources_merge_across_companies(tmp_path):
     assert overall.n_matured == 2
     assert overall.avg_score == 70.0      # (90 + 50) / 2 across companies
     assert overall.hit_rate == 100.0
+
+
+def test_build_board_resolves_company_name(tmp_path):
+    from app.evaluation.service import build_board
+    from app.evaluation.store import PredictionStore
+    from app.models.schemas import Settings
+    store = PredictionStore(str(tmp_path / "p.db"))
+    base = dict(call_date="2026-06-01", provider="rules", model="", recommendation="buy",
+                confidence=0.5, sentiment="bullish", entry_price=100.0, source="technical")
+    store.upsert_prediction(ticker="AAPL", **base)
+    store.upsert_prediction(ticker="ZZZZ", **base)
+    board = build_board(store, Settings())  # cache defaults None -> S&P names resolve from sp500.json
+    by_ticker = {c.rollup.ticker: c.rollup for c in board.companies}
+    assert by_ticker["AAPL"].name != ""    # known S&P ticker -> resolved name
+    assert by_ticker["ZZZZ"].name == ""    # unknown ticker -> empty

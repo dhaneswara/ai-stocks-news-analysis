@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 
 from app.config.cache import Cache
 from app.data.market import fetch_close_series
+from app.data.universe import load_universe
 from app.evaluation.scoring import grade_for, is_hit, is_overconfident, score_call
 from app.evaluation.store import (
     LLM_SOURCES,
@@ -114,9 +115,10 @@ def _track_for(n_calls: int, scores: list[float], hits: int) -> SourceTrack:
                        avg_score=avg, grade=grade_for(avg))
 
 
-def build_board(store: PredictionStore, settings: Settings) -> EvaluationBoard:
+def build_board(store: PredictionStore, settings: Settings, cache: Cache | None = None) -> EvaluationBoard:
     horizons = settings.evaluation.horizons
     eval_index = {(e.ticker, e.call_date, e.source, e.horizon): e for e in store.all_evals()}
+    names = {e.ticker: e.name for e in load_universe(cache=cache)}
 
     g_counts: dict[str, int] = {}
     g_scores: dict[str, list[float]] = {}
@@ -173,7 +175,7 @@ def build_board(store: PredictionStore, settings: Settings) -> EvaluationBoard:
             hit_rate = avg_score = grade = None
 
         rollup = CompanyRollup(
-            ticker=ticker, n_calls=len(preds), n_matured=n_matured,
+            ticker=ticker, name=names.get(ticker, ""), n_calls=len(preds), n_matured=n_matured,
             hit_rate=hit_rate, avg_score=avg_score, grade=grade,
             overconfident=is_overconfident(hit_confs, miss_confs),
             latest_recommendation=preds[0].recommendation, latest_call_date=preds[0].call_date,

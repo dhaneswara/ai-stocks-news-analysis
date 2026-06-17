@@ -383,6 +383,7 @@ class SignalsSummary(BaseModel):
 
 class CompanyRollup(BaseModel):
     ticker: str
+    name: str = ""
     n_calls: int = 0
     n_matured: int = 0
     hit_rate: Optional[float] = None
