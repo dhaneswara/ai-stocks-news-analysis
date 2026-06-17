@@ -63,4 +63,18 @@ describe('EvaluationBoard', () => {
     expect(screen.getByText('detail for AAPL')).toBeInTheDocument();
     expect(screen.queryByText('detail for TSLA')).not.toBeInTheDocument();
   });
+
+  it('renders the Company column with the name', () => {
+    const withName: CompanyEvaluation[] = [{
+      rollup: {
+        ticker: 'AAPL', name: 'Apple Inc.', n_calls: 1, n_matured: 0, hit_rate: null,
+        avg_score: null, grade: null, overconfident: false, latest_recommendation: 'buy',
+        latest_call_date: '2026-06-05',
+      },
+      by_source: {}, calls: [],
+    }];
+    render(<EvaluationBoard companies={withName} selected={null} onSelect={() => {}} />);
+    expect(screen.getByText('Company')).toBeInTheDocument();      // new column header
+    expect(screen.getByText('Apple Inc.')).toBeInTheDocument();   // name cell
+  });
 });

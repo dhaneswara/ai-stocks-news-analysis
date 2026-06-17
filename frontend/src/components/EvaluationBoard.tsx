@@ -32,7 +32,7 @@ export function EvaluationBoard({
       <table className="board">
         <thead>
           <tr>
-            <th>Ticker</th><th>Calls</th><th>Scored</th><th>Hit rate</th>
+            <th>Ticker</th><th>Company</th><th>Calls</th><th>Scored</th><th>Hit rate</th>
             <th>Avg score</th><th>Grade</th><th>Latest</th>
           </tr>
         </thead>
@@ -46,6 +46,7 @@ export function EvaluationBoard({
                   onClick={() => onSelect(r.ticker)}
                 >
                   <td className="mono">{r.ticker}</td>
+                  <td className="muted">{r.name}</td>
                   <td className="muted">{r.n_calls}</td>
                   <td className="muted">{r.n_matured}</td>
                   <td className="mono">{r.hit_rate == null ? '—' : `${r.hit_rate.toFixed(1)}%`}</td>
@@ -73,7 +74,7 @@ export function EvaluationBoard({
                 </tr>
                 {selected === r.ticker && renderDetail && (
                   <tr className="board-detail-row">
-                    <td colSpan={7}>{renderDetail(c)}</td>
+                    <td colSpan={8}>{renderDetail(c)}</td>
                   </tr>
                 )}
               </Fragment>

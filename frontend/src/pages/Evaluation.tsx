@@ -77,7 +77,9 @@ function CompanyDetail({ company, srcFilter, onFilter }: {
   return (
     <section className="panel">
       <div className="panel-head">
-        <span className="section-label">{company.rollup.ticker} — calls</span>
+        <span className="section-label">
+          {company.rollup.ticker}{company.rollup.name ? ` · ${company.rollup.name}` : ''} — calls
+        </span>
         <button className="secondary" onClick={() => remove.mutate(company.rollup.ticker)} disabled={remove.isPending}>
           {remove.isPending ? 'Removing…' : 'Stop tracking'}
         </button>

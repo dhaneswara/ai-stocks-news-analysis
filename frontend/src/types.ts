@@ -233,6 +233,7 @@ export interface PredictionRecord {
 }
 export interface CompanyRollup {
   ticker: string;
+  name?: string;
   n_calls: number;
   n_matured: number;
   hit_rate: number | null;
