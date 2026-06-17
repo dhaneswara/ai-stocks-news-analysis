@@ -186,3 +186,17 @@ def test_market_tiingo_test_passes_through(tmp_path, monkeypatch):
     r = client.post("/api/market/tiingo/test")
     assert r.status_code == 200
     assert r.json() == {"ok": True, "message": "Connected"}
+
+
+def test_market_tiingo_test_never_500_on_resolver_error(tmp_path, monkeypatch):
+    import app.api.routes as routes
+
+    def boom():
+        raise RuntimeError("settings store down")
+
+    monkeypatch.setattr(routes, "_tiingo_key", boom)
+    client, _ = _client(tmp_path)
+    r = client.post("/api/market/tiingo/test")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ok"] is False and "settings store down" in body["message"]

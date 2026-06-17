@@ -502,11 +502,14 @@ def test_news_provider(
 
 @router.post("/market/tiingo/test")
 def test_tiingo_connection() -> dict:
-    key = _tiingo_key()
-    if not key:
-        return {"ok": False, "message": "No Tiingo API key configured"}
-    ok, message = tiingo_test(key)
-    return {"ok": ok, "message": message}
+    try:
+        key = _tiingo_key()
+        if not key:
+            return {"ok": False, "message": "No Tiingo API key configured"}
+        ok, message = tiingo_test(key)
+        return {"ok": ok, "message": message}
+    except Exception as exc:  # noqa: BLE001 — resilient: never 500 (mirrors test_news_provider)
+        return {"ok": False, "message": str(exc)}
 
 
 @router.get("/truth/mood")
