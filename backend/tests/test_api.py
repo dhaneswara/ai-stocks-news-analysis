@@ -167,3 +167,22 @@ def test_chat_stream_rejects_empty_messages(tmp_path):
     client, _ = _client(tmp_path)
     resp = client.post("/api/chat/stream", json={"messages": []})
     assert resp.status_code == 422
+
+
+def test_market_tiingo_test_no_key(tmp_path, monkeypatch):
+    import app.api.routes as routes
+    monkeypatch.setattr(routes, "_tiingo_key", lambda: "")
+    client, _ = _client(tmp_path)
+    r = client.post("/api/market/tiingo/test")
+    assert r.status_code == 200
+    assert r.json() == {"ok": False, "message": "No Tiingo API key configured"}
+
+
+def test_market_tiingo_test_passes_through(tmp_path, monkeypatch):
+    import app.api.routes as routes
+    monkeypatch.setattr(routes, "_tiingo_key", lambda: "k")
+    monkeypatch.setattr(routes, "tiingo_test", lambda key: (True, "Connected"))
+    client, _ = _client(tmp_path)
+    r = client.post("/api/market/tiingo/test")
+    assert r.status_code == 200
+    assert r.json() == {"ok": True, "message": "Connected"}

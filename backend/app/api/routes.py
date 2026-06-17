@@ -75,6 +75,7 @@ from app.analysis.relationships import TickerResolver
 from app.network.import_model import normalize_import
 from app.data import universe
 from app.data.universe import list_sectors
+from app.data.market import _tiingo_key, tiingo_test
 from app.screener.service import SCAN_PERIOD, iter_scan, portfolio_universe, run_scan, score_one
 from app.screener.store import load_snapshot, merge_sector, save_snapshot, upsert_score
 
@@ -497,6 +498,15 @@ def test_news_provider(
         return {"ok": True, "message": f"{label} OK"}
     except Exception as e:  # noqa: BLE001 — resilient: never 500
         return {"ok": False, "message": str(e)}
+
+
+@router.post("/market/tiingo/test")
+def test_tiingo_connection() -> dict:
+    key = _tiingo_key()
+    if not key:
+        return {"ok": False, "message": "No Tiingo API key configured"}
+    ok, message = tiingo_test(key)
+    return {"ok": ok, "message": message}
 
 
 @router.get("/truth/mood")
