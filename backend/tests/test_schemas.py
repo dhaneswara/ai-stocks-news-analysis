@@ -38,3 +38,12 @@ def test_stockdata_exchange_and_sector_default():
         candles=[], fundamentals={}, indicators={},
     )
     assert d.exchange == "" and d.sector == ""
+
+
+def test_market_data_default_and_legacy_blob():
+    from app.models.schemas import Settings
+    # default present
+    assert Settings().market_data.tiingo_api_key == ""
+    # a legacy settings blob lacking `market_data` deserializes with the default (no error)
+    s = Settings.model_validate_json('{"active_provider": "anthropic"}')
+    assert s.market_data.tiingo_api_key == ""

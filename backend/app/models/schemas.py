@@ -495,6 +495,12 @@ def _default_providers() -> dict[str, ProviderConfig]:
     }
 
 
+class MarketDataConfig(BaseModel):
+    """Market-data source settings. Today: the Tiingo EOD fallback key used by the stale-bar
+    recovery in app/data/market.py (env var TIINGO_API_KEY remains the fallback)."""
+    tiingo_api_key: str = ""
+
+
 class Settings(BaseModel):
     active_provider: ProviderId = "anthropic"
     providers: dict[str, ProviderConfig] = Field(default_factory=_default_providers)
@@ -506,6 +512,7 @@ class Settings(BaseModel):
     network: NetworkConfig = Field(default_factory=NetworkConfig)
     evaluation: EvaluationConfig = Field(default_factory=EvaluationConfig)
     news: NewsConfig = Field(default_factory=NewsConfig)
+    market_data: MarketDataConfig = Field(default_factory=MarketDataConfig)
 
     @model_validator(mode="after")
     def _ensure_all_providers(self) -> "Settings":
