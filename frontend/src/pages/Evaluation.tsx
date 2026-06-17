@@ -140,8 +140,16 @@ export default function Evaluation() {
   const clearAll = useClearEvaluation();
   const [selected, setSelected] = useState<string | null>(null);
   const [srcFilter, setSrcFilter] = useState<Source | null>(null);
+  const [query, setQuery] = useState('');
 
   const companies = board.data?.companies ?? [];
+
+  const q = query.trim().toLowerCase();
+  const shown = q
+    ? companies.filter((c) =>
+        c.rollup.ticker.toLowerCase().includes(q) ||
+        (c.rollup.name ?? '').toLowerCase().includes(q))
+    : companies;
 
   const startOver = () => {
     if (window.confirm('Delete ALL recorded calls and scores for every tracked ticker? This cannot be undone.')) {
@@ -179,8 +187,16 @@ export default function Evaluation() {
         {board.data && (
           <>
             <SourceScoreboard sources={board.data.sources ?? {}} />
+            <div className="board-search">
+              <input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Filter by ticker or company…"
+              />
+            </div>
             <EvaluationBoard
-              companies={companies}
+              companies={shown}
               selected={selected}
               onSelect={(t) => setSelected((s) => (s === t ? null : t))}
               renderDetail={(c) => (

@@ -185,3 +185,36 @@ describe('Evaluation staleness badge', () => {
     expect(screen.queryByText(/data lagging/i)).not.toBeInTheDocument();
   });
 });
+
+describe('Evaluation search filter', () => {
+  it('filters the board by ticker or company name', async () => {
+    const board: EvaluationBoard = {
+      as_of: '2026-06-07T00:00:00Z',
+      sources: {},
+      companies: [
+        { rollup: { ticker: 'AAPL', name: 'Apple Inc.', n_calls: 1, n_matured: 0, hit_rate: null,
+          avg_score: null, grade: null, overconfident: false, latest_recommendation: 'buy',
+          latest_call_date: '2026-06-05' }, by_source: {}, calls: [] },
+        { rollup: { ticker: 'MSFT', name: 'Microsoft Corp.', n_calls: 1, n_matured: 0, hit_rate: null,
+          avg_score: null, grade: null, overconfident: false, latest_recommendation: 'sell',
+          latest_call_date: '2026-06-06' }, by_source: {}, calls: [] },
+      ],
+    };
+    vi.mocked(api.getEvaluation).mockResolvedValue(board);
+    renderPage();
+    await screen.findByText('AAPL');
+    const box = screen.getByPlaceholderText(/Filter by ticker or company/i);
+
+    fireEvent.change(box, { target: { value: 'micro' } });   // name match -> MSFT only
+    expect(screen.queryByText('AAPL')).not.toBeInTheDocument();
+    expect(screen.getByText('MSFT')).toBeInTheDocument();
+
+    fireEvent.change(box, { target: { value: 'aapl' } });     // ticker match (case-insensitive) -> AAPL only
+    expect(screen.getByText('AAPL')).toBeInTheDocument();
+    expect(screen.queryByText('MSFT')).not.toBeInTheDocument();
+
+    fireEvent.change(box, { target: { value: '' } });         // cleared -> both
+    expect(screen.getByText('AAPL')).toBeInTheDocument();
+    expect(screen.getByText('MSFT')).toBeInTheDocument();
+  });
+});
