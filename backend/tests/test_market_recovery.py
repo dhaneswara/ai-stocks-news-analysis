@@ -1,8 +1,25 @@
 from datetime import date, datetime, timedelta, timezone
 
 import pandas as pd
+import pytest
 
 from app.data import market
+from app.deps import get_settings_store
+from app.models.schemas import Settings
+
+
+class _EmptySettingsStore:
+    def load(self):
+        return Settings()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_tiingo_settings(monkeypatch):
+    """_tiingo_key() reads the settings store first; default every test to a store with no saved
+    Tiingo key so the key is controlled via env. Tests that exercise settings-first override this
+    with their own store."""
+    import app.deps as deps
+    monkeypatch.setattr(deps, "get_settings_store", lambda: _EmptySettingsStore())
 
 
 def _utc(y, m, d, h=12):
@@ -246,3 +263,41 @@ def test_fetch_history_empty_primary_tiingo_uses_7day_window(monkeypatch):
     out = market.fetch_history("AAPL", "1y")
     assert starts == [TARGET - timedelta(days=7)]
     assert market._last_date(out) == TARGET
+
+
+def test_tiingo_key_prefers_saved_settings(monkeypatch):
+    import app.deps as deps
+
+    class _Store:
+        def load(self):
+            s = Settings()
+            s.market_data.tiingo_api_key = "from-settings"
+            return s
+
+    monkeypatch.setattr(deps, "get_settings_store", lambda: _Store())
+    monkeypatch.delenv("TIINGO_API_KEY", raising=False)
+    assert market._tiingo_key() == "from-settings"
+
+
+def test_tiingo_key_falls_back_to_env(monkeypatch):
+    import app.deps as deps
+
+    class _Empty:
+        def load(self):
+            return Settings()
+
+    monkeypatch.setattr(deps, "get_settings_store", lambda: _Empty())
+    monkeypatch.setenv("TIINGO_API_KEY", "from-env")
+    assert market._tiingo_key() == "from-env"
+
+
+def test_tiingo_test_ok(monkeypatch):
+    monkeypatch.setattr(market.httpx, "get", lambda *a, **k: _FakeResp({"ticker": "AAPL"}))
+    ok, msg = market.tiingo_test("any-key")
+    assert ok is True and msg == "Connected"
+
+
+def test_tiingo_test_reports_failure(monkeypatch):
+    monkeypatch.setattr(market.httpx, "get", lambda *a, **k: _FakeResp({}, status_ok=False))
+    ok, msg = market.tiingo_test("any-key")
+    assert ok is False and msg  # non-empty message

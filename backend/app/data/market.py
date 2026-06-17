@@ -71,8 +71,27 @@ def _splice_tail(base: pd.DataFrame, extra: pd.DataFrame | None, target: date) -
 
 
 def _tiingo_key() -> str:
-    """Tiingo API key from the environment (mirrors the news-provider env-key fallback)."""
-    return os.environ.get("TIINGO_API_KEY", "")
+    """Tiingo API key, settings-first then env. Reads the saved Settings via the deps
+    singleton (function-local import — no import cycle; deps never imports market), falling
+    back to the TIINGO_API_KEY env var, mirroring the news/LLM settings-first-then-env pattern."""
+    from app.deps import get_settings_store
+    saved = get_settings_store().load().market_data.tiingo_api_key
+    return saved or os.environ.get("TIINGO_API_KEY", "")
+
+
+def tiingo_test(api_key: str) -> tuple[bool, str]:
+    """Best-effort connectivity/entitlement check for a Tiingo key: an authenticated GET to the
+    Tiingo daily metadata endpoint (same host/auth as the EOD fallback). Never raises."""
+    try:
+        resp = httpx.get(
+            "https://api.tiingo.com/tiingo/daily/AAPL",
+            params={"token": api_key},
+            timeout=20,
+        )
+        resp.raise_for_status()
+        return True, "Connected"
+    except Exception as exc:  # noqa: BLE001 — surface the failure as a message, never raise
+        return False, str(exc)
 
 
 def fetch_tiingo_eod(ticker: str, start_date: date) -> pd.DataFrame:
