@@ -131,4 +131,16 @@ describe('Settings market data', () => {
     fireEvent.click(within(section).getByRole('button', { name: /Test connection/i }));
     await waitFor(() => expect(testTiingo).toHaveBeenCalled());
   });
+
+  it('toggles Tiingo enabled off and persists it on save', async () => {
+    const saveSettings = vi.spyOn(api, 'saveSettings').mockResolvedValue(SETTINGS as never);
+    renderSettings();
+    const checkbox = await screen.findByLabelText(/Use Tiingo as a fallback/i);
+    expect(checkbox).toBeChecked();                      // default true via DEFAULT_MARKET_DATA fallback
+    fireEvent.click(checkbox);                           // turn off
+    fireEvent.click(screen.getByRole('button', { name: /^Save$/ }));
+    await waitFor(() => expect(saveSettings).toHaveBeenCalled());
+    const saved = saveSettings.mock.calls[0][0] as any;
+    expect(saved.market_data.tiingo_enabled).toBe(false);
+  });
 });

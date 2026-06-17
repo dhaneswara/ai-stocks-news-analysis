@@ -4,7 +4,7 @@ import { useListModels, useNewsProviders, useProviders, useSaveSettings, useSett
 import { useTheme } from '../lib/theme';
 import type { AlertConfig, MarketDataConfig, NewsConfig, NewsProviderId, ProviderId, Settings as SettingsT, TestResult, TruthSignalConfig } from '../types';
 
-const DEFAULT_MARKET_DATA: MarketDataConfig = { tiingo_api_key: '' };
+const DEFAULT_MARKET_DATA: MarketDataConfig = { tiingo_api_key: '', tiingo_enabled: true };
 
 const DEFAULT_NEWS: NewsConfig = {
   active_provider: 'google',
@@ -298,6 +298,13 @@ export default function Settings() {
 
       <section className="panel settings-card">
         <h3>Market data</h3>
+        <div className="field check">
+          <label>
+            <input type="checkbox" checked={marketData.tiingo_enabled}
+                   onChange={(e) => updateMarketData({ tiingo_enabled: e.target.checked })} />
+            Use Tiingo as a fallback when Yahoo data lags (off = Yahoo only)
+          </label>
+        </div>
         <div className="field">
           <label htmlFor="tiingo-key">Tiingo API key (leave as **** to keep the saved key)</label>
           <input id="tiingo-key" type="password"
